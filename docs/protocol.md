@@ -9,7 +9,7 @@ référence pour les deux implémentations ; toute évolution incompatible incr�
 - Tout passe en **HTTPS** sur le réseau local, avec le certificat auto-signé du PC **épinglé** à
   l'association. Seule exception, le port HTTP en clair, qui ne sert que la page de téléchargement et l'APK
   (§7).
-- Les fichiers sont identifiés par le **SHA-256 de leurs octets d'origine** : c'est la clé de
+- Les fichiers sont identifiés par le **SHA-256 de leurs octets d'origine**, en hexadécimal minuscule (64 caractères) : c'est la clé de
   dédoublonnage. Elle ne change pas si le fichier est renommé ou déplacé, et le PC la garde même après une
   conversion HEIC → JPEG.
 - Les dates sont en ISO 8601 avec fuseau (`2026-10-17T13:17:05+02:00`). Les tailles sont en octets.
@@ -48,6 +48,7 @@ http://<ip>:48621/p?t=<jeton>&f=<empreinte>&h=<ip>&n=<nom du PC urlencodé>
 ```
 
 - `f` : SHA-256 du certificat du PC (DER), en base64url.
+- `p` : port de l'API, présent seulement s'il diffère de `48620`.
 - **Scanné depuis l'app** : l'app lit directement les paramètres, sans ouvrir de navigateur, puis appelle
   `POST /api/v1/pair` en vérifiant que le certificat présenté correspond à `f`.
 - **Scanné avec l'appareil photo** : le navigateur ouvre la page de téléchargement (§7). Elle propose
@@ -188,7 +189,8 @@ Réponse :
 - Réponse `200 { "offset": <nouvel offset> }`. Si `Upload-Offset` ne correspond pas à ce que le PC a
   reçu : `409 offset_mismatch`, avec l'offset attendu.
 - Quand `offset == size`, le PC vérifie le SHA-256, convertit si besoin, range le fichier, l'inscrit
-  dans l'historique, puis répond `200 { "status": "saved" }`.
+  dans l'historique, puis répond `200 { "offset": <taille>, "status": "saved" }` (ou `"exists"` si un fichier
+  identique est déjà rangé).
 - Si le SHA-256 ne correspond pas : `422 hash_mismatch`. L'envoi est effacé et sera repris de zéro.
 
 **3. Reprendre après une coupure** : `HEAD /uploads/{uploadId}` renvoie l'offset reçu dans l'en-tête
