@@ -1,0 +1,14 @@
+<UserControl x:Class="MonAlbumPc.App.Pages.HistoryPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="24,20">
+        <TextBlock Style="{StaticResource PageTitle}" Text="Historique" VerticalAlignment="Top" />
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+            <TextBlock Style="{StaticResource Icon}" FontSize="40" HorizontalAlignment="Center" Text="&#xE81C;"
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+            <TextBlock Style="{StaticResource Subtitle}" Margin="0,16,0,4" HorizontalAlignment="Center" Text="Aucune sauvegarde pour l'instant." />
+            <TextBlock Style="{StaticResource Secondary}" HorizontalAlignment="Center"
+                       Text="Chaque sauvegarde d'un téléphone apparaîtra ici." />
+        </StackPanel>
+    </Grid>
+</UserControl>

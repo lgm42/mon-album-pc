@@ -1,0 +1,23 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Brand indigo in place of the system accent, dark theme (docs/design/palette.md). -->
+    <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#9AA8FF" />
+    <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#9AA8FF" Opacity="0.9" />
+    <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#9AA8FF" Opacity="0.8" />
+    <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="#C3CCFF" />
+    <SolidColorBrush x:Key="AccentTextFillColorSecondaryBrush" Color="#DDE2FB" />
+    <SolidColorBrush x:Key="AccentTextFillColorTertiaryBrush" Color="#9AA8FF" />
+    <SolidColorBrush x:Key="TextOnAccentFillColorPrimaryBrush" Color="#0B1430" />
+    <SolidColorBrush x:Key="TextOnAccentFillColorSecondaryBrush" Color="#0B1430" Opacity="0.7" />
+    <!-- Accent buttons have their own keys in the Fluent theme. -->
+    <SolidColorBrush x:Key="AccentButtonBackground" Color="#9AA8FF" />
+    <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver" Color="#9AA8FF" Opacity="0.9" />
+    <SolidColorBrush x:Key="AccentButtonBackgroundPressed" Color="#9AA8FF" Opacity="0.8" />
+    <SolidColorBrush x:Key="AccentButtonBorderBrush" Color="#9AA8FF" />
+    <SolidColorBrush x:Key="AccentButtonBorderBrushPointerOver" Color="#9AA8FF" Opacity="0.9" />
+    <SolidColorBrush x:Key="AccentButtonBorderBrushPressed" Color="#9AA8FF" Opacity="0.8" />
+    <SolidColorBrush x:Key="AccentControlElevationBorderBrush" Color="#9AA8FF" />
+    <SolidColorBrush x:Key="AccentButtonForeground" Color="#0B1430" />
+    <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="#0B1430" />
+    <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="#0B1430" Opacity="0.8" />
+</ResourceDictionary>

@@ -1,0 +1,39 @@
+<Window x:Class="MonAlbumPc.App.Albums.AlbumDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="520" SizeToContent="Height" ResizeMode="NoResize" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+    <DockPanel>
+        <Border DockPanel.Dock="Bottom" Padding="24,16" Background="{DynamicResource SubtleFillColorSecondaryBrush}">
+            <UniformGrid Columns="2">
+                <Button x:Name="SaveButton" Style="{StaticResource AccentButtonStyle}" Margin="0,0,4,0"
+                        HorizontalAlignment="Stretch" IsDefault="True" Click="OnSave" />
+                <Button Margin="4,0,0,0" HorizontalAlignment="Stretch" Content="Annuler" IsCancel="True" />
+            </UniformGrid>
+        </Border>
+        <StackPanel Margin="24,20,24,24">
+            <TextBlock x:Name="Heading" Style="{StaticResource Subtitle}" Margin="0,0,0,16" />
+
+            <TextBlock Text="Nom de l'album" Margin="0,0,0,6" />
+            <TextBox x:Name="NameBox" TextChanged="OnChanged" />
+
+            <TextBlock Text="Dossier de destination" Margin="0,16,0,6" />
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Margin="8,0,0,0" Content="Parcourir…" Click="OnBrowse" />
+                <TextBox x:Name="FolderBox" IsReadOnly="True" FontFamily="{StaticResource MonoFont}" />
+            </DockPanel>
+
+            <TextBlock Style="{StaticResource Caption}" Margin="0,16,0,4" Text="Les photos seront rangées ainsi :" />
+            <TextBlock x:Name="Preview" FontFamily="{StaticResource MonoFont}" FontSize="13" TextTrimming="CharacterEllipsis" />
+
+            <Border x:Name="FolderWarning" Visibility="Collapsed" Margin="0,16,0,0" Padding="12,10" CornerRadius="4"
+                    Background="{DynamicResource SystemFillColorCautionBackgroundBrush}">
+                <DockPanel>
+                    <TextBlock Style="{StaticResource Icon}" Text="&#xE7BA;" VerticalAlignment="Top" Margin="0,2,10,0"
+                               Foreground="{DynamicResource SystemFillColorCautionBrush}" />
+                    <TextBlock x:Name="FolderWarningText" TextWrapping="Wrap" />
+                </DockPanel>
+            </Border>
+        </StackPanel>
+    </DockPanel>
+</Window>
