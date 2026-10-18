@@ -1,0 +1,11 @@
+<Project>
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Company>Mon Album PC</Company>
+    <Product>Mon Album PC</Product>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+</Project>
