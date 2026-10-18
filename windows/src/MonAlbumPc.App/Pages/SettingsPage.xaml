@@ -29,6 +29,19 @@
                 </DockPanel>
             </Border>
 
+            <TextBlock Style="{StaticResource SectionTitle}" Text="Application Android" Margin="0,24,0,8" />
+            <Border Style="{StaticResource Card}" MinHeight="68">
+                <DockPanel>
+                    <Button x:Name="ApkQrButton" DockPanel.Dock="Right" VerticalAlignment="Center"
+                            Content="Afficher le QR code de téléchargement" Click="OnShowApkQr" />
+                    <TextBlock Style="{StaticResource Icon}" FontSize="20" Text="&#xE8EA;" Margin="0,0,16,0" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Mon Album PC pour Android" />
+                        <TextBlock x:Name="ApkVersion" Style="{StaticResource Caption}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
             <TextBlock Style="{StaticResource SectionTitle}" Text="À propos" Margin="0,24,0,8" />
             <Border Style="{StaticResource Card}" MinHeight="68">
                 <DockPanel>

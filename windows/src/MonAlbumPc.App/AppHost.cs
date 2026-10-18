@@ -16,6 +16,9 @@ public sealed class AppHost : IAsyncDisposable
 
     public CoreServices Core { get; }
 
+    /// <summary>The Android app served to phones, when shipped with this PC.</summary>
+    public ApkFile? Apk { get; } = ApkLocator.Find();
+
     /// <summary>Why the server could not start (port taken…), or null when phones can reach the PC.</summary>
     public string? ServerError { get; private set; }
 
@@ -28,7 +31,7 @@ public sealed class AppHost : IAsyncDisposable
     {
         try
         {
-            _server = new MonAlbumServer(Core, new ServerOptions());
+            _server = new MonAlbumServer(Core, new ServerOptions { Apk = Apk });
             await _server.StartAsync();
             ServerError = null;
         }

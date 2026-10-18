@@ -1,0 +1,22 @@
+<Window x:Class="MonAlbumPc.App.Phones.DownloadQrDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Installer l'app sur un téléphone"
+        Width="440" SizeToContent="Height" ResizeMode="NoResize" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+    <DockPanel>
+        <Border DockPanel.Dock="Bottom" Padding="24,16" Background="{DynamicResource SubtleFillColorSecondaryBrush}">
+            <Button HorizontalAlignment="Right" MinWidth="120" Content="Fermer" IsCancel="True" IsDefault="True" />
+        </Border>
+        <StackPanel Margin="24,20,24,24">
+            <TextBlock Style="{StaticResource Subtitle}" Text="Installer l'app sur un téléphone" Margin="0,0,0,16" />
+            <Border HorizontalAlignment="Center" Background="White" CornerRadius="8" Padding="10"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                <Image x:Name="QrImage" Width="180" Height="180" RenderOptions.BitmapScalingMode="NearestNeighbor" />
+            </Border>
+            <TextBlock x:Name="Explanation" Style="{StaticResource Secondary}" TextAlignment="Center" Margin="0,16,0,0" />
+            <TextBlock x:Name="Link" Style="{StaticResource Caption}" HorizontalAlignment="Center" Margin="0,8,0,0"
+                       FontFamily="{StaticResource MonoFont}" />
+        </StackPanel>
+    </DockPanel>
+</Window>

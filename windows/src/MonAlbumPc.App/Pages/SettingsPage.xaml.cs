@@ -36,6 +36,20 @@ public partial class SettingsPage : UserControl, IRefreshable
                 ? $"Adresse {address} · ports {_host.ApiPort} et {_host.DownloadPort}"
                 : "Ce PC n'est connecté à aucun réseau.";
         }
+
+        ApkVersion.Text = _host.Apk is { } apk
+            ? $"Version fournie avec ce PC : {apk.VersionName}"
+            : "Aucune version de l'app n'est fournie avec ce PC.";
+        ApkQrButton.IsEnabled = _host.Apk is not null && _host.ServerError is null && _host.LanAddress is not null;
+    }
+
+    private void OnShowApkQr(object sender, RoutedEventArgs e)
+    {
+        if (_host.Apk is { } apk && _host.LanAddress is { } address)
+        {
+            var url = $"http://{address}:{_host.DownloadPort}/";
+            new Phones.DownloadQrDialog(url, apk.VersionName) { Owner = Window.GetWindow(this) }.ShowDialog();
+        }
     }
 
     private void OnAutostartChanged(object sender, RoutedEventArgs e)

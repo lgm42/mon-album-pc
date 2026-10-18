@@ -17,3 +17,9 @@ local.properties
 .kotlin/
 *.keystore
 *.jks
+
+# Debug signing key, deliberately public: lets CI debug builds update each other.
+!android/app/debug.keystore
+
+# Android APK fetched from CI for local runs of the Windows app
+windows/src/MonAlbumPc.App/Android/

@@ -1,13 +1,11 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using MonAlbumPc.App.Albums;
 using MonAlbumPc.Core.Model;
 using MonAlbumPc.Core.Pairing;
 using MonAlbumPc.Server;
-using QRCoder;
 
 namespace MonAlbumPc.App.Phones;
 
@@ -117,7 +115,7 @@ public partial class AddPhoneDialog : Window
         _session = _host.Core.Pairing.Start(album.Id);
         var link = PairingLink.Build(address, _host.DownloadPort, _host.ApiPort, _session,
             _host.Core.CertificateFingerprint, _host.Core.PcName);
-        QrImage.Source = RenderQr(link);
+        QrImage.Source = QrCodes.Render(link);
         CodeRun.Text = $"{_session.Code[..3]} {_session.Code[3..]}";
 
         Show(QrStep, "Étape 2 sur 3");
@@ -202,20 +200,6 @@ public partial class AddPhoneDialog : Window
         {
             _host.Core.Pairing.Cancel();
         }
-    }
-
-    private static BitmapImage RenderQr(string text)
-    {
-        using var generator = new QRCodeGenerator();
-        using var data = generator.CreateQrCode(text, QRCodeGenerator.ECCLevel.M);
-        var png = new PngByteQRCode(data).GetGraphic(8);
-        var image = new BitmapImage();
-        image.BeginInit();
-        image.CacheOption = BitmapCacheOption.OnLoad;
-        image.StreamSource = new MemoryStream(png);
-        image.EndInit();
-        image.Freeze();
-        return image;
     }
 
     private sealed record AlbumChoice(Album? Album, string Name, string Detail, Brush Color, Brush Foreground, string Initial, FontFamily Font);
