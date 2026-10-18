@@ -23,8 +23,15 @@ et propose une visionneuse rapide.
 - Interface **en français uniquement**, vouvoiement.
 - Vocabulaire du quotidien. Les termes techniques (port, pare-feu, profil réseau) n'apparaissent que dans
   l'écran de diagnostic, et toujours avec une explication et un bouton « Corriger ».
-- Même icône et même logo que l'app Android, générés avec Gemini (voir
-  [`prompt-logo-gemini.md`](prompt-logo-gemini.md)).
+- Même icône que l'app Android : des cartes photo en verre bleu, orange et violet, en éventail, qui
+  forment une maison, sur un fond bleu nuit. Elle a été générée avec Gemini (voir
+  [`prompt-logo-gemini.md`](prompt-logo-gemini.md)). Le fichier sera joint à la demande.
+- **Palette imposée** : [`palette.md`](palette.md). Primary indigo `#3D4FD1` en clair et `#9AA8FF` en
+  sombre, fond bleu nuit `#0B1430` en sombre ; l'orange et le violet ne servent qu'aux décors.
+- **Cohérence avec l'app Android** : son prototype est déjà fait (`android/`, aperçu
+  `Mon Album PC v5.dc.html`). Il faut reprendre ses textes, ses badges d'état de sauvegarde, ses
+  formulations et son ton. La police reste Segoe UI Variable, comme le veut Windows. Nunito, la police de
+  l'app Android, peut servir pour les titres si elle s'intègre bien.
 
 ## 4. Contraintes de plateforme
 
