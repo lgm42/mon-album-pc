@@ -1,5 +1,9 @@
 # Handoff : Mon Album PC — app Android
 
+> **Mise à jour du 2026-10-18** : la palette vert sauge et l'icône « écran de PC » décrites ci-dessous
+> sont **remplacées** par la palette tirée de l'icône Gemini : voir [`../palette.md`](../palette.md).
+> L'aperçu recoloré est dans `Mon Album PC v5.dc.html`. Tout le reste de ce document fait foi.
+
 ## Vue d'ensemble
 Mon Album PC sauvegarde automatiquement les photos et vidéos d'un téléphone Android sur le PC de la maison, en Wi-Fi local (pas de cloud). Ce package couvre l'app Android : premier lancement / association, galerie avec état de sauvegarde (écran signature), dossiers, réglages, erreurs, mise à jour, téléphone dissocié, notifications.
 
