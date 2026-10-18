@@ -13,6 +13,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\MonAlbumPc.Core.Tests\TempDirectory.cs" Link="Shared\TempDirectory.cs" />
+    <Compile Include="..\MonAlbumPc.Core.Tests\TestImages.cs" Link="Shared\TestImages.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
 

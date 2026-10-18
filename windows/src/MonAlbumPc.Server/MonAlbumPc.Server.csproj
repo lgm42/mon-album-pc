@@ -9,6 +9,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="DownloadPage.html" LogicalName="MonAlbumPc.Server.DownloadPage.html" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\MonAlbumPc.Core\MonAlbumPc.Core.csproj" />
   </ItemGroup>
 

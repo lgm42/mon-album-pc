@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mon Album PC</title>
+<style>
+  :root {
+    --bg: #F6F7FB; --surface: #E9ECF6; --text: #141B33; --primary: #3D4FD1; --on-primary: #F6F7FB;
+    --primary-text: #2E3DA8; --container: #DDE2FB; --on-container: #1C2770; --muted: rgba(20, 27, 51, .7);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B1430; --surface: #16224A; --text: #EEF1FA; --primary: #9AA8FF; --on-primary: #0B1430;
+      --primary-text: #C3CCFF; --container: #26336E; --on-container: #DDE2FB; --muted: rgba(238, 241, 250, .7);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 20px 32px; background: var(--bg); color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 480px; margin: 0 auto; }
+  .brand { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 20px; }
+  .logo {
+    width: 48px; height: 48px; border-radius: 14px; flex: none;
+    background: linear-gradient(135deg, #1757B4, #6C62CB 55%, #E8600F);
+  }
+  h1 { font-size: 28px; line-height: 1.15; margin: 28px 0 8px; font-weight: 800; }
+  p { margin: 0 0 16px; color: var(--muted); }
+  .button {
+    display: flex; align-items: center; justify-content: center; min-height: 56px; margin: 12px 0;
+    border-radius: 999px; font-weight: 700; font-size: 17px; text-decoration: none;
+  }
+  .primary { background: var(--primary); color: var(--on-primary); }
+  .secondary { background: var(--container); color: var(--on-container); }
+  ol { list-style: none; padding: 0; margin: 28px 0 0; display: grid; gap: 8px; }
+  li { display: flex; gap: 14px; align-items: flex-start; background: var(--surface); border-radius: 22px; padding: 14px 16px; }
+  li b { color: var(--primary-text); font-size: 22px; line-height: 1.2; min-width: 18px; }
+  .note { display: {{NO_APK_DISPLAY}}; background: var(--surface); border-radius: 18px; padding: 14px 16px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="brand"><div class="logo" aria-hidden="true"></div>Mon Album PC</div>
+  <h1>Sauvegardez vos photos sur {{PC_NAME}}</h1>
+  <p>Elles se copient toutes seules sur l'ordinateur de la maison, par le Wi-Fi. Sans câble, sans abonnement.</p>
+
+  <a class="button primary" style="display: {{OPEN_APP_DISPLAY}}" href="{{OPEN_APP_URL}}">Ouvrir l'application</a>
+  <a class="button secondary" style="display: {{APK_DISPLAY}}" href="{{APK_URL}}" download>Télécharger l'application</a>
+  <div class="note">L'application n'est pas encore disponible sur ce PC.</div>
+
+  <ol>
+    <li><b>1</b><span>Touchez « Télécharger l'application », puis autorisez l'installation depuis votre navigateur si le téléphone le demande.</span></li>
+    <li><b>2</b><span>Ouvrez le fichier téléchargé et touchez « Installer ».</span></li>
+    <li><b>3</b><span>Ouvrez Mon Album PC et scannez à nouveau le QR code affiché sur le PC.</span></li>
+  </ol>
+</main>
+</body>
+</html>
