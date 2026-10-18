@@ -97,6 +97,40 @@ Same modern style and colors, give me 4 different concepts:
    above.
 ```
 
+## 4 ter. Concept retenu (2026-10-18)
+
+**Cartes photo translucides en éventail qui forment une maison** : bleu, orange et violet, en verre,
+sur un fond bleu nuit. C'est l'icône du haut de la planche Gemini de la v2.
+
+Points à corriger à la régénération :
+- la maison se lit mal, parce que la carte centrale la recouvre ;
+- en petit (16–32 px), il faut une version simplifiée.
+
+Prompt de régénération, en joignant la planche et en précisant « the top icon » :
+
+```text
+Recreate the top icon of the attached image as a single app icon, 1024x1024, centered, same glassy
+fanned photo cards, same colors (blue, orange, violet overlaps) and same deep navy rounded-square
+background.
+
+Improvement: make the house silhouette instantly readable. The house (pitched roof with a small
+chimney) must be the clear overall outline formed by the fanned cards, or a crisp lighter house shape
+where the cards overlap, not hidden behind the middle card. Keep it minimal: three cards maximum, no
+text, no extra details.
+```
+
+Puis, dans la même conversation :
+
+```text
+Now produce, keeping exactly the same shapes:
+1. the symbol alone on a transparent background, centered in the middle 66% (Android adaptive icon
+   foreground),
+2. a flat simplified version for tiny sizes (16-32 px): two fanned cards with the house shape, no glass
+   effect, no gradients, solid colors,
+3. a single-color white silhouette and a single-color black silhouette of that simplified version, on
+   transparent background (Android notification icon, Windows tray icon).
+```
+
 ## 5. Contraintes techniques (pour l'export final)
 
 - **Android** : icône adaptative avec une couche de premier plan (le symbole, centré dans 66 % du
