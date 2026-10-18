@@ -253,7 +253,7 @@ Objectif : le plus simple et le plus maintenable possible, et compilable sans in
 - **Windows** : C# / .NET (LTS), WPF, publication autonome en un seul exécutable. Installeur et mises à jour
   par Velopack (un outil `dotnet`, rien d'autre à installer). Conversion HEIC et miniatures par
   Magick.NET (package NuGet) ; lecture vidéo par LibVLCSharp (package NuGet).
-- **Android** : Kotlin + Jetpack Compose, WorkManager (déclenchement sur nouveau média), MediaStore et
+- **Android** : identifiant d'application `io.github.lgm42.monalbumpc` (définitif). Kotlin + Jetpack Compose, WorkManager (déclenchement sur nouveau média), MediaStore et
   Storage Access Framework (dossier choisi à la main), CameraX + ML Kit pour le scanner de QR code.
 - **Protocole** : HTTPS + JSON, documenté dans le repo. Aucun code partagé n'est nécessaire entre les
   deux apps.
