@@ -54,3 +54,43 @@ data class ErrorEnvelope(val error: ErrorBody? = null)
 
 @Serializable
 data class ErrorBody(val code: String = "", val message: String? = null)
+
+// Backup bodies of protocol §5.2 and §5.3.
+
+@Serializable
+data class CheckItem(val sha256: String, val size: Long)
+
+@Serializable
+data class CheckRequest(val items: List<CheckItem>)
+
+@Serializable
+data class CheckResponse(val have: List<String> = emptyList())
+
+@Serializable
+data class UploadRequest(
+    val sha256: String,
+    val size: Long,
+    val name: String,
+    val sourceFolder: String? = null,
+    val mime: String? = null,
+    val takenAt: String? = null,
+    val modifiedAt: String? = null,
+)
+
+/**
+ * Answer to POST /uploads: `exists`, `upload` (with [uploadId] and [offset]), or directly
+ * `saved` when the PC already had every byte of an interrupted upload.
+ */
+@Serializable
+data class UploadResponse(
+    val status: String? = null,
+    val uploadId: String? = null,
+    val offset: Long? = null,
+)
+
+/** Answer to PATCH /uploads/{id}: the new offset, and `saved`/`exists` once complete. */
+@Serializable
+data class OffsetResponse(
+    val offset: Long = 0,
+    val status: String? = null,
+)

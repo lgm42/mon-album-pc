@@ -10,6 +10,12 @@ sealed class ApiError {
     data object BusyUsb : ApiError()
     data object ProtocolUnsupported : ApiError()
 
+    /** PATCH sent at the wrong offset; [expected] comes from the `Upload-Offset` header. */
+    data class OffsetMismatch(val expected: Long?) : ApiError()
+
+    /** The received bytes do not match the declared SHA-256; the upload was dropped. */
+    data object HashMismatch : ApiError()
+
     /** Any other HTTP error. */
     data class Http(val status: Int, val code: String?) : ApiError()
 
@@ -31,6 +37,8 @@ sealed class ApiError {
             "disk_full" -> DiskFull
             "busy_usb" -> BusyUsb
             "protocol_unsupported" -> ProtocolUnsupported
+            "offset_mismatch" -> OffsetMismatch(null)
+            "hash_mismatch" -> HashMismatch
             else -> Http(status, code)
         }
     }

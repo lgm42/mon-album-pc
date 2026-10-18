@@ -14,6 +14,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,6 +22,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -29,6 +34,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import io.github.lgm42.monalbumpc.data.PairedPc
+import io.github.lgm42.monalbumpc.ui.MainViewModel
 import io.github.lgm42.monalbumpc.ui.folders.FoldersScreen
 import io.github.lgm42.monalbumpc.ui.photos.PhotosScreen
 import io.github.lgm42.monalbumpc.ui.settings.SettingsScreen
@@ -37,6 +43,12 @@ import io.github.lgm42.monalbumpc.ui.theme.LocalExtendedColors
 @Composable
 fun MonAlbumPcApp(pc: PairedPc, onUnpair: () -> Unit) {
     val navController = rememberNavController()
+    // Activity-scoped: shared by the three tabs.
+    val mainViewModel: MainViewModel = viewModel()
+    val state by mainViewModel.state.collectAsStateWithLifecycle()
+
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { mainViewModel.refresh() }
+    LaunchedEffect(pc.deviceId) { mainViewModel.ensureScheduled() }
 
     Scaffold(
         bottomBar = { BottomBar(navController) },
@@ -46,9 +58,34 @@ fun MonAlbumPcApp(pc: PairedPc, onUnpair: () -> Unit) {
             startDestination = TopLevelDestination.Photos.route,
             modifier = Modifier.padding(innerPadding),
         ) {
-            composable(TopLevelDestination.Photos.route) { PhotosScreen(albumName = pc.albumName) }
-            composable(TopLevelDestination.Folders.route) { FoldersScreen() }
-            composable(TopLevelDestination.Settings.route) { SettingsScreen(pc = pc, onUnpair = onUnpair) }
+            composable(TopLevelDestination.Photos.route) {
+                PhotosScreen(
+                    albumName = pc.albumName,
+                    pcName = pc.pcName,
+                    state = state,
+                    onFilterChange = mainViewModel::setFilter,
+                    onBackupNow = mainViewModel::backupNow,
+                    onRetry = mainViewModel::retry,
+                    onTrackFolder = { key -> mainViewModel.setFolderTracked(key, true) },
+                    onOpenFolders = { navController.navigateToTab(TopLevelDestination.Folders) },
+                )
+            }
+            composable(TopLevelDestination.Folders.route) {
+                FoldersScreen(
+                    folders = state.folders,
+                    tracked = state.tracked,
+                    onTrackedChange = mainViewModel::setFolderTracked,
+                )
+            }
+            composable(TopLevelDestination.Settings.route) {
+                SettingsScreen(
+                    pc = pc,
+                    onUnpair = onUnpair,
+                    chargingOnly = state.backup.chargingOnly,
+                    onChargingOnlyChange = mainViewModel::setChargingOnly,
+                    lastBackupMs = state.backup.lastBackupMs,
+                )
+            }
         }
     }
 }
@@ -68,13 +105,7 @@ private fun BottomBar(navController: NavHostController) {
             val selected = currentDestination?.hierarchy?.any { it.route == destination.route } == true
             NavigationBarItem(
                 selected = selected,
-                onClick = {
-                    navController.navigate(destination.route) {
-                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
+                onClick = { navController.navigateToTab(destination) },
                 icon = { Icon(destination.icon, contentDescription = null) },
                 label = {
                     Text(
@@ -92,6 +123,14 @@ private fun BottomBar(navController: NavHostController) {
                 ),
             )
         }
+    }
+}
+
+private fun NavHostController.navigateToTab(destination: TopLevelDestination) {
+    navigate(destination.route) {
+        popUpTo(graph.findStartDestination().id) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
     }
 }
 

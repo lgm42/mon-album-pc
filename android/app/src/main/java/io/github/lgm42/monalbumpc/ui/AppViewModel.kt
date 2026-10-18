@@ -3,6 +3,8 @@ package io.github.lgm42.monalbumpc.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.lgm42.monalbumpc.backup.BackupReset
+import io.github.lgm42.monalbumpc.backup.BackupScheduler
 import io.github.lgm42.monalbumpc.data.PairedPc
 import io.github.lgm42.monalbumpc.data.PairingStore
 import io.github.lgm42.monalbumpc.net.ApiException
@@ -70,6 +72,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun unpair(pc: PairedPc) {
+        // Stop any transfer before the PC is told.
+        BackupScheduler.cancelAll(getApplication<Application>())
         viewModelScope.launch {
             // Best effort: the phone forgets the PC even if the PC cannot be told.
             try {
@@ -81,7 +85,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             }
             _pendingOffer.value = null
             generation.value = generation.value + 1
-            store.clear()
+            BackupReset.forgetPc(getApplication<Application>())
         }
     }
 

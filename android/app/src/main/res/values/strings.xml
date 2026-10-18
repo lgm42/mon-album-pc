@@ -90,19 +90,166 @@
     <string name="photos_greeting_name">Bonjour %1$s</string>
     <string name="photos_title">Vos souvenirs</string>
     <string name="status_ok_title">Tout est sauvegardé</string>
-    <string name="status_ok_detail">dernière sauvegarde il y a 2 h</string>
-    <string name="photos_placeholder">Vos photos et vidéos apparaîtront ici.</string>
+    <string name="status_ok_detail">dernière sauvegarde %1$s</string>
+    <plurals name="status_pending_title">
+        <item quantity="one">%d photo ou vidéo en attente</item>
+        <item quantity="other">%d photos et vidéos en attente</item>
+    </plurals>
+    <string name="status_pending_detail">sauvegarde dès que le PC est joignable</string>
+    <string name="status_running_title">Sauvegarde en cours</string>
+    <string name="status_running_detail">%1$d / %2$d</string>
+    <string name="status_unreachable_title">%1$s introuvable</string>
+    <string name="status_unreachable_link">Que faire ?</string>
+    <string name="status_destination_title">Le PC ne peut pas recevoir les photos</string>
+    <string name="status_destination_detail">son disque de destination est débranché</string>
+    <string name="status_destination_link">Aide</string>
+    <string name="status_disk_full_title">Le disque du PC est plein</string>
+    <string name="status_disk_full_detail">les photos attendront qu\'il y ait de la place</string>
+    <plurals name="status_errors_title">
+        <item quantity="one">%d élément n\'a pas pu être sauvegardé</item>
+        <item quantity="other">%d éléments n\'ont pas pu être sauvegardés</item>
+    </plurals>
+    <string name="status_errors_detail">nouvel essai automatique</string>
+    <string name="status_errors_link">Voir</string>
+    <string name="status_empty_title">Aucune photo à sauvegarder</string>
+    <string name="status_empty_detail">pour l\'instant</string>
+
+    <string name="elapsed_just_now">à l\'instant</string>
+    <plurals name="elapsed_minutes_ago">
+        <item quantity="one">il y a %d min</item>
+        <item quantity="other">il y a %d min</item>
+    </plurals>
+    <plurals name="elapsed_hours_ago">
+        <item quantity="one">il y a %d h</item>
+        <item quantity="other">il y a %d h</item>
+    </plurals>
+    <plurals name="elapsed_days_ago">
+        <item quantity="one">il y a %d jour</item>
+        <item quantity="other">il y a %d jours</item>
+    </plurals>
+    <string name="since_just_now">depuis quelques instants</string>
+    <plurals name="since_minutes">
+        <item quantity="one">depuis %d min</item>
+        <item quantity="other">depuis %d min</item>
+    </plurals>
+    <plurals name="since_hours">
+        <item quantity="one">depuis %d h</item>
+        <item quantity="other">depuis %d h</item>
+    </plurals>
+    <plurals name="since_days">
+        <item quantity="one">depuis %d jour</item>
+        <item quantity="other">depuis %d jours</item>
+    </plurals>
+
+    <string name="help_unreachable_title">Le PC est introuvable</string>
+    <string name="help_unreachable_body">Les photos seront envoyées dès que le téléphone retrouvera le PC. Vérifiez que :</string>
+    <string name="help_destination_title">Le disque du PC est débranché</string>
+    <string name="help_destination_body">Le PC range les photos sur un disque qui n\'est pas branché en ce moment. Rebranchez-le : la sauvegarde reprendra toute seule.</string>
+    <string name="action_ok">J\'ai compris</string>
+
+    <string name="filter_all">Tout</string>
+    <string name="filter_pending">En attente</string>
+    <string name="filter_errors">Erreurs</string>
+    <string name="filter_untracked">Non suivis</string>
+    <string name="filter_with_count">%1$s · %2$d</string>
+    <plurals name="month_items">
+        <item quantity="one">%d élément</item>
+        <item quantity="other">%d éléments</item>
+    </plurals>
+    <string name="backup_now">Sauvegarder maintenant</string>
+    <string name="snackbar_unreachable">%1$s est introuvable. La sauvegarde reprendra dès qu\'il sera joignable.</string>
+    <string name="snackbar_destination">Le PC ne peut pas recevoir les photos pour l\'instant : son disque est débranché.</string>
+    <string name="empty_pending">Rien en attente</string>
+    <string name="empty_errors">Aucune erreur</string>
+    <string name="empty_untracked">Tout est suivi</string>
+    <string name="empty_all">Aucune photo dans les dossiers suivis</string>
+    <string name="empty_choose_folders">Choisir les dossiers</string>
+
+    <!-- Badges and viewer -->
+    <string name="state_saved">Sauvegardé</string>
+    <string name="state_pending">En attente</string>
+    <string name="state_uploading">En cours</string>
+    <string name="state_error">Erreur</string>
+    <string name="state_untracked">Non suivi</string>
+    <string name="state_saved_body">Sauvegardé le %1$s sur %2$s.</string>
+    <string name="state_saved_body_no_date">Sauvegardé sur %1$s.</string>
+    <string name="state_pending_body">Sera envoyé sur %1$s dès que le PC est joignable.</string>
+    <string name="state_uploading_body">Copie vers %1$s · %2$d %%</string>
+    <string name="state_untracked_body">Le dossier « %1$s » n\'est pas sauvegardé.</string>
+    <string name="error_reason_disk_full">Le disque du PC était plein. Nouvel essai automatique dès qu\'il y aura de la place.</string>
+    <string name="error_reason_destination">Le disque de destination du PC était débranché. Nouvel essai automatique dès qu\'il sera rebranché.</string>
+    <string name="error_reason_hash">Le fichier est arrivé abîmé sur le PC, plusieurs fois de suite.</string>
+    <string name="error_reason_unreadable">Le téléphone n\'a pas pu lire ce fichier.</string>
+    <string name="error_reason_server">Le PC n\'a pas pu enregistrer ce fichier. Nouvel essai automatique plus tard.</string>
+    <string name="viewer_photo">Photo · %1$s</string>
+    <string name="viewer_video">Vidéo · %1$s</string>
+    <string name="viewer_position">%1$d / %2$d</string>
+    <string name="viewer_play">Lire la vidéo</string>
+    <string name="viewer_previous">Précédent</string>
+    <string name="viewer_next">Suivant</string>
+    <string name="viewer_folder">Dossier</string>
+    <string name="viewer_size">Taille</string>
+    <string name="retry_now">Réessayer maintenant</string>
+    <string name="track_folder">Sauvegarder ce dossier</string>
+    <string name="no_video_player">Aucune application ne peut lire cette vidéo.</string>
 
     <!-- Folders -->
     <string name="folders_title">Dossiers</string>
-    <string name="folders_placeholder">Choisissez ici les dossiers à sauvegarder sur votre PC.</string>
+    <plurals name="folders_count">
+        <item quantity="one">%d dossier</item>
+        <item quantity="other">%d dossiers</item>
+    </plurals>
+    <plurals name="items_count">
+        <item quantity="one">%1$s élément</item>
+        <item quantity="other">%1$s éléments</item>
+    </plurals>
+    <string name="folders_summary">%1$s · %2$s</string>
+    <string name="folders_section_recommended">Recommandés</string>
+    <string name="folders_section_apps">Autres applications</string>
+    <string name="folders_section_other">Autres dossiers</string>
+    <plurals name="folders_section_saved">
+        <item quantity="one">%d sauvegardé</item>
+        <item quantity="other">%d sauvegardés</item>
+    </plurals>
+    <string name="folder_sd_card">Carte SD</string>
+    <string name="folders_add">Ajouter un dossier…</string>
+    <string name="folders_empty">Aucun dossier ne contient de photos pour l\'instant.</string>
+    <string name="untrack_title">Ne plus sauvegarder « %1$s » ?</string>
+    <string name="untrack_note">Les photos déjà sauvegardées restent sur votre PC.</string>
+    <string name="untrack_confirm">Ne plus sauvegarder</string>
 
     <!-- Settings -->
     <string name="settings_title">Réglages</string>
     <string name="settings_my_pc">Mon PC</string>
     <string name="settings_album_of">Album de %1$s</string>
     <string name="settings_unpair">Dissocier ce téléphone</string>
-    <string name="settings_placeholder">Les réglages de la sauvegarde apparaîtront ici.</string>
+    <string name="settings_backup">Sauvegarde</string>
+    <string name="settings_charging_only">Sauvegarder uniquement pendant la recharge</string>
+    <string name="settings_last_backup">Dernière sauvegarde : %1$s</string>
+    <string name="settings_last_backup_never">Dernière sauvegarde : pas encore</string>
+    <string name="date_today_at">aujourd\'hui à %1$s</string>
+    <string name="date_on_at">le %1$s à %2$s</string>
+
+    <!-- Notifications -->
+    <string name="notif_channel_backup">Sauvegarde</string>
+    <string name="notif_channel_alerts">Problèmes de sauvegarde</string>
+    <string name="notif_progress">Sauvegarde en cours · %1$d / %2$d · %3$s</string>
+    <string name="notif_progress_preparing">Préparation de la sauvegarde · %1$s</string>
+    <plurals name="notif_photos">
+        <item quantity="one">%d photo</item>
+        <item quantity="other">%d photos</item>
+    </plurals>
+    <plurals name="notif_videos">
+        <item quantity="one">%d vidéo</item>
+        <item quantity="other">%d vidéos</item>
+    </plurals>
+    <string name="notif_and">" et "</string>
+    <plurals name="notif_done">
+        <item quantity="one">%1$s sauvegardée sur %2$s</item>
+        <item quantity="other">%1$s sauvegardées sur %2$s</item>
+    </plurals>
+    <string name="notif_error_disk_full">Sauvegarde impossible : le disque du PC est plein.</string>
+    <string name="notif_error_destination">Sauvegarde impossible : le disque de destination de %1$s est débranché.</string>
     <string name="unpair_title">Dissocier ce téléphone ?</string>
     <string name="unpair_body">Les photos de ce téléphone ne seront plus sauvegardées sur %1$s.</string>
     <string name="unpair_note">Rien n\'est supprimé : ni sur le téléphone, ni sur le PC.</string>

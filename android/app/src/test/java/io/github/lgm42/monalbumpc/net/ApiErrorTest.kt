@@ -12,6 +12,15 @@ class ApiErrorTest {
         assertEquals(ApiError.DeviceUnknown, ApiError.fromCode(401, "device_unknown"))
         assertEquals(ApiError.DestinationUnavailable, ApiError.fromCode(503, "destination_unavailable"))
         assertEquals(ApiError.DiskFull, ApiError.fromCode(507, "disk_full"))
+        assertEquals(ApiError.OffsetMismatch(null), ApiError.fromCode(409, "offset_mismatch"))
+        assertEquals(ApiError.HashMismatch, ApiError.fromCode(422, "hash_mismatch"))
+        assertEquals(ApiError.BusyUsb, ApiError.fromCode(409, "busy_usb"))
+    }
+
+    @Test
+    fun `upload ids stay in one path segment`() {
+        assertEquals("abc123", PcApi.uploadPath("abc123"))
+        assertEquals("a%2Fb%20c", PcApi.uploadPath("a/b c"))
     }
 
     @Test

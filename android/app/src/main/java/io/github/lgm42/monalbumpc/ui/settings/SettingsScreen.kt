@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -27,6 +28,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -35,18 +38,31 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import io.github.lgm42.monalbumpc.R
 import io.github.lgm42.monalbumpc.data.PairedPc
-import io.github.lgm42.monalbumpc.ui.components.PlaceholderText
 import io.github.lgm42.monalbumpc.ui.components.ScreenHeader
 import io.github.lgm42.monalbumpc.ui.theme.MonAlbumPcTheme
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
-fun SettingsScreen(pc: PairedPc, onUnpair: () -> Unit, modifier: Modifier = Modifier) {
+fun SettingsScreen(
+    pc: PairedPc,
+    onUnpair: () -> Unit,
+    chargingOnly: Boolean,
+    onChargingOnlyChange: (Boolean) -> Unit,
+    lastBackupMs: Long?,
+    modifier: Modifier = Modifier,
+) {
     var confirmUnpair by rememberSaveable { mutableStateOf(false) }
 
     Column(
@@ -63,10 +79,23 @@ fun SettingsScreen(pc: PairedPc, onUnpair: () -> Unit, modifier: Modifier = Modi
         )
         MyPcCard(
             pc = pc,
+            lastBackupMs = lastBackupMs,
             onUnpairClick = { confirmUnpair = true },
             modifier = Modifier.padding(horizontal = 16.dp),
         )
-        PlaceholderText(stringResource(R.string.settings_placeholder))
+        Text(
+            text = stringResource(R.string.settings_backup),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 8.dp),
+        )
+        SwitchRow(
+            label = stringResource(R.string.settings_charging_only),
+            checked = chargingOnly,
+            onCheckedChange = onChargingOnlyChange,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        Spacer(Modifier.height(24.dp))
     }
 
     if (confirmUnpair) {
@@ -82,7 +111,7 @@ fun SettingsScreen(pc: PairedPc, onUnpair: () -> Unit, modifier: Modifier = Modi
 }
 
 @Composable
-private fun MyPcCard(pc: PairedPc, onUnpairClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun MyPcCard(pc: PairedPc, lastBackupMs: Long?, onUnpairClick: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -117,6 +146,11 @@ private fun MyPcCard(pc: PairedPc, onUnpairClick: () -> Unit, modifier: Modifier
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                Text(
+                    text = lastBackupText(lastBackupMs),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             IconButton(onClick = onUnpairClick, modifier = Modifier.size(48.dp)) {
                 Icon(
@@ -127,6 +161,57 @@ private fun MyPcCard(pc: PairedPc, onUnpairClick: () -> Unit, modifier: Modifier
             }
         }
     }
+}
+
+/** Settings row: 22dp card, label, switch; the whole row toggles. */
+@Composable
+private fun SwitchRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(22.dp))
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
+        shape = RoundedCornerShape(22.dp),
+        color = MaterialTheme.colorScheme.surface,
+    ) {
+        Row(
+            modifier = Modifier
+                .heightIn(min = 64.dp)
+                .padding(horizontal = 18.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(12.dp))
+            Switch(
+                checked = checked,
+                onCheckedChange = null,
+                colors = SwitchDefaults.colors(
+                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                ),
+            )
+        }
+    }
+}
+
+/** "Dernière sauvegarde : aujourd'hui à 12:31". */
+@Composable
+private fun lastBackupText(lastBackupMs: Long?): String {
+    if (lastBackupMs == null) return stringResource(R.string.settings_last_backup_never)
+    val zone = ZoneId.systemDefault()
+    val time = Instant.ofEpochMilli(lastBackupMs).atZone(zone)
+    val clock = time.format(DateTimeFormatter.ofPattern("HH:mm", Locale.FRENCH))
+    val text = if (time.toLocalDate() == LocalDate.now(zone)) {
+        stringResource(R.string.date_today_at, clock)
+    } else {
+        stringResource(R.string.date_on_at, time.format(DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.FRENCH)), clock)
+    }
+    return stringResource(R.string.settings_last_backup, text)
 }
 
 /** App dialog: 28dp card, title, text, note with a check, stacked full-width actions. */
@@ -208,5 +293,13 @@ private val PreviewPc = PairedPc(
 @Preview(showBackground = true)
 @Composable
 private fun SettingsScreenPreview() {
-    MonAlbumPcTheme { SettingsScreen(pc = PreviewPc, onUnpair = {}) }
+    MonAlbumPcTheme {
+        SettingsScreen(
+            pc = PreviewPc,
+            onUnpair = {},
+            chargingOnly = false,
+            onChargingOnlyChange = {},
+            lastBackupMs = null,
+        )
+    }
 }
