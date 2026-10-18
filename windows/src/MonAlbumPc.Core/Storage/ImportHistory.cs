@@ -82,6 +82,20 @@ public sealed class ImportHistory(Database database)
         return Convert.ToInt64(connection.Scalar("SELECT COUNT(*) FROM imports WHERE device_id = $device", ("$device", deviceId.ToString())));
     }
 
+    /// <summary>When this phone last sent a file, Wi-Fi or USB.</summary>
+    public DateTimeOffset? LastImportByDevice(Guid deviceId)
+    {
+        using var connection = database.Open();
+        return connection.Scalar("SELECT MAX(imported_at) FROM imports WHERE device_id = $device", ("$device", deviceId.ToString()))
+            is string value ? SqliteExtensions.ParseDate(value) : null;
+    }
+
+    public long CountByAlbum(Guid albumId)
+    {
+        using var connection = database.Open();
+        return Convert.ToInt64(connection.Scalar("SELECT COUNT(*) FROM imports WHERE album_id = $album", ("$album", albumId.ToString())));
+    }
+
     public void UpsertIndexEntry(IndexEntry entry)
     {
         using var connection = database.Open();
