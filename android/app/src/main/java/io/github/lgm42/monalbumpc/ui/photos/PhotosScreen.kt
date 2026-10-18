@@ -31,11 +31,15 @@ import io.github.lgm42.monalbumpc.ui.components.ScreenHeader
 import io.github.lgm42.monalbumpc.ui.theme.MonAlbumPcTheme
 
 @Composable
-fun PhotosScreen(modifier: Modifier = Modifier) {
+fun PhotosScreen(albumName: String?, modifier: Modifier = Modifier) {
     Column(modifier = modifier.fillMaxSize()) {
         ScreenHeader(
             title = stringResource(R.string.photos_title),
-            overline = stringResource(R.string.photos_greeting),
+            overline = if (albumName.isNullOrBlank()) {
+                stringResource(R.string.photos_greeting)
+            } else {
+                stringResource(R.string.photos_greeting_name, albumName)
+            },
         )
         StatusBanner(
             title = stringResource(R.string.status_ok_title),
@@ -81,5 +85,5 @@ private fun StatusBanner(title: String, detail: String, modifier: Modifier = Mod
 @Preview(showBackground = true)
 @Composable
 private fun PhotosScreenPreview() {
-    MonAlbumPcTheme { PhotosScreen() }
+    MonAlbumPcTheme { PhotosScreen(albumName = "Marie") }
 }

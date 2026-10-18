@@ -28,13 +28,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import io.github.lgm42.monalbumpc.data.PairedPc
 import io.github.lgm42.monalbumpc.ui.folders.FoldersScreen
 import io.github.lgm42.monalbumpc.ui.photos.PhotosScreen
 import io.github.lgm42.monalbumpc.ui.settings.SettingsScreen
 import io.github.lgm42.monalbumpc.ui.theme.LocalExtendedColors
 
 @Composable
-fun MonAlbumPcApp() {
+fun MonAlbumPcApp(pc: PairedPc, onUnpair: () -> Unit) {
     val navController = rememberNavController()
 
     Scaffold(
@@ -45,9 +46,9 @@ fun MonAlbumPcApp() {
             startDestination = TopLevelDestination.Photos.route,
             modifier = Modifier.padding(innerPadding),
         ) {
-            composable(TopLevelDestination.Photos.route) { PhotosScreen() }
+            composable(TopLevelDestination.Photos.route) { PhotosScreen(albumName = pc.albumName) }
             composable(TopLevelDestination.Folders.route) { FoldersScreen() }
-            composable(TopLevelDestination.Settings.route) { SettingsScreen() }
+            composable(TopLevelDestination.Settings.route) { SettingsScreen(pc = pc, onUnpair = onUnpair) }
         }
     }
 }

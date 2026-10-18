@@ -7,8 +7,87 @@
     <string name="nav_folders">Dossiers</string>
     <string name="nav_settings">Réglages</string>
 
+    <!-- Common -->
+    <string name="action_continue">Continuer</string>
+    <string name="action_back">Retour</string>
+    <string name="action_cancel">Annuler</string>
+
+    <!-- Onboarding: welcome -->
+    <string name="logo_line1">Mon Album</string>
+    <string name="logo_line2">PC</string>
+    <string name="welcome_title">Sauvegardez vos photos sur votre PC, automatiquement.</string>
+    <string name="welcome_subtitle">Elles se copient toutes seules sur l\'ordinateur de la maison, par le Wi-Fi. Sans câble, sans abonnement.</string>
+    <string name="welcome_asset_wifi">Par le Wi-Fi de la maison</string>
+    <string name="welcome_asset_pc">Rangées sur votre PC</string>
+    <string name="welcome_asset_auto">Sans rien faire ensuite</string>
+    <string name="welcome_start">Commencer</string>
+
+    <!-- Onboarding: photos permission -->
+    <string name="perm_photos_overline">Autorisation 1 sur 2</string>
+    <string name="perm_photos_title">Accès à vos photos et vidéos</string>
+    <string name="perm_photos_body">Mon Album PC en a besoin %1$s. Elles ne sont envoyées nulle part ailleurs.</string>
+    <string name="perm_photos_body_bold">pour pouvoir les copier sur votre PC</string>
+    <string name="perm_photos_hint">Le téléphone va vous poser la question. Choisissez « Tout autoriser ».</string>
+
+    <!-- Onboarding: partial access -->
+    <string name="partial_title">Une partie seulement de vos photos sera sauvegardée</string>
+    <string name="partial_body_selected">Vous avez choisi quelques photos seulement. Les autres, et toutes les nouvelles, ne pourront pas être copiées sur votre PC.</string>
+    <string name="partial_body_denied">Sans accès aux photos, Mon Album PC ne peut rien copier sur votre PC.</string>
+    <string name="partial_hint">Sur l\'écran suivant, choisissez %1$s.</string>
+    <string name="partial_hint_bold">« Tout autoriser »</string>
+    <string name="partial_allow_all">Autoriser toutes les photos</string>
+    <string name="partial_continue">Continuer quand même</string>
+
+    <!-- Onboarding: notifications -->
+    <string name="perm_notif_overline">Autorisation 2 sur 2</string>
+    <string name="perm_notif_title">Notifications</string>
+    <string name="perm_notif_body">Elles servent %1$s, ou s\'il y a un souci. Jamais de publicité.</string>
+    <string name="perm_notif_body_bold">à vous prévenir quand c\'est sauvegardé</string>
+
+    <!-- Onboarding: QR code scan -->
+    <string name="scan_title">Scannez le QR code du PC</string>
+    <string name="scan_body">Sur le PC, ouvrez %1$s et cliquez sur « Ajouter un téléphone ».</string>
+    <string name="scan_frame_hint">Placez le QR code dans le cadre. Le téléphone le lit tout seul.</string>
+    <string name="scan_no_camera">Je n\'ai pas de caméra qui fonctionne</string>
+    <string name="scan_camera_needed">Pour lire le QR code, Mon Album PC a besoin de l\'appareil photo.</string>
+    <string name="scan_allow_camera">Autoriser l\'appareil photo</string>
+    <string name="scan_camera_unavailable">L\'appareil photo ne fonctionne pas. Saisissez plutôt le code affiché par le PC.</string>
+
+    <!-- Onboarding: 6-digit code -->
+    <string name="code_title">Saisissez le code du PC</string>
+    <string name="code_body">Sous le QR code, le PC affiche un code de 6 chiffres. Tapez-le ici.</string>
+    <string name="code_searching">Recherche du PC sur le Wi-Fi…</string>
+    <string name="code_found_one">PC trouvé : %1$s</string>
+    <string name="code_choose_pc">Choisissez votre PC :</string>
+    <string name="code_digit">Chiffre %1$d</string>
+    <string name="code_error">Ce code ne correspond à aucun PC. Vérifiez les chiffres affichés sur le PC.</string>
+    <string name="code_submit">Valider</string>
+
+    <!-- Onboarding: pairing -->
+    <string name="pairing_in_progress">Association en cours…</string>
+    <string name="success_title">C\'est relié</string>
+    <string name="success_body">Ce téléphone est relié à %1$s, album de %2$s.</string>
+    <string name="success_cell_pc">Ordinateur</string>
+    <string name="success_cell_album">Album</string>
+
+    <!-- Onboarding: pairing errors -->
+    <string name="error_qr_title">Ce QR code n\'est plus valable</string>
+    <string name="error_qr_body">Il a expiré ou a déjà servi. Sur le PC, cliquez à nouveau sur « Ajouter un téléphone » : un nouveau QR code s\'affichera.</string>
+    <string name="error_qr_rescan">Scanner à nouveau</string>
+    <string name="error_qr_use_code">Saisir le code à la place</string>
+    <string name="error_wifi_title">PC introuvable</string>
+    <string name="error_wifi_body">Le téléphone et le PC doivent être connectés au même Wi-Fi.</string>
+    <string name="error_wifi_check1">Le PC est allumé et Mon Album PC est ouvert.</string>
+    <string name="error_wifi_check2">Le téléphone est sur le Wi-Fi de la maison, pas en 4G ou 5G.</string>
+    <string name="error_wifi_check3">Le PC est relié à la même box que le téléphone.</string>
+    <string name="error_wifi_retry">Réessayer</string>
+    <string name="error_wifi_settings">Ouvrir les réglages Wi-Fi</string>
+    <string name="error_other_title">L\'association n\'a pas abouti</string>
+    <string name="error_other_body">Le PC a répondu, mais il n\'a pas pu être vérifié. Sur le PC, cliquez à nouveau sur « Ajouter un téléphone », puis recommencez.</string>
+
     <!-- Photos -->
     <string name="photos_greeting">Bonjour</string>
+    <string name="photos_greeting_name">Bonjour %1$s</string>
     <string name="photos_title">Vos souvenirs</string>
     <string name="status_ok_title">Tout est sauvegardé</string>
     <string name="status_ok_detail">dernière sauvegarde il y a 2 h</string>
@@ -20,5 +99,12 @@
 
     <!-- Settings -->
     <string name="settings_title">Réglages</string>
+    <string name="settings_my_pc">Mon PC</string>
+    <string name="settings_album_of">Album de %1$s</string>
+    <string name="settings_unpair">Dissocier ce téléphone</string>
     <string name="settings_placeholder">Les réglages de la sauvegarde apparaîtront ici.</string>
+    <string name="unpair_title">Dissocier ce téléphone ?</string>
+    <string name="unpair_body">Les photos de ce téléphone ne seront plus sauvegardées sur %1$s.</string>
+    <string name="unpair_note">Rien n\'est supprimé : ni sur le téléphone, ni sur le PC.</string>
+    <string name="unpair_confirm">Dissocier</string>
 </resources>
