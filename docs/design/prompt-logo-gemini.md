@@ -61,6 +61,42 @@ plenty of margin. Spell the text exactly: Mon Album PC.
 
 Si le texte généré est déformé, on garde l'icône seule et on compose le logo à la main.
 
+## 4 bis. Prompts v2 (après un premier essai jugé « pas très moderne »)
+
+Le premier résultat reprenait le pictogramme générique « image » (montagne + soleil) posé sur un écran
+en contour sombre : banal, daté, et l'écran disparaissait sur le fond. Les prompts v2 interdisent ce
+cliché et visent le style des icônes Android 15 / Windows 11 / iOS 18.
+
+```text
+Design a modern app icon (2026 style, like the latest Google Material You and Apple iOS app icons) for
+"Mon Album PC", an app that safely brings the family's phone photos home to their PC.
+
+Avoid clichés: NO mountain-and-sun picture placeholder, NO literal computer monitor outline, NO clip art.
+
+Concept: two or three overlapping rounded rectangles (photo cards), slightly fanned, made of vibrant
+semi-transparent glass-like layers, where the overlaps create new colors. Together they suggest a
+simple house shape or a safe shelter. One single, bold, memorable silhouette.
+
+Style: soft depth, smooth vivid gradients, subtle inner glow, crisp edges, very minimal, no text, no
+outlines, filled shapes only. Must remain recognizable at 16x16 pixels.
+
+Colors: rich blue to indigo gradient (#1F4E8C to #4F46E5) with a warm amber/coral accent (#F2A33A to
+#FF7A59) on one card. Background: a clean light gradient or deep blue, your choice, filling the square.
+
+Composition: centered, symbol in the central 60%, square 1024x1024. Mood: premium, calm, trustworthy.
+```
+
+Variantes de concept à demander dans la même conversation :
+
+```text
+Same modern style and colors, give me 4 different concepts:
+1. a single photo card with a folded corner turning into a downward arrow, glassy layers,
+2. a rounded house silhouette whose window is a glowing photo card,
+3. abstract camera-viewfinder corner brackets enclosing a small heart or home shape,
+4. a stack of cards being "collected" into a soft rounded box (like a photo album), seen slightly from
+   above.
+```
+
 ## 5. Contraintes techniques (pour l'export final)
 
 - **Android** : icône adaptative avec une couche de premier plan (le symbole, centré dans 66 % du
