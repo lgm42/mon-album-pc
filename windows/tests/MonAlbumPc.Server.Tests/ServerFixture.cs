@@ -28,7 +28,7 @@ public sealed class ServerFixture : IAsyncDisposable
     public static async Task<ServerFixture> StartAsync(ServerOptions? options = null)
     {
         var fixture = new ServerFixture();
-        fixture.Server = new MonAlbumServer(fixture.Core, options ?? new ServerOptions { ApiPort = 0, DownloadPort = 0 });
+        fixture.Server = new MonAlbumServer(fixture.Core, options ?? new ServerOptions { ApiPort = 0, DownloadPort = 0, Advertise = false });
         await fixture.Server.StartAsync();
         return fixture;
     }

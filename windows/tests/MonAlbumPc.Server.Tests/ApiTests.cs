@@ -160,7 +160,7 @@ public sealed class ApiTests
         {
             await using var fixture = await ServerFixture.StartAsync(new ServerOptions
             {
-                ApiPort = 0, DownloadPort = 0, Apk = new ApkFile(apkPath, 3, "1.0.2"),
+                ApiPort = 0, DownloadPort = 0, Advertise = false, Apk = new ApkFile(apkPath, 3, "1.0.2"),
             });
             var (api, _) = await fixture.PairAsync();
 

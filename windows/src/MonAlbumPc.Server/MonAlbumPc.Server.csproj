@@ -16,4 +16,8 @@
     <ProjectReference Include="..\MonAlbumPc.Core\MonAlbumPc.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Makaretu.Dns.Multicast.New" Version="0.38.0" />
+  </ItemGroup>
+
 </Project>

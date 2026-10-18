@@ -16,6 +16,7 @@ namespace MonAlbumPc.Server;
 public sealed class MonAlbumServer(CoreServices core, ServerOptions options, ILoggerProvider? logger = null) : IAsyncDisposable
 {
     private WebApplication? _app;
+    private MdnsAdvertiser? _mdns;
 
     public int ApiPort { get; private set; }
     public int DownloadPort { get; private set; }
@@ -47,10 +48,16 @@ public sealed class MonAlbumServer(CoreServices core, ServerOptions options, ILo
             .Addresses.Select(a => new Uri(a.Replace("0.0.0.0", "localhost"))).ToList();
         ApiPort = ports.First(u => u.Scheme == "https").Port;
         DownloadPort = ports.First(u => u.Scheme == "http").Port;
+        if (options.Advertise)
+        {
+            _mdns = new MdnsAdvertiser(core, ApiPort);
+        }
     }
 
     public async Task StopAsync()
     {
+        _mdns?.Dispose();
+        _mdns = null;
         if (_app is not null)
         {
             await _app.StopAsync();
@@ -59,6 +66,8 @@ public sealed class MonAlbumServer(CoreServices core, ServerOptions options, ILo
 
     public async ValueTask DisposeAsync()
     {
+        _mdns?.Dispose();
+        _mdns = null;
         if (_app is not null)
         {
             await _app.DisposeAsync();
