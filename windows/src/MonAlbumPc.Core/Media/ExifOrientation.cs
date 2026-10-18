@@ -26,8 +26,15 @@ public static class ExifOrientation
     /// <summary>Orientation stored in a JPEG, 1 when absent or unreadable.</summary>
     public static ushort Read(string path)
     {
-        var bytes = File.ReadAllBytes(path);
-        return FindTag(bytes) is { } tag ? Value(bytes, tag) : (ushort)1;
+        // EXIF sits at the start of the file: no need to read whole photos (the viewer calls this for every thumbnail).
+        var bytes = new byte[128 * 1024];
+        int read;
+        using (var stream = File.OpenRead(path))
+        {
+            read = stream.ReadAtLeast(bytes, bytes.Length, throwOnEndOfStream: false);
+        }
+        var head = bytes.AsSpan(0, read).ToArray();
+        return FindTag(head) is { } tag ? Value(head, tag) : (ushort)1;
     }
 
     /// <summary>Rotates a photo by a quarter turn, without re-encoding JPEGs.</summary>

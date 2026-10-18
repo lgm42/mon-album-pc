@@ -90,6 +90,15 @@ public sealed class ImportHistory(Database database)
             is string value ? SqliteExtensions.ParseDate(value) : null;
     }
 
+    /// <summary>The phone a file came from, when the app imported it.</summary>
+    public Guid? DeviceOf(string destinationPath)
+    {
+        using var connection = database.Open();
+        return connection.Scalar(
+            "SELECT device_id FROM imports WHERE dest_path = $path COLLATE NOCASE ORDER BY id DESC LIMIT 1",
+            ("$path", destinationPath)) is string id ? Guid.Parse(id) : null;
+    }
+
     public long CountByAlbum(Guid albumId)
     {
         using var connection = database.Open();
