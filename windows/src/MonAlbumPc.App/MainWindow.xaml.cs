@@ -2,6 +2,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using MonAlbumPc.App.Albums;
+using MonAlbumPc.App.History;
 using MonAlbumPc.App.Pages;
 using MonAlbumPc.App.Phones;
 
@@ -19,6 +20,8 @@ public partial class MainWindow : Window
         InitializeComponent();
         UpdateStatus();
         MainNav.SelectedIndex = 0;
+        _host.Core.Sessions.Changed += OnSessionsChanged;
+        _host.Core.Sessions.Ended += OnSessionEnded;
     }
 
     /// <summary>Opens the add-phone wizard, optionally for a given album.</summary>
@@ -59,7 +62,7 @@ public partial class MainWindow : Window
             page = tag switch
             {
                 "albums" => new AlbumsPage(_host, this),
-                "history" => new HistoryPage(),
+                "history" => new HistoryPage(_host.Core),
                 "settings" => new SettingsPage(_host),
                 _ => new PhotosPage(this),
             };
@@ -73,8 +76,31 @@ public partial class MainWindow : Window
         UpdateStatus();
     }
 
+    private void OnSessionsChanged() => Dispatcher.BeginInvoke(UpdateStatus);
+
+    // A finished backup changes counts and history: reload the visible page.
+    private void OnSessionEnded(Core.Storage.BackupSession session) => Dispatcher.BeginInvoke(() =>
+    {
+        if (Page.Content is IRefreshable page && IsVisible)
+        {
+            page.Refresh();
+        }
+    });
+
     private void UpdateStatus()
     {
+        StatusProgress.Visibility = Visibility.Collapsed;
+        if (_host.Core.Sessions.Active.FirstOrDefault() is { } active)
+        {
+            StatusIcon.Text = "";
+            StatusIcon.SetResourceReference(ForegroundProperty, "AccentTextFillColorPrimaryBrush");
+            StatusTitle.Text = "Réception en cours";
+            var phone = _host.Core.Devices.Get(active.DeviceId)?.Name ?? "Téléphone";
+            var received = active.Photos + active.Videos;
+            StatusDetail.Text = received == 0 ? phone : $"{phone} · {Formatting.Plural(received, "élément reçu", "éléments reçus")}";
+            StatusProgress.Visibility = Visibility.Visible;
+            return;
+        }
         if (_host.ServerError is { } error)
         {
             StatusIcon.Text = "";

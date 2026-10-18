@@ -32,6 +32,7 @@
                         <TextBlock x:Name="StatusTitle" Margin="8,0,0,0" FontWeight="SemiBold" Text="Prêt à recevoir les photos" />
                     </StackPanel>
                     <TextBlock x:Name="StatusDetail" Style="{StaticResource Caption}" Margin="22,2,0,0" TextWrapping="Wrap" />
+                    <ProgressBar x:Name="StatusProgress" Height="3" Margin="22,8,0,0" IsIndeterminate="True" Visibility="Collapsed" />
                 </StackPanel>
             </Border>
 

@@ -2,6 +2,7 @@ using System.Windows.Controls;
 using System.Windows.Media.Imaging;
 using H.NotifyIcon;
 using H.NotifyIcon.Core;
+using MonAlbumPc.Core.Storage;
 
 namespace MonAlbumPc.App;
 
@@ -46,9 +47,33 @@ internal sealed class TrayIcon : IDisposable
 
     public void ShowInfo(string title, string message) => _icon.ShowNotification(title, message, NotificationIcon.Info);
 
+    /// <summary>Windows notification at the end of a backup: what arrived, or why it stopped.</summary>
+    public void Announce(BackupSession session)
+    {
+        var phone = _host.Core.Devices.Get(session.DeviceId)?.Name ?? "Le téléphone";
+        var album = _host.Core.Albums.Get(session.AlbumId)?.Name ?? "";
+        if (session.HasError)
+        {
+            ShowError($"Sauvegarde de {phone} interrompue", session.ErrorMessage ?? "");
+            return;
+        }
+        var parts = new List<string>();
+        if (session.Photos > 0) parts.Add(Formatting.Plural(session.Photos, "photo", "photos"));
+        if (session.Videos > 0) parts.Add(Formatting.Plural(session.Videos, "vidéo", "vidéos"));
+        ShowInfo("Sauvegarde terminée", $"{string.Join(" et ", parts)} de {phone} rangées dans l'album {album}.");
+    }
+
     public void Dispose() => _icon.Dispose();
 
-    private string StatusText() => _host.ServerError is null ? "Prêt à recevoir les photos" : "Les téléphones ne peuvent pas joindre ce PC";
+    private string StatusText()
+    {
+        if (_host.Core.Sessions.Active.FirstOrDefault() is { } active)
+        {
+            var phone = _host.Core.Devices.Get(active.DeviceId)?.Name ?? "un téléphone";
+            return $"Réception depuis {phone}… {Formatting.Count(active.Photos + active.Videos)} reçus";
+        }
+        return _host.ServerError is null ? "Prêt à recevoir les photos" : "Les téléphones ne peuvent pas joindre ce PC";
+    }
 
     private static MenuItem Item(string header, Action action)
     {

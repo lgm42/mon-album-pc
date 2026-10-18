@@ -28,6 +28,7 @@ public partial class App : Application
         await _host.StartAsync();
 
         _tray = new TrayIcon(_host, ShowMainWindow, ShowAddPhone, Quit);
+        _host.Core.Sessions.Ended += session => Dispatcher.BeginInvoke(() => _tray?.Announce(session));
         if (_host.ServerError is { } error)
         {
             _tray.ShowError("Mon Album PC", error);
