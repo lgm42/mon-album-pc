@@ -1,0 +1,146 @@
+using MonAlbumPc.Core.Model;
+using MonAlbumPc.Core.Storage;
+
+namespace MonAlbumPc.Core.Tests.Storage;
+
+public sealed class StoresTests : IDisposable
+{
+    private static readonly DateTimeOffset Now = new(2026, 10, 18, 12, 0, 0, TimeSpan.FromHours(2));
+    private readonly TempDirectory _temp = new();
+    private readonly Database _database;
+    private readonly AlbumStore _albums;
+    private readonly DeviceStore _devices;
+    private readonly ImportHistory _history;
+
+    public StoresTests()
+    {
+        _database = new Database(_temp.Combine("catalog.db"));
+        _albums = new AlbumStore(_database);
+        _devices = new DeviceStore(_database);
+        _history = new ImportHistory(_database);
+    }
+
+    public void Dispose() => _temp.Dispose();
+
+    [Fact]
+    public void Albums_round_trip()
+    {
+        var album = NewAlbum("Marie");
+        _albums.Add(album);
+        _albums.Update(album with { Name = "Marie D." });
+
+        var stored = Assert.Single(_albums.List());
+        Assert.Equal("Marie D.", stored.Name);
+        Assert.Equal(album.DestinationRoot, stored.DestinationRoot);
+        Assert.Equal(album.CreatedAt, stored.CreatedAt);
+    }
+
+    [Fact]
+    public void Migrations_are_idempotent()
+    {
+        _albums.Add(NewAlbum("Marie"));
+        var reopened = new AlbumStore(new Database(_temp.Combine("catalog.db")));
+        Assert.Single(reopened.List());
+    }
+
+    [Fact]
+    public void Album_with_active_device_cannot_be_deleted()
+    {
+        var album = NewAlbum("Marie");
+        _albums.Add(album);
+        var device = NewDevice(album.Id);
+        _devices.Add(device);
+
+        Assert.Throws<InvalidOperationException>(() => _albums.Delete(album.Id));
+
+        _devices.Revoke(device.Id, Now);
+        _albums.Delete(album.Id);
+        Assert.Empty(_albums.List());
+    }
+
+    [Fact]
+    public void Revoked_devices_leave_the_album_but_keep_their_history()
+    {
+        var album = NewAlbum("Marie");
+        _albums.Add(album);
+        var device = NewDevice(album.Id);
+        _devices.Add(device);
+        _history.Record(NewImport(album.Id, device.Id, "aa"));
+
+        _devices.Revoke(device.Id, Now);
+
+        Assert.Empty(_devices.ListByAlbum(album.Id));
+        Assert.False(_devices.Get(device.Id)!.IsActive);
+        Assert.True(_history.Contains(album.Id, "aa"));
+        Assert.Equal(1, _history.CountByDevice(device.Id));
+    }
+
+    [Fact]
+    public void Device_touch_updates_last_seen_and_version()
+    {
+        var album = NewAlbum("Marie");
+        _albums.Add(album);
+        var device = NewDevice(album.Id);
+        _devices.Add(device);
+
+        _devices.Touch(device.Id, Now.AddHours(1), "1.2.0");
+        _devices.Touch(device.Id, Now.AddHours(2), null);
+
+        var stored = _devices.Get(device.Id)!;
+        Assert.Equal(Now.AddHours(2), stored.LastSeenAt);
+        Assert.Equal("1.2.0", stored.AppVersion);
+        Assert.Equal(device.SecretHash, stored.SecretHash);
+    }
+
+    [Fact]
+    public void History_matches_by_hash_within_the_album_only()
+    {
+        var marie = NewAlbum("Marie");
+        var paul = NewAlbum("Paul");
+        _albums.Add(marie);
+        _albums.Add(paul);
+        _history.Record(NewImport(marie.Id, null, "aa"));
+
+        Assert.True(_history.Contains(marie.Id, "aa"));
+        Assert.False(_history.Contains(paul.Id, "aa"));
+        Assert.Equal(["aa"], _history.ContainsMany(marie.Id, ["aa", "bb"]));
+    }
+
+    [Fact]
+    public void Index_supports_hash_and_loose_name_date_match()
+    {
+        var album = NewAlbum("Marie");
+        _albums.Add(album);
+        var taken = new DateTime(2024, 5, 12, 10, 30, 15);
+        _history.UpsertIndexEntry(new IndexEntry(album.Id, @"2024\IMG_1.jpg", "cc", 10, "IMG_1.jpg", taken, Now));
+
+        Assert.True(_history.Contains(album.Id, "cc"));
+        Assert.True(_history.ContainsByNameAndDate(album.Id, "img_1.JPG", taken));
+        Assert.False(_history.ContainsByNameAndDate(album.Id, "IMG_1.jpg", taken.AddSeconds(1)));
+
+        _history.RemoveIndexEntry(album.Id, @"2024\IMG_1.jpg");
+        Assert.False(_history.Contains(album.Id, "cc"));
+    }
+
+    [Fact]
+    public void Usb_fallback_matches_device_path_and_size()
+    {
+        var album = NewAlbum("Marie");
+        _albums.Add(album);
+        var device = Guid.NewGuid();
+        _history.Record(NewImport(album.Id, device, "dd") with { SourcePath = "DCIM/Camera/a.jpg", Size = 42 });
+
+        Assert.True(_history.ContainsSource(device, "DCIM/Camera/a.jpg", 42));
+        Assert.False(_history.ContainsSource(device, "DCIM/Camera/a.jpg", 43));
+        Assert.False(_history.ContainsSource(Guid.NewGuid(), "DCIM/Camera/a.jpg", 42));
+    }
+
+    private Album NewAlbum(string name) =>
+        new(Guid.NewGuid(), name, _temp.Combine("Photos", name), _albums.NextColor(), Now);
+
+    private static Device NewDevice(Guid albumId) =>
+        new(Guid.NewGuid(), albumId, "A35 de Marie", "Samsung Galaxy A35", [1, 2, 3], "1.0.0", Now, null, null);
+
+    private static ImportRecord NewImport(Guid albumId, Guid? deviceId, string sha) =>
+        new(sha, albumId, deviceId, 100, "IMG.jpg", null, @"D:\Photos\IMG.jpg", null, ImportChannel.Wifi, Now);
+}
