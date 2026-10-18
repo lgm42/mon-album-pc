@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<script src="./image-slot.js"></script>
+<style>
+html,body{margin:0;height:100%;background:#EEF0F4}
+body{font-family:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#1B1B1B}
+a{color:#005FB8;text-decoration:none}a:hover{color:#1A6CC0;text-decoration:underline}
+*{box-sizing:border-box}
+::-webkit-scrollbar{width:12px;height:12px}::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.25);border-radius:6px;border:4px solid transparent;background-clip:content-box}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #1B1B1B;outline-offset:1px}
+@keyframes mapcSpin{to{transform:rotate(360deg)}}
+@keyframes mapcPulse{0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
+@keyframes mapcSlide{0%{left:-40%}100%{left:100%}}
+</style>
+</helmet>
+<div data-screen-label="Fenêtre principale" style="position:relative;width:100vw;height:100vh;min-width:1024px;min-height:640px;display:flex;flex-direction:column;background:#EEF0F4;overflow:hidden;font-size:14px;line-height:20px">
+
+<div style="height:32px;flex:none;display:flex;align-items:center;user-select:none">
+  <div style="display:flex;align-items:center;gap:12px;padding-left:16px;flex:1">
+    <img src="assets/logo.jpg" alt="" style="width:16px;height:16px;border-radius:3px;object-fit:cover;transform:scale(1.25)">
+    <span style="font-size:12px;color:#1B1B1B">Mon Album PC</span>
+  </div>
+  <div style="display:flex;height:32px">
+    <button style="width:46px;height:32px;border:none;background:transparent;display:flex;align-items:center;justify-content:center;color:#1B1B1B" style-hover="background:rgba(0,0,0,0.0373)"><span style="width:12px;height:12px;flex:none;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/subtract_20_regular.svg) center / contain no-repeat"></span></button>
+    <button style="width:46px;height:32px;border:none;background:transparent;display:flex;align-items:center;justify-content:center;color:#1B1B1B" style-hover="background:rgba(0,0,0,0.0373)"><span style="width:11px;height:11px;flex:none;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/maximize_20_regular.svg) center / contain no-repeat"></span></button>
+    <button style="width:46px;height:32px;border:none;background:transparent;display:flex;align-items:center;justify-content:center;color:#1B1B1B" style-hover="background:#C42B1C;color:#FFFFFF"><span style="width:12px;height:12px;flex:none;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/dismiss_20_regular.svg) center / contain no-repeat"></span></button>
+  </div>
+</div>
+
+<div style="flex:1;min-height:0;display:flex">
+
+  <nav style="width:{{ navW }};flex:none;display:flex;flex-direction:column;padding:4px 4px 4px 4px;gap:4px;transition:width .2s">
+    <button onClick="{{ toggleNav }}" aria-label="Menu" style="width:40px;height:36px;border:none;border-radius:4px;background:transparent;display:flex;align-items:center;justify-content:center;color:#1B1B1B" style-hover="background:rgba(0,0,0,0.0373)"><span style="width:16px;height:16px;flex:none;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/navigation_20_regular.svg) center / contain no-repeat"></span></button>
+    <sc-for list="{{ navTop }}" as="n" hint-placeholder-count="3">
+      <button onClick="{{ n.go }}" title="{{ n.label }}" style="position:relative;height:36px;border:none;border-radius:4px;background:{{ n.bg }};display:flex;align-items:center;gap:16px;padding:0 12px;font:inherit;color:#1B1B1B;text-align:left;white-space:nowrap;overflow:hidden" style-hover="background:rgba(0,0,0,0.0373)">
+        <sc-if value="{{ n.sel }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;left:0;top:10px;width:3px;height:16px;border-radius:2px;background:#005FB8"></span></sc-if>
+        <span style="width:16px;height:16px;flex:none;background-color:currentColor;mask:url({{ n.icon }}) center / contain no-repeat"></span>
+        <sc-if value="{{ showLabels }}" hint-placeholder-val="{{ true }}"><span>{{ n.label }}</span></sc-if>
+      </button>
+    </sc-for>
+    <div style="flex:1"></div>
+    <sc-if value="{{ showLabels }}" hint-placeholder-val="{{ true }}">
+      <div style="margin:0 4px 4px;padding:12px;border-radius:8px;background:rgba(255,255,255,0.6);border:1px solid rgba(0,0,0,0.0578);display:flex;flex-direction:column;gap:8px">
+        <sc-if value="{{ status.ok }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:8px;align-items:flex-start"><span style="width:16px;height:16px;margin-top:2px;flex:none;background-color:#0F7B0F;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/checkmark_circle_20_filled.svg) center / contain no-repeat"></span><div><div style="font-weight:600">Tout est à jour</div><div style="font-size:12px;line-height:16px;color:#5D5D5D">Dernière sauvegarde il y a 2 h</div></div></div>
+        </sc-if>
+        <sc-if value="{{ status.sync }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;gap:8px;align-items:flex-start"><span style="width:16px;height:16px;margin-top:2px;flex:none;background-color:#005FB8;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/arrow_sync_20_regular.svg) center / contain no-repeat"></span><div style="min-width:0"><div style="font-weight:600">Réception en cours</div><div style="font-size:12px;line-height:16px;color:#5D5D5D">A35 de Marie · {{ status.n }} / 52</div></div></div>
+          <div style="height:3px;border-radius:2px;background:rgba(0,0,0,0.12);overflow:hidden"><div style="height:3px;width:{{ status.pct }};background:#005FB8;border-radius:2px;transition:width .4s"></div></div>
+        </sc-if>
+        <sc-if value="{{ status.warn }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:8px;align-items:flex-start"><span style="width:16px;height:16px;margin-top:2px;flex:none;background-color:#9D5D00;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/warning_20_filled.svg) center / contain no-repeat"></span><div><div style="font-weight:600">Sauvegardes en attente</div><div style="font-size:12px;line-height:16px;color:#5D5D5D">Le dossier de destination est indisponible</div></div></div>
+        </sc-if>
+      </div>
+    </sc-if>
+    <button onClick="{{ navSettings.go }}" title="Réglages" style="position:relative;height:36px;border:none;border-radius:4px;background:{{ navSettings.bg }};display:flex;align-items:center;gap:16px;padding:0 12px;font:inherit;color:#1B1B1B;text-align:left;white-space:nowrap;overflow:hidden" style-hover="background:rgba(0,0,0,0.0373)">
+      <sc-if value="{{ navSettings.sel }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;left:0;top:10px;width:3px;height:16px;border-radius:2px;background:#005FB8"></span></sc-if>
+      <span style="width:16px;height:16px;flex:none;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/settings_20_regular.svg) center / contain no-repeat"></span>
+      <sc-if value="{{ showLabels }}" hint-placeholder-val="{{ true }}"><span>Réglages</span></sc-if>
+    </button>
+  </nav>
+
+  <main style="flex:1;min-width:0;display:flex;flex-direction:column;background:rgba(255,255,255,0.5);border-top:1px solid rgba(0,0,0,0.0578);border-left:1px solid rgba(0,0,0,0.0578);border-top-left-radius:8px;overflow:hidden">
+
+    <sc-if value="{{ offlineBanner }}" hint-placeholder-val="{{ false }}">
+      <div style="margin:16px 16px 0;display:flex;align-items:flex-start;gap:12px;padding:12px 12px 12px 16px;border-radius:4px;background:#FFF4CE;border:1px solid rgba(0,0,0,0.0578)">
+        <span style="width:16px;height:16px;margin-top:2px;flex:none;background-color:#9D5D00;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/warning_20_filled.svg) center / contain no-repeat"></span>
+        <div style="flex:1;min-width:0;text-wrap:pretty"><strong style="font-weight:600">Dossier de destination indisponible.</strong> D:\Photos est introuvable : le disque externe est peut-être débranché. Les téléphones attendent et réessaieront plus tard.</div>
+        <button onClick="{{ retryOffline }}" style="height:32px;padding:0 12px;border-radius:4px;border:1px solid #E5E5E5;border-bottom-color:#CCCCCC;background:#FDFDFD;font:inherit;color:#1B1B1B;flex:none" style-hover="background:#F6F6F6" style-active="background:#F3F3F3;color:#5D5D5D">Réessayer</button>
+        <button onClick="{{ dismissOffline }}" aria-label="Fermer" style="width:32px;height:32px;border:none;border-radius:4px;background:transparent;display:flex;align-items:center;justify-content:center;color:#1B1B1B;flex:none" style-hover="background:rgba(0,0,0,0.0373)"><span style="width:14px;height:14px;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/dismiss_20_regular.svg) center / contain no-repeat"></span></button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isPhotos }}" hint-placeholder-val="{{ true }}">
+    <div data-screen-label="Photos" style="flex:1;min-height:0;display:flex">
+
+      <sc-if value="{{ showGrid }}" hint-placeholder-val="{{ true }}">
+      <aside style="width:{{ filterW }};flex:none;border-right:1px solid rgba(0,0,0,0.0578);overflow:auto;padding:24px 8px 16px 12px;display:flex;flex-direction:column;gap:4px">
+        <div style="font-size:12px;font-weight:600;color:#5D5D5D;padding:0 8px 4px">Albums</div>
+        <sc-for list="{{ filterAlbums }}" as="f" hint-placeholder-count="4">
+          <button onClick="{{ f.go }}" style="position:relative;height:32px;border:none;border-radius:4px;background:{{ f.bg }};display:flex;align-items:center;gap:10px;padding:0 8px 0 12px;font:inherit;color:#1B1B1B;text-align:left" style-hover="background:rgba(0,0,0,0.0373)">
+            <sc-if value="{{ f.sel }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;left:0;top:8px;width:3px;height:16px;border-radius:2px;background:#005FB8"></span></sc-if>
+            <span style="width:8px;height:8px;border-radius:4px;flex:none;background:{{ f.color }}"></span>
+            <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ f.label }}</span>
+            <span style="font-size:12px;color:#5D5D5D;font-variant-numeric:tabular-nums">{{ f.count }}</span>
+          </button>
+        </sc-for>
+        <div style="font-size:12px;font-weight:600;color:#5D5D5D;padding:20px 8px 4px">Dates</div>
+        <button onClick="{{ allMonths.go }}" style="position:relative;height:32px;border:none;border-radius:4px;background:{{ allMonths.bg }};display:flex;align-items:center;gap:10px;padding:0 8px 0 12px;font:inherit;color:#1B1B1B;text-align:left" style-hover="background:rgba(0,0,0,0.0373)">
+          <sc-if value="{{ allMonths.sel }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;left:0;top:8px;width:3px;height:16px;border-radius:2px;background:#005FB8"></span></sc-if>
+          <span style="width:12px;height:12px;flex:none;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/chevron_down_20_regular.svg) center / contain no-repeat"></span>
+          <span style="flex:1;font-weight:600">2026</span>
+          <span style="font-size:12px;color:#5D5D5D;font-variant-numeric:tabular-nums">{{ allMonths.count }}</span>
+        </button>
+        <sc-for list="{{ filterMonths }}" as="f" hint-placeholder-count="3">
+          <button onClick="{{ f.go }}" style="position:relative;height:32px;border:none;border-radius:4px;background:{{ f.bg }};display:flex;align-items:center;gap:10px;padding:0 8px 0 34px;font:inherit;color:#1B1B1B;text-align:left" style-hover="background:rgba(0,0,0,0.0373)">
+            <sc-if value="{{ f.sel }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;left:0;top:8px;width:3px;height:16px;border-radius:2px;background:#005FB8"></span></sc-if>
+            <span style="flex:1">{{ f.label }}</span>
+            <span style="font-size:12px;color:#5D5D5D;font-variant-numeric:tabular-nums">{{ f.count }}</span>
+          </button>
+        </sc-for>
+      </aside>
+      </sc-if>
+
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+        <sc-if value="{{ showGrid }}" hint-placeholder-val="{{ true }}">
+        <div style="padding:20px 24px 8px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:baseline;gap:12px">
+            <h1 style="margin:0;font-family:'Segoe UI Variable Display','Segoe UI',system-ui,sans-serif;font-size:28px;line-height:36px;font-weight:600">Photos</h1>
+            <span style="color:#5D5D5D">{{ gridCaption }}</span>
+          </div>
+          <sc-if value="{{ indexing }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:12px 16px;border-radius:4px;background:#F6F6F6;border:1px solid rgba(0,0,0,0.0578)">
+              <span style="width:16px;height:16px;margin-top:2px;flex:none;background-color:#005FB8;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/info_20_filled.svg) center / contain no-repeat"></span>
+              <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+                <div style="text-wrap:pretty"><strong style="font-weight:600">Recensement des photos déjà présentes</strong> dans D:\Photos\Marie, pour ne pas les reprendre en double : 1 240 sur 4 812. Vous pouvez continuer à utiliser l'app pendant ce temps.</div>
+                <div style="height:3px;border-radius:2px;background:rgba(0,0,0,0.12);overflow:hidden"><div style="height:3px;width:26%;background:#005FB8;border-radius:2px"></div></div>
+              </div>
+            </div>
+          </sc-if>
+          <div style="display:flex;align-items:center;gap:4px;height:40px;padding:4px;min-width:0;overflow:hidden;border-radius:8px;background:rgba(255,255,255,0.7);border:1px solid rgba(0,0,0,0.0578)">
+            <div style="display:flex;gap:2px;opacity:{{ actOpacity }};pointer-events:{{ actEvents }}">
+              <button onClick="{{ rotL }}" title="Faire pivoter à gauche" style="height:32px;padding:0 10px;border:none;border-radius:4px;background:transparent;display:flex;align-items:center;gap:8px;font:inherit;color:#1B1B1B" style-hover="background:rgba(0,0,0,0.0373)" style-active="background:rgba(0,0,0,0.0241)"><span style="width:16px;height:16px;flex:none;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/arrow_counterclockwise_20_regular.svg) center / contain no-repeat"></span></button>
+              <button onClick="{{ rotR }}" title="Faire pivoter à droite" style="height:32px;padding:0 10px;border:none;border-radius:4px;background:transparent;display:flex;align-items:center;gap:8px;font:inherit;color:#1B1B1B" style-hover="background:rgba(0,0,0,0.0373)" style-active="background:rgba(0,0,0,0.0241)"><span style="width:16px;height:16px;flex:none;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/arrow_clockwise_20_regular.svg) center / contain no-repeat"></span></button>
+              <span style="width:1px;margin:6px 4px;background:rgba(0,0,0,0.0803)"></span>
+              <button onClick="{{ askDelete }}" title="Supprimer" style="height:32px;padding:0 10px;border:none;border-radius:4px;background:transparent;display:flex;align-items:center;gap:8px;font:inherit;color:#1B1B1B" style-hover="background:rgba(0,0,0,0.0373)" style-active="background:rgba(0,0,0,0.0241)"><span style="width:16px;height:16px;flex:none;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/delete_20_regular.svg) center / contain no-repeat"></span><sc-if value="{{ cmdLabels }}" hint-placeholder-val="{{ true }}">Supprimer</sc-if></button>
+              <button onClick="{{ openExplorer }}" title="Ouvrir dans l'Explorateur" style="height:32px;padding:0 10px;border:none;border-radius:4px;background:transparent;display:flex;align-items:center;gap:8px;font:inherit;color:#1B1B1B" style-hover="background:rgba(0,0,0,0.0373)" style-active="background:rgba(0,0,0,0.0241)"><span style="width:16px;height:16px;flex:none;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/folder_open_20_regular.svg) center / contain no-repeat"></span><sc-if value="{{ cmdLabels }}" hint-placeholder-val="{{ true }}">Ouvrir dans l'Explorateur</sc-if></button>
+              <button onClick="{{ share }}" title="Partager" style="height:32px;padding:0 10px;border:none;border-radius:4px;background:transparent;display:flex;align-items:center;gap:8px;font:inherit;color:#1B1B1B" style-hover="background:rgba(0,0,0,0.0373)" style-active="background:rgba(0,0,0,0.0241)"><span style="width:16px;height:16px;flex:none;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/share_20_regular.svg) center / contain no-repeat"></span><sc-if value="{{ cmdLabels }}" hint-placeholder-val="{{ true }}">Partager</sc-if></button>
+            </div>
+            <div style="flex:1"></div>
+            <div style="display:flex;align-items:center;gap:8px;padding:0 8px;color:#5D5D5D">
+              <span style="width:12px;height:12px;flex:none;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/image_20_regular.svg) center / contain no-repeat"></span>
+              <input type="range" min="96" max="260" step="4" value="{{ thumb }}" onChange="{{ onThumb }}" aria-label="Taille des miniatures" style="width:{{ sliderW }};accent-color:#005FB8">
+              <span style="width:18px;height:18px;flex:none;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/image_20_regular.svg) center / contain no-repeat"></span>
+            </div>
+            <span style="width:1px;height:20px;background:rgba(0,0,0,0.0803)"></span>
+            <button onClick="{{ toggleInfo }}" title="Informations" style="height:32px;padding:0 10px;border:none;border-radius:4px;background:{{ infoBtnBg }};display:flex;align-items:center;gap:8px;font:inherit;color:#1B1B1B" style-hover="background:rgba(0,0,0,0.0373)"><span style="width:16px;height:16px;flex:none;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/info_20_regular.svg) center / contain no-repeat"></span>Infos</button>
+          </div>
+        </div>
+        <div style="flex:1;min-height:0;overflow:auto;padding:8px 24px 32px">
+          <sc-for list="{{ groups }}" as="g" hint-placeholder-count="2">
+            <section style="padding-top:12px">
+              <div style="display:flex;align-items:baseline;gap:8px;padding:0 0 10px"><h2 style="margin:0;font-size:16px;line-height:22px;font-weight:600">{{ g.label }}</h2><span style="font-size:12px;color:#5D5D5D">{{ g.count }}</span></div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax({{ thumbPx }},1fr));gap:4px">
+                <sc-for list="{{ g.items }}" as="p" hint-placeholder-count="8">
+                  <div style="position:relative;aspect-ratio:1;border-radius:4px;overflow:hidden;background:#E9E9E9">
+                    <div style="position:absolute;inset:0;transform:rotate({{ p.rot }}deg);transition:transform .25s">
+                      <image-slot id="{{ p.slot }}" shape="rounded" radius="4" placeholder="Photo"></image-slot>
+                    </div>
+                    <sc-if value="{{ p.video }}" hint-placeholder-val="{{ false }}">
+                      <div style="position:absolute;right:6px;bottom:6px;display:flex;align-items:center;gap:4px;padding:0 6px;height:20px;border-radius:4px;background:rgba(0,0,0,0.62);color:#FFFFFF;font-size:12px;font-variant-numeric:tabular-nums;pointer-events:none"><span style="width:10px;height:10px;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/play_20_filled.svg) center / contain no-repeat"></span>{{ p.dur }}</div>
+                    </sc-if>
+                    <sc-if value="{{ p.overlay }}" hint-placeholder-val="{{ true }}">
+                      <div onClick="{{ p.select }}" onDoubleClick="{{ p.open }}" style="position:absolute;inset:0" style-hover="background:rgba(0,0,0,0.06)"></div>
+                    </sc-if>
+                    <sc-if value="{{ p.sel }}" hint-placeholder-val="{{ false }}">
+                      <div style="position:absolute;inset:0;border:2px solid #005FB8;border-radius:4px;box-shadow:inset 0 0 0 2px #FFFFFF;pointer-events:none"></div>
+                      <button onClick="{{ p.open }}" title="Afficher en plein écran (Entrée)" style="position:absolute;top:8px;right:8px;width:28px;height:28px;border:none;border-radius:4px;background:rgba(255,255,255,0.92);display:flex;align-items:center;justify-content:center;color:#1B1B1B;box-shadow:0 2px 4px rgba(0,0,0,0.14)" style-hover="background:#FFFFFF"><span style="width:14px;height:14px;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/full_screen_maximize_20_regular.svg) center / contain no-repeat"></span></button>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </section>
+          </sc-for>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ showEmpty }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:48px">
+            <div style="max-width:420px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px">
+              <img src="assets/logo.jpg" alt="" style="width:96px;height:96px;object-fit:cover;transform:scale(1.15);border-radius:20px">
+              <h2 style="margin:16px 0 0;font-size:20px;line-height:28px;font-weight:600">Aucune photo pour l'instant.</h2>
+              <p style="margin:0;color:#5D5D5D">Ajoutez un téléphone pour commencer. Ses photos et vidéos arriveront ici automatiquement, en Wi-Fi.</p>
+              <button onClick="{{ openWizard }}" style="margin-top:12px;height:32px;padding:0 16px;border-radius:4px;border:1px solid #005FB8;border-bottom-color:#003E92;background:#005FB8;color:#FFFFFF;font:inherit;display:flex;align-items:center;gap:8px" style-hover="background:#1A6CC0" style-active="background:#3279C5;color:rgba(255,255,255,0.8)"><span style="width:16px;height:16px;flex:none;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/add_20_regular.svg) center / contain no-repeat"></span>Ajouter un téléphone</button>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+
+      <sc-if value="{{ showInfoPane }}" hint-placeholder-val="{{ true }}">
+      <aside style="width:{{ infoW }};flex:none;border-left:1px solid rgba(0,0,0,0.0578);overflow:auto;padding:24px 20px;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between"><h3 style="margin:0;font-size:16px;line-height:22px;font-weight:600">Informations</h3>
+          <button onClick="{{ toggleInfo }}" aria-label="Masquer" style="width:28px;height:28px;border:none;border-radius:4px;background:transparent;display:flex;align-items:center;justify-content:center;color:#1B1B1B" style-hover="background:rgba(0,0,0,0.0373)"><span style="width:12px;height:12px;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/dismiss_20_regular.svg) center / contain no-repeat"></span></button></div>
+        <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ true }}">
+          <div style="font-weight:600;word-break:break-all">{{ sel.name }}</div>
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;gap:12px"><span style="width:16px;height:16px;margin-top:2px;flex:none;background-color:#5D5D5D;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/calendar_20_regular.svg) center / contain no-repeat"></span><div><div style="font-size:12px;line-height:16px;color:#5D5D5D">Prise de vue</div><div>{{ sel.date }}</div></div></div>
+            <div style="display:flex;gap:12px"><span style="width:16px;height:16px;margin-top:2px;flex:none;background-color:#5D5D5D;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/phone_20_regular.svg) center / contain no-repeat"></span><div><div style="font-size:12px;line-height:16px;color:#5D5D5D">Téléphone d'origine</div><div>{{ sel.phone }}</div></div></div>
+            <div style="display:flex;gap:12px"><span style="width:16px;height:16px;margin-top:2px;flex:none;background-color:#5D5D5D;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/image_20_regular.svg) center / contain no-repeat"></span><div><div style="font-size:12px;line-height:16px;color:#5D5D5D">Dimensions · taille</div><div>{{ sel.dims }} · {{ sel.size }}</div></div></div>
+            <div style="display:flex;gap:12px"><span style="width:16px;height:16px;margin-top:2px;flex:none;background-color:#5D5D5D;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/folder_20_regular.svg) center / contain no-repeat"></span><div style="min-width:0"><div style="font-size:12px;line-height:16px;color:#5D5D5D">Album · dossier</div><div style="word-break:break-all">{{ sel.albumName }} · {{ sel.path }}</div></div></div>
+          </div>
+          <div style="height:140px;border-radius:8px;border:1px dashed rgba(0,0,0,0.25);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#8A8A8A;font-size:12px">
+            <span style="width:20px;height:20px;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/location_20_regular.svg) center / contain no-repeat"></span>Carte de la position GPS · v2
+          </div>
+        </sc-if>
+        <sc-if value="{{ noSel }}" hint-placeholder-val="{{ false }}">
+          <p style="margin:0;color:#5D5D5D">Sélectionnez une photo pour voir sa date, son téléphone d'origine et ses dimensions.</p>
+        </sc-if>
+      </aside>
+      </sc-if>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ isAlbums }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Albums et téléphones" style="flex:1;min-height:0;overflow:auto;padding:20px 24px 40px">
+      <div style="max-width:1200px;display:flex;flex-direction:column;gap:20px">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <h1 style="margin:0;flex:1;font-family:'Segoe UI Variable Display','Segoe UI',system-ui,sans-serif;font-size:28px;line-height:36px;font-weight:600">Albums et téléphones</h1>
+          <button onClick="{{ newAlbum }}" style="height:32px;padding:0 12px;border-radius:4px;border:1px solid #E5E5E5;border-bottom-color:#CCCCCC;background:#FDFDFD;font:inherit;color:#1B1B1B;display:flex;align-items:center;gap:8px" style-hover="background:#F6F6F6" style-active="background:#F3F3F3;color:#5D5D5D"><span style="width:16px;height:16px;flex:none;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/add_20_regular.svg) center / contain no-repeat"></span>Nouvel album</button>
+          <button onClick="{{ openWizard }}" style="height:32px;padding:0 12px;border-radius:4px;border:1px solid #005FB8;border-bottom-color:#003E92;background:#005FB8;color:#FFFFFF;font:inherit;display:flex;align-items:center;gap:8px" style-hover="background:#1A6CC0" style-active="background:#3279C5;color:rgba(255,255,255,0.8)"><span style="width:16px;height:16px;flex:none;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/phone_20_regular.svg) center / contain no-repeat"></span>Ajouter un téléphone</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,400px),1fr));gap:16px;align-items:start">
+          <sc-for list="{{ albumCards }}" as="a" hint-placeholder-count="3">
+            <div style="position:relative;border-radius:8px;background:#FFFFFF;border:1px solid rgba(0,0,0,0.0578);box-shadow:0 1px 2px rgba(0,0,0,0.04);display:flex;flex-direction:column">
+              <div style="display:flex;align-items:center;gap:12px;padding:16px 12px 12px 16px">
+                <div style="width:40px;height:40px;border-radius:20px;background:{{ a.color }};color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:16px;flex:none">{{ a.initial }}</div>
+                <div style="flex:1;min-width:0"><div style="font-size:20px;line-height:28px;font-weight:600">{{ a.name }}</div><div style="font-size:12px;line-height:16px;color:#5D5D5D">{{ a.meta }}</div></div>
+                <button onClick="{{ a.edit }}" title="Modifier l'album" style="width:32px;height:32px;border:none;border-radius:4px;background:transparent;display:flex;align-items:center;justify-content:center;color:#1B1B1B" style-hover="background:rgba(0,0,0,0.0373)"><span style="width:16px;height:16px;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/edit_20_regular.svg) center / contain no-repeat"></span></button>
+                <div onMouseEnter="{{ a.tipOn }}" onMouseLeave="{{ a.tipOff }}" style="position:relative">
+                  <button onClick="{{ a.del }}" disabled="{{ a.cannotDelete }}" aria-label="Supprimer l'album" style="width:32px;height:32px;border:none;border-radius:4px;background:transparent;display:flex;align-items:center;justify-content:center;color:#1B1B1B;opacity:{{ a.delOpacity }}" style-hover="background:rgba(0,0,0,0.0373)"><span style="width:16px;height:16px;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/delete_20_regular.svg) center / contain no-repeat"></span></button>
+                  <sc-if value="{{ a.tipShow }}" hint-placeholder-val="{{ false }}">
+                    <div style="position:absolute;top:38px;right:0;width:250px;z-index:5;padding:6px 8px;border-radius:4px;background:#F9F9F9;border:1px solid rgba(0,0,0,0.0578);box-shadow:0 4px 8px rgba(0,0,0,0.14);font-size:12px;line-height:16px;color:#1B1B1B;text-wrap:pretty">Impossible de supprimer un album qui a encore des téléphones. Dissociez-les d'abord.</div>
+                  </sc-if>
+                </div>
+              </div>
+              <div style="margin:0 16px;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 12px;border-radius:4px;background:#F9F9F9;border:1px solid rgba(0,0,0,0.0578)">
+                <span style="width:16px;height:16px;flex:none;background-color:#5D5D5D;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/folder_20_regular.svg) center / contain no-repeat"></span>
+                <span style="flex:1;min-width:0;font-family:'Cascadia Mono',Consolas,ui-monospace,monospace;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ a.folder }}</span>
+                <button onClick="{{ a.openFolder }}" style="height:28px;padding:0 10px;border-radius:4px;border:1px solid #E5E5E5;border-bottom-color:#CCCCCC;background:#FDFDFD;font:inherit;color:#1B1B1B" style-hover="background:#F6F6F6">Ouvrir</button>
+              </div>
+              <div style="padding:16px 16px 4px;font-size:12px;font-weight:600;color:#5D5D5D">Téléphones</div>
+              <div style="display:flex;flex-direction:column;padding:0 8px 8px">
+                <sc-for list="{{ a.phones }}" as="ph" hint-placeholder-count="1">
+                  <div style="position:relative;display:grid;grid-template-columns:32px minmax(0,1fr) auto auto 32px;align-items:center;gap:12px;min-height:56px;padding:4px 4px 4px 8px;border-radius:4px" style-hover="background:rgba(0,0,0,0.0241)">
+                    <div style="width:32px;height:32px;border-radius:4px;background:#F3F3F3;display:flex;align-items:center;justify-content:center"><span style="width:16px;height:16px;background-color:#1B1B1B;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/phone_20_regular.svg) center / contain no-repeat"></span></div>
+                    <div style="min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ ph.name }}</div><div style="font-size:12px;line-height:16px;color:#5D5D5D">{{ ph.model }}</div></div>
+                    <div style="text-align:right"><div style="font-size:12px;line-height:16px;color:#5D5D5D">Dernière sauvegarde</div><div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;color:{{ ph.lastColor }};font-weight:{{ ph.lastWeight }}"><sc-if value="{{ ph.old }}" hint-placeholder-val="{{ false }}"><span style="width:14px;height:14px;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/warning_20_filled.svg) center / contain no-repeat"></span></sc-if>{{ ph.last }}</div></div>
+                    <div style="text-align:right;min-width:72px"><div style="font-size:12px;line-height:16px;color:#5D5D5D">Reçus</div><div style="font-variant-numeric:tabular-nums">{{ ph.count }}</div></div>
+                    <button onClick="{{ ph.menu }}" aria-label="Plus d'options" style="width:32px;height:32px;border:none;border-radius:4px;background:transparent;display:flex;align-items:center;justify-content:center;color:#1B1B1B" style-hover="background:rgba(0,0,0,0.0373)"><span style="width:16px;height:16px;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/more_horizontal_20_regular.svg) center / contain no-repeat"></span></button>
+                    <sc-if value="{{ ph.menuOpen }}" hint-placeholder-val="{{ false }}">
+                      <div style="position:absolute;right:4px;top:48px;z-index:6;min-width:200px;padding:4px;border-radius:8px;background:#FCFCFC;border:1px solid rgba(0,0,0,0.0578);box-shadow:0 8px 16px rgba(0,0,0,0.14)">
+                        <button onClick="{{ ph.unlink }}" style="width:100%;height:32px;border:none;border-radius:4px;background:transparent;display:flex;align-items:center;gap:12px;padding:0 12px;font:inherit;color:#1B1B1B;text-align:left" style-hover="background:rgba(0,0,0,0.0373)"><span style="width:16px;height:16px;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/plug_disconnected_20_regular.svg) center / contain no-repeat"></span>Dissocier…</button>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ a.noPhones }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:8px 8px 4px;color:#5D5D5D">Aucun téléphone n'est relié à cet album.</div>
+                </sc-if>
+                <button onClick="{{ a.addPhone }}" style="align-self:flex-start;margin-top:4px;height:32px;padding:0 8px;border:none;border-radius:4px;background:transparent;display:flex;align-items:center;gap:8px;font:inherit;color:#005FB8" style-hover="background:rgba(0,0,0,0.0373)"><span style="width:14px;height:14px;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/add_20_regular.svg) center / contain no-repeat"></span>Ajouter un téléphone à cet album</button>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ isHistory }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Historique" style="flex:1;min-height:0;overflow:auto;padding:20px 24px 40px">
+      <div style="max-width:1100px;display:flex;flex-direction:column;gap:16px">
+        <h1 style="margin:0;font-family:'Segoe UI Variable Display','Segoe UI',system-ui,sans-serif;font-size:28px;line-height:36px;font-weight:600">Historique</h1>
+        <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap">
+          <label style="display:flex;flex-direction:column;gap:6px"><span>Album</span>
+            <select value="{{ hAlbum }}" onChange="{{ setHAlbum }}" style="height:32px;min-width:180px;padding:0 32px 0 11px;border-radius:4px;border:1px solid #E5E5E5;border-bottom-color:#CCCCCC;background:#FDFDFD url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/chevron_down_20_regular.svg) no-repeat right 10px center / 12px;font:inherit;color:#1B1B1B;appearance:none">
+              <option value="all">Tous les albums</option><option value="marie">Marie</option><option value="paul">Paul</option><option value="jeanne">Jeanne</option>
+            </select></label>
+          <label style="display:flex;flex-direction:column;gap:6px"><span>Téléphone</span>
+            <select value="{{ hPhone }}" onChange="{{ setHPhone }}" style="height:32px;min-width:200px;padding:0 32px 0 11px;border-radius:4px;border:1px solid #E5E5E5;border-bottom-color:#CCCCCC;background:#FDFDFD url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/chevron_down_20_regular.svg) no-repeat right 10px center / 12px;font:inherit;color:#1B1B1B;appearance:none">
+              <option value="all">Tous les téléphones</option><option value="A35 de Marie">A35 de Marie</option><option value="Pixel 8 de Paul">Pixel 8 de Paul</option><option value="Redmi de Jeanne">Redmi de Jeanne</option>
+            </select></label>
+          <button onClick="{{ toggleHErr }}" style="height:32px;border:none;background:transparent;display:flex;align-items:center;gap:12px;padding:0 4px;font:inherit;color:#1B1B1B">
+            <span style="position:relative;width:40px;height:20px;border-radius:10px;flex:none;background:{{ tErr.bg }};border:1px solid {{ tErr.border }}"><span style="position:absolute;top:3px;left:{{ tErr.left }};width:12px;height:12px;border-radius:6px;background:{{ tErr.knob }};transition:left .15s"></span></span>Erreurs uniquement</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <sc-for list="{{ histGroups }}" as="hg" hint-placeholder-count="3">
+            <section style="display:flex;flex-direction:column;gap:4px">
+              <h2 style="margin:0 0 4px;font-size:14px;line-height:20px;font-weight:600">{{ hg.label }}</h2>
+              <sc-for list="{{ hg.rows }}" as="r" hint-placeholder-count="2">
+                <div style="display:grid;grid-template-columns:44px minmax(130px,200px) minmax(0,1fr) 72px;gap:16px;align-items:start;padding:12px 16px;border-radius:4px;background:{{ r.bg }};border:1px solid rgba(0,0,0,0.0578)">
+                  <span style="font-variant-numeric:tabular-nums;color:#5D5D5D">{{ r.time }}</span>
+                  <div style="min-width:0"><div style="font-weight:600">{{ r.phone }}</div><div style="font-size:12px;line-height:16px;color:#5D5D5D">Album {{ r.albumName }}</div></div>
+                  <div style="min-width:0;display:flex;gap:8px;align-items:flex-start">
+                    <span style="width:16px;height:16px;margin-top:2px;flex:none;background-color:{{ r.iconColor }};mask:url({{ r.icon }}) center / contain no-repeat"></span>
+                    <div style="min-width:0;display:flex;flex-direction:column;gap:2px">
+                      <div style="font-weight:{{ r.weight }};color:{{ r.color }}">{{ r.text }}</div>
+                      <sc-if value="{{ r.err }}" hint-placeholder-val="{{ false }}">
+                        <div style="color:#1B1B1B;text-wrap:pretty">{{ r.reason }}</div>
+                        <div style="font-size:12px;line-height:16px;color:#5D5D5D;text-wrap:pretty">Conseil : {{ r.advice }}</div>
+                        <sc-if value="{{ r.diag }}" hint-placeholder-val="{{ false }}"><a href="#" onClick="{{ goDiag }}" style="font-size:12px;line-height:16px;margin-top:2px">Ouvrir le diagnostic réseau</a></sc-if>
+                      </sc-if>
+                    </div>
+                  </div>
+                  <span style="justify-self:end;display:flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:4px;background:rgba(0,0,0,0.0373);font-size:12px;color:#1B1B1B"><span style="width:12px;height:12px;background-color:currentColor;mask:url({{ r.chIcon }}) center / contain no-repeat"></span>{{ r.ch }}</span>
+                </div>
+              </sc-for>
+            </section>
+          </sc-for>
+          <sc-if value="{{ histEmpty }}" hint-placeholder-val="{{ false }}"><p style="margin:0;color:#5D5D5D">Aucune session ne correspond à ces filtres.</p></sc-if>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Réglages" style="flex:1;min-height:0;overflow:auto;padding:20px 24px 40px">
+      <div style="max-width:1000px;display:flex;flex-direction:column;gap:4px">
+        <h1 style="margin:0 0 16px;font-family:'Segoe UI Variable Display','Segoe UI',system-ui,sans-serif;font-size:28px;line-height:36px;font-weight:600">Réglages</h1>
+
+        <h2 style="margin:8px 0 4px;font-size:14px;font-weight:600">Démarrage</h2>
+        <div style="display:flex;align-items:center;gap:16px;min-height:68px;padding:12px 16px;border-radius:4px;background:#FFFFFF;border:1px solid rgba(0,0,0,0.0578)">
+          <span style="width:20px;height:20px;flex:none;background-color:#1B1B1B;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/window_new_20_regular.svg) center / contain no-repeat"></span>
+          <div style="flex:1"><div>Lancer avec Windows</div><div style="font-size:12px;line-height:16px;color:#5D5D5D">L'app démarre réduite dans la zone de notification pour recevoir les photos.</div></div>
+          <button onClick="{{ tg.launch.toggle }}" style="border:none;background:transparent;display:flex;align-items:center;gap:12px;font:inherit;color:#1B1B1B;padding:0">{{ tg.launch.label }}<span style="position:relative;width:40px;height:20px;border-radius:10px;flex:none;background:{{ tg.launch.bg }};border:1px solid {{ tg.launch.border }}"><span style="position:absolute;top:3px;left:{{ tg.launch.left }};width:12px;height:12px;border-radius:6px;background:{{ tg.launch.knob }};transition:left .15s"></span></span></button>
+        </div>
+
+        <h2 style="margin:20px 0 4px;font-size:14px;font-weight:600">Notifications</h2>
+        <div style="border-radius:4px;background:#FFFFFF;border:1px solid rgba(0,0,0,0.0578)">
+          <div style="display:flex;align-items:center;gap:16px;min-height:68px;padding:12px 16px">
+            <span style="width:20px;height:20px;flex:none;background-color:#1B1B1B;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/alert_20_regular.svg) center / contain no-repeat"></span>
+            <div style="flex:1"><div>Me prévenir</div><div style="font-size:12px;line-height:16px;color:#5D5D5D">Choisissez les messages que Windows affiche.</div></div>
+          </div>
+          <div style="border-top:1px solid rgba(0,0,0,0.0578);padding:8px 16px 12px 52px;display:flex;flex-direction:column">
+            <sc-for list="{{ notifs }}" as="c" hint-placeholder-count="3">
+              <button onClick="{{ c.toggle }}" style="min-height:36px;border:none;background:transparent;display:flex;align-items:center;gap:12px;font:inherit;color:#1B1B1B;padding:0;text-align:left">
+                <span style="width:20px;height:20px;border-radius:4px;flex:none;display:flex;align-items:center;justify-content:center;background:{{ c.bg }};border:1px solid {{ c.border }}"><span style="width:12px;height:12px;background-color:{{ c.mark }};mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/checkmark_20_regular.svg) center / contain no-repeat"></span></span>{{ c.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+
+        <h2 style="margin:20px 0 4px;font-size:14px;font-weight:600">Réseau</h2>
+        <button onClick="{{ goDiag }}" style="display:flex;align-items:center;gap:16px;min-height:68px;padding:12px 16px;border-radius:4px;background:#FFFFFF;border:1px solid rgba(0,0,0,0.0578);font:inherit;color:#1B1B1B;text-align:left" style-hover="background:#F9F9F9">
+          <span style="width:20px;height:20px;flex:none;background-color:#1B1B1B;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/router_20_regular.svg) center / contain no-repeat"></span>
+          <div style="flex:1"><div>Diagnostic réseau</div><div style="font-size:12px;line-height:16px;color:#5D5D5D">Vérifier pourquoi un téléphone n'arrive pas à joindre ce PC.</div></div>
+          <sc-if value="{{ diagHasErr }}" hint-placeholder-val="{{ true }}"><span style="display:flex;align-items:center;gap:6px;color:#C42B1C;font-size:12px"><span style="width:14px;height:14px;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/error_circle_20_filled.svg) center / contain no-repeat"></span>{{ diagErrLabel }}</span></sc-if>
+          <span style="width:14px;height:14px;flex:none;background-color:#1B1B1B;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/chevron_right_20_regular.svg) center / contain no-repeat"></span>
+        </button>
+
+        <h2 style="margin:20px 0 4px;font-size:14px;font-weight:600">Mises à jour</h2>
+        <div style="display:flex;align-items:center;gap:16px;min-height:68px;padding:12px 16px;border-radius:4px;background:#FFFFFF;border:1px solid rgba(0,0,0,0.0578)">
+          <span style="width:20px;height:20px;flex:none;background-color:#1B1B1B;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/arrow_sync_20_regular.svg) center / contain no-repeat"></span>
+          <div style="flex:1"><div>Version 1.2.0</div><div style="font-size:12px;line-height:16px;color:#5D5D5D">{{ updText }}</div></div>
+          <sc-if value="{{ updChecking }}" hint-placeholder-val="{{ false }}">{{ spinner }}</sc-if>
+          <button onClick="{{ checkUpd }}" style="height:32px;padding:0 12px;border-radius:4px;border:1px solid #E5E5E5;border-bottom-color:#CCCCCC;background:#FDFDFD;font:inherit;color:#1B1B1B" style-hover="background:#F6F6F6" style-active="background:#F3F3F3;color:#5D5D5D">Rechercher une mise à jour</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;min-height:60px;padding:12px 16px 12px 52px;border-radius:4px;background:#FFFFFF;border:1px solid rgba(0,0,0,0.0578)">
+          <div style="flex:1"><div>Installer les mises à jour automatiquement</div></div>
+          <button onClick="{{ tg.auto.toggle }}" style="border:none;background:transparent;display:flex;align-items:center;gap:12px;font:inherit;color:#1B1B1B;padding:0">{{ tg.auto.label }}<span style="position:relative;width:40px;height:20px;border-radius:10px;flex:none;background:{{ tg.auto.bg }};border:1px solid {{ tg.auto.border }}"><span style="position:absolute;top:3px;left:{{ tg.auto.left }};width:12px;height:12px;border-radius:6px;background:{{ tg.auto.knob }};transition:left .15s"></span></span></button>
+        </div>
+
+        <h2 style="margin:20px 0 4px;font-size:14px;font-weight:600">Application Android</h2>
+        <div style="display:flex;align-items:center;gap:16px;min-height:68px;padding:12px 16px;border-radius:4px;background:#FFFFFF;border:1px solid rgba(0,0,0,0.0578)">
+          <span style="width:20px;height:20px;flex:none;background-color:#1B1B1B;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/phone_20_regular.svg) center / contain no-repeat"></span>
+          <div style="flex:1"><div>Mon Album PC pour Android</div><div style="font-size:12px;line-height:16px;color:#5D5D5D">Version fournie avec ce PC : 1.2.0</div></div>
+          <button onClick="{{ showApk }}" style="height:32px;padding:0 12px;border-radius:4px;border:1px solid #E5E5E5;border-bottom-color:#CCCCCC;background:#FDFDFD;font:inherit;color:#1B1B1B;display:flex;align-items:center;gap:8px" style-hover="background:#F6F6F6" style-active="background:#F3F3F3;color:#5D5D5D"><span style="width:16px;height:16px;flex:none;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/qr_code_20_regular.svg) center / contain no-repeat"></span>Afficher le QR code de téléchargement</button>
+        </div>
+
+        <h2 style="margin:20px 0 4px;font-size:14px;font-weight:600">À propos</h2>
+        <div style="display:flex;align-items:center;gap:16px;min-height:68px;padding:12px 16px;border-radius:4px;background:#FFFFFF;border:1px solid rgba(0,0,0,0.0578)">
+          <img src="assets/logo.jpg" alt="" style="width:20px;height:20px;border-radius:4px;object-fit:cover;transform:scale(1.2)">
+          <div style="flex:1"><div>Mon Album PC</div><div style="font-size:12px;line-height:16px;color:#5D5D5D">Logiciel libre, sous licence MIT.</div></div>
+          <a href="#" style="display:flex;align-items:center;gap:6px">Code source sur GitHub<span style="width:12px;height:12px;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/open_20_regular.svg) center / contain no-repeat"></span></a>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ isDiag }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Diagnostic réseau" style="flex:1;min-height:0;overflow:auto;padding:20px 24px 40px">
+      <div style="max-width:1000px;display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:12px;font-family:'Segoe UI Variable Display','Segoe UI',system-ui,sans-serif;font-size:28px;line-height:36px;font-weight:600">
+          <a href="#" onClick="{{ goSettings }}" style="color:#5D5D5D;text-decoration:none" style-hover="color:#1B1B1B">Réglages</a>
+          <span style="width:16px;height:16px;background-color:#5D5D5D;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/chevron_right_20_regular.svg) center / contain no-repeat"></span>
+          <h1 style="margin:0;font:inherit">Diagnostic réseau</h1>
+        </div>
+        <p style="margin:0 0 12px;color:#5D5D5D;max-width:680px;text-wrap:pretty">Ces vérifications expliquent pourquoi un téléphone n'arrive pas à envoyer ses photos à ce PC. Quand c'est possible, « Corriger » règle le problème pour vous (Windows peut demander une autorisation).</p>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:4px;background:{{ diagSum.bg }};border:1px solid rgba(0,0,0,0.0578)">
+          <span style="width:16px;height:16px;flex:none;background-color:{{ diagSum.color }};mask:url({{ diagSum.icon }}) center / contain no-repeat"></span>
+          <div style="flex:1"><strong style="font-weight:600">{{ diagSum.title }}</strong> {{ diagSum.text }}</div>
+          <button onClick="{{ rerunDiag }}" style="height:32px;padding:0 12px;border-radius:4px;border:1px solid #E5E5E5;border-bottom-color:#CCCCCC;background:#FDFDFD;font:inherit;color:#1B1B1B;display:flex;align-items:center;gap:8px" style-hover="background:#F6F6F6">Relancer les vérifications</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;margin-top:8px">
+          <sc-for list="{{ diagRows }}" as="d" hint-placeholder-count="5">
+            <div style="display:flex;align-items:center;gap:16px;min-height:72px;padding:12px 16px;border-radius:4px;background:#FFFFFF;border:1px solid rgba(0,0,0,0.0578)">
+              <span style="width:20px;height:20px;flex:none;background-color:{{ d.color }};mask:url({{ d.icon }}) center / contain no-repeat"></span>
+              <div style="flex:1;min-width:0"><div style="font-weight:600">{{ d.title }}</div><div style="color:#5D5D5D;text-wrap:pretty">{{ d.desc }}</div></div>
+              <span style="flex:none;font-size:12px;color:{{ d.color }};font-weight:600;min-width:64px;text-align:right">{{ d.status }}</span>
+              <sc-if value="{{ d.fixing }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:8px;color:#5D5D5D;min-width:110px">{{ spinner }}Correction…</span></sc-if>
+              <sc-if value="{{ d.canFix }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ d.fix }}" style="min-width:110px;height:32px;padding:0 12px;border-radius:4px;border:1px solid #005FB8;border-bottom-color:#003E92;background:#005FB8;color:#FFFFFF;font:inherit;text-align:left" style-hover="background:#1A6CC0" style-active="background:#3279C5">Corriger</button>
+              </sc-if>
+              <sc-if value="{{ d.canOpen }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ d.open }}" style="height:32px;padding:0 12px;border-radius:4px;border:1px solid #E5E5E5;border-bottom-color:#CCCCCC;background:#FDFDFD;font:inherit;color:#1B1B1B" style-hover="background:#F6F6F6">Ouvrir les paramètres VPN</button>
+              </sc-if>
+              <sc-if value="{{ d.noFix }}" hint-placeholder-val="{{ false }}">
+                <span style="font-size:12px;color:#5D5D5D;max-width:150px;line-height:16px">Pas de correction automatique</span>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+  </main>
+</div>
+
+<sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}"><div onClick="{{ closeMenu }}" style="position:absolute;inset:0;z-index:4"></div></sc-if>
+
+<sc-if value="{{ viewerOpen }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Plein écran" style="position:absolute;left:0;right:0;top:32px;bottom:0;z-index:20;background:#1C1C1C;color:#FFFFFF;display:flex;flex-direction:column">
+  <div style="height:48px;flex:none;display:flex;align-items:center;gap:4px;padding:0 8px">
+    <button onClick="{{ closeViewer }}" title="Retour (Échap)" style="width:40px;height:32px;border:none;border-radius:4px;background:transparent;display:flex;align-items:center;justify-content:center;color:#FFFFFF" style-hover="background:rgba(255,255,255,0.0605)"><span style="width:16px;height:16px;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/arrow_left_20_regular.svg) center / contain no-repeat"></span></button>
+    <div style="min-width:0;padding:0 8px"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.name }}</div><div style="font-size:12px;line-height:16px;color:rgba(255,255,255,0.72)">{{ v.date }} · {{ vCounter }}</div></div>
+    <div style="flex:1"></div>
+    <button onClick="{{ rotL }}" title="Faire pivoter à gauche" style="width:40px;height:32px;border:none;border-radius:4px;background:transparent;display:flex;align-items:center;justify-content:center;color:#FFFFFF" style-hover="background:rgba(255,255,255,0.0605)"><span style="width:16px;height:16px;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/arrow_counterclockwise_20_regular.svg) center / contain no-repeat"></span></button>
+    <button onClick="{{ rotR }}" title="Faire pivoter à droite" style="width:40px;height:32px;border:none;border-radius:4px;background:transparent;display:flex;align-items:center;justify-content:center;color:#FFFFFF" style-hover="background:rgba(255,255,255,0.0605)"><span style="width:16px;height:16px;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/arrow_clockwise_20_regular.svg) center / contain no-repeat"></span></button>
+    <button onClick="{{ askDelete }}" title="Supprimer (Suppr)" style="width:40px;height:32px;border:none;border-radius:4px;background:transparent;display:flex;align-items:center;justify-content:center;color:#FFFFFF" style-hover="background:rgba(255,255,255,0.0605)"><span style="width:16px;height:16px;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/delete_20_regular.svg) center / contain no-repeat"></span></button>
+    <button onClick="{{ openExplorer }}" title="Ouvrir dans l'Explorateur" style="width:40px;height:32px;border:none;border-radius:4px;background:transparent;display:flex;align-items:center;justify-content:center;color:#FFFFFF" style-hover="background:rgba(255,255,255,0.0605)"><span style="width:16px;height:16px;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/folder_open_20_regular.svg) center / contain no-repeat"></span></button>
+    <button onClick="{{ share }}" title="Partager" style="width:40px;height:32px;border:none;border-radius:4px;background:transparent;display:flex;align-items:center;justify-content:center;color:#FFFFFF" style-hover="background:rgba(255,255,255,0.0605)"><span style="width:16px;height:16px;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/share_20_regular.svg) center / contain no-repeat"></span></button>
+    <span style="width:1px;height:20px;margin:0 4px;background:rgba(255,255,255,0.0837)"></span>
+    <button onClick="{{ toggleInfo }}" title="Informations" style="width:40px;height:32px;border:none;border-radius:4px;background:{{ vInfoBg }};display:flex;align-items:center;justify-content:center;color:#FFFFFF" style-hover="background:rgba(255,255,255,0.0605)"><span style="width:16px;height:16px;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/info_20_regular.svg) center / contain no-repeat"></span></button>
+  </div>
+  <div style="flex:1;min-height:0;display:flex">
+    <div style="position:relative;flex:1;min-width:0;display:flex;align-items:center;justify-content:center;padding:16px 72px 24px">
+      <div style="position:relative;width:100%;height:100%;transform:rotate({{ v.rot }}deg);transition:transform .25s">
+        <image-slot id="{{ v.slot }}" shape="rect" fit="contain" placeholder="Photo en grand"></image-slot>
+      </div>
+      <sc-if value="{{ v.video }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:32px;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;pointer-events:none"><span style="width:26px;height:26px;margin-left:3px;background-color:#FFFFFF;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/play_20_filled.svg) center / contain no-repeat"></span></div>
+        <div style="position:absolute;left:72px;right:72px;bottom:24px;height:48px;display:flex;align-items:center;gap:12px;padding:0 12px;border-radius:8px;background:rgba(32,32,32,0.9);border:1px solid rgba(255,255,255,0.08)">
+          <span style="width:16px;height:16px;background-color:#FFFFFF;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/play_20_filled.svg) center / contain no-repeat"></span>
+          <span style="font-size:12px;font-variant-numeric:tabular-nums">0:00</span>
+          <div style="flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,0.3)"><div style="width:0%;height:4px;background:#60CDFF;border-radius:2px"></div></div>
+          <span style="font-size:12px;font-variant-numeric:tabular-nums">{{ v.dur }}</span>
+        </div>
+      </sc-if>
+      <button onClick="{{ vPrev }}" aria-label="Précédente" style="position:absolute;left:16px;top:50%;margin-top:-20px;width:40px;height:40px;border-radius:4px;border:1px solid rgba(255,255,255,0.08);background:rgba(50,50,50,0.8);display:flex;align-items:center;justify-content:center;color:#FFFFFF;opacity:{{ vPrevOp }}" style-hover="background:rgba(70,70,70,0.9)"><span style="width:16px;height:16px;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/chevron_left_20_regular.svg) center / contain no-repeat"></span></button>
+      <button onClick="{{ vNext }}" aria-label="Suivante" style="position:absolute;right:16px;top:50%;margin-top:-20px;width:40px;height:40px;border-radius:4px;border:1px solid rgba(255,255,255,0.08);background:rgba(50,50,50,0.8);display:flex;align-items:center;justify-content:center;color:#FFFFFF;opacity:{{ vNextOp }}" style-hover="background:rgba(70,70,70,0.9)"><span style="width:16px;height:16px;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/chevron_right_20_regular.svg) center / contain no-repeat"></span></button>
+    </div>
+    <sc-if value="{{ infoOpen }}" hint-placeholder-val="{{ true }}">
+      <aside style="width:288px;flex:none;background:#272727;border-left:1px solid rgba(255,255,255,0.06);padding:20px;display:flex;flex-direction:column;gap:14px">
+        <h3 style="margin:0;font-size:16px;line-height:22px;font-weight:600">Informations</h3>
+        <div><div style="font-size:12px;line-height:16px;color:rgba(255,255,255,0.72)">Prise de vue</div><div>{{ v.date }}</div></div>
+        <div><div style="font-size:12px;line-height:16px;color:rgba(255,255,255,0.72)">Téléphone d'origine</div><div>{{ v.phone }}</div></div>
+        <div><div style="font-size:12px;line-height:16px;color:rgba(255,255,255,0.72)">Dimensions · taille</div><div>{{ v.dims }} · {{ v.size }}</div></div>
+        <div><div style="font-size:12px;line-height:16px;color:rgba(255,255,255,0.72)">Album</div><div>{{ v.albumName }}</div></div>
+        <div style="height:120px;border-radius:8px;border:1px dashed rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;gap:6px;color:rgba(255,255,255,0.6);font-size:12px">Carte GPS · v2</div>
+      </aside>
+    </sc-if>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ dlgOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;z-index:30;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;padding:32px">
+  <div style="width:{{ dlgW }};max-width:100%;max-height:100%;display:flex;flex-direction:column;border-radius:8px;background:#FFFFFF;border:1px solid rgba(0,0,0,0.0578);box-shadow:0 32px 64px rgba(0,0,0,0.19),0 2px 21px rgba(0,0,0,0.15);overflow:hidden">
+
+    <sc-if value="{{ dlg.isDelete }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:24px;display:flex;flex-direction:column;gap:12px"><h2 style="margin:0;font-size:20px;line-height:28px;font-weight:600">{{ delTitle }}</h2><p style="margin:0;text-wrap:pretty">{{ delName }} sera placé dans la Corbeille de Windows. Vous pourrez le restaurer depuis la Corbeille.</p></div>
+      <div style="padding:24px;background:#F3F3F3;border-top:1px solid rgba(0,0,0,0.0578);display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button onClick="{{ confirmDelete }}" style="height:32px;padding:0 12px;border-radius:4px;border:1px solid #005FB8;border-bottom-color:#003E92;background:#005FB8;color:#FFFFFF;font:inherit" style-hover="background:#1A6CC0">Supprimer</button>
+        <button onClick="{{ closeDlg }}" style="height:32px;padding:0 12px;border-radius:4px;border:1px solid #E5E5E5;border-bottom-color:#CCCCCC;background:#FDFDFD;font:inherit;color:#1B1B1B" style-hover="background:#F6F6F6">Annuler</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ dlg.isUnlink }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:24px;display:flex;flex-direction:column;gap:12px"><h2 style="margin:0;font-size:20px;line-height:28px;font-weight:600">Dissocier {{ unlinkName }} ?</h2><p style="margin:0;text-wrap:pretty">Ce téléphone ne sera plus sauvegardé sur ce PC. Les photos déjà reçues restent dans le dossier de l'album. Pour le relier à nouveau, il faudra rescanner un QR code.</p></div>
+      <div style="padding:24px;background:#F3F3F3;border-top:1px solid rgba(0,0,0,0.0578);display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button onClick="{{ confirmUnlink }}" style="height:32px;padding:0 12px;border-radius:4px;border:1px solid #005FB8;border-bottom-color:#003E92;background:#005FB8;color:#FFFFFF;font:inherit" style-hover="background:#1A6CC0">Dissocier</button>
+        <button onClick="{{ closeDlg }}" style="height:32px;padding:0 12px;border-radius:4px;border:1px solid #E5E5E5;border-bottom-color:#CCCCCC;background:#FDFDFD;font:inherit;color:#1B1B1B" style-hover="background:#F6F6F6">Annuler</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ dlg.isApk }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:24px;display:flex;gap:24px;align-items:center">
+        <div style="width:180px;height:180px;flex:none;padding:10px;background:#FFFFFF;border:1px solid #E5E5E5;border-radius:8px">{{ qrApk }}</div>
+        <div style="display:flex;flex-direction:column;gap:8px"><h2 style="margin:0;font-size:20px;line-height:28px;font-weight:600">Installer l'app sur un téléphone</h2><p style="margin:0;text-wrap:pretty">Scannez ce code avec l'appareil photo du téléphone Android pour télécharger Mon Album PC (version 1.2.0).</p></div>
+      </div>
+      <div style="padding:24px;background:#F3F3F3;border-top:1px solid rgba(0,0,0,0.0578);display:flex;justify-content:flex-end"><button onClick="{{ closeDlg }}" style="min-width:120px;height:32px;padding:0 12px;border-radius:4px;border:1px solid #E5E5E5;border-bottom-color:#CCCCCC;background:#FDFDFD;font:inherit;color:#1B1B1B;text-align:left" style-hover="background:#F6F6F6">Fermer</button></div>
+    </sc-if>
+
+    <sc-if value="{{ dlg.isAlbum }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:24px;display:flex;flex-direction:column;gap:16px;overflow:auto">
+        <h2 style="margin:0;font-size:20px;line-height:28px;font-weight:600">{{ af.title }}</h2>
+        <label style="display:flex;flex-direction:column;gap:6px"><span>Nom de l'album</span>
+          <input value="{{ af.name }}" onChange="{{ af.setName }}" placeholder="Par exemple : Marie" style="height:32px;padding:0 11px;border-radius:4px;border:1px solid #E5E5E5;border-bottom:1px solid #868686;background:#FFFFFF;font:inherit;color:#1B1B1B;outline:none" style-focus="border-bottom:2px solid #005FB8"></label>
+        <div style="display:flex;flex-direction:column;gap:6px"><span>Dossier de destination</span>
+          <div style="display:flex;gap:8px"><div style="flex:1;min-width:0;height:32px;display:flex;align-items:center;padding:0 11px;border-radius:4px;border:1px solid #E5E5E5;background:#F9F9F9;font-family:'Cascadia Mono',Consolas,ui-monospace,monospace;font-size:13px;color:{{ af.folderColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ af.folderShown }}</div>
+          <button onClick="{{ af.browse }}" style="height:32px;padding:0 12px;border-radius:4px;border:1px solid #E5E5E5;border-bottom-color:#CCCCCC;background:#FDFDFD;font:inherit;color:#1B1B1B;display:flex;align-items:center;gap:8px" style-hover="background:#F6F6F6"><span style="width:16px;height:16px;flex:none;background-color:currentColor;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/folder_open_20_regular.svg) center / contain no-repeat"></span>Parcourir…</button></div>
+        </div>
+        <sc-if value="{{ af.hasFolder }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:12px 16px;border-radius:4px;background:#F6F6F6;border:1px solid rgba(0,0,0,0.0578)"><div style="font-size:12px;line-height:16px;color:#5D5D5D;margin-bottom:4px">Les photos seront rangées ainsi :</div><code style="font-family:'Cascadia Mono',Consolas,ui-monospace,monospace;font-size:13px;word-break:break-all">{{ af.preview }}</code></div>
+        </sc-if>
+        <sc-if value="{{ af.moved }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:12px;padding:12px 16px;border-radius:4px;background:#FFF4CE;border:1px solid rgba(0,0,0,0.0578)"><span style="width:16px;height:16px;margin-top:2px;flex:none;background-color:#9D5D00;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/warning_20_filled.svg) center / contain no-repeat"></span><div style="text-wrap:pretty">Les photos déjà importées restent dans <strong style="font-weight:600">{{ af.orig }}</strong>. Seules les prochaines photos iront dans le nouveau dossier.</div></div>
+        </sc-if>
+      </div>
+      <div style="padding:24px;background:#F3F3F3;border-top:1px solid rgba(0,0,0,0.0578);display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button onClick="{{ af.save }}" disabled="{{ af.invalid }}" style="height:32px;padding:0 12px;border-radius:4px;border:1px solid #005FB8;border-bottom-color:#003E92;background:#005FB8;color:#FFFFFF;font:inherit;opacity:{{ af.saveOp }}" style-hover="background:#1A6CC0">{{ af.saveLabel }}</button>
+        <button onClick="{{ closeDlg }}" style="height:32px;padding:0 12px;border-radius:4px;border:1px solid #E5E5E5;border-bottom-color:#CCCCCC;background:#FDFDFD;font:inherit;color:#1B1B1B" style-hover="background:#F6F6F6">Annuler</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ dlg.isWizard }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Assistant — Ajouter un téléphone" style="padding:24px 24px 8px;display:flex;align-items:center;gap:12px">
+        <h2 style="margin:0;flex:1;font-size:20px;line-height:28px;font-weight:600">Ajouter un téléphone</h2>
+        <sc-if value="{{ wz.showSteps }}" hint-placeholder-val="{{ true }}"><span style="font-size:12px;color:#5D5D5D">Étape {{ wz.stepNum }} sur 3</span></sc-if>
+      </div>
+      <div style="padding:8px 24px 24px;min-height:360px;display:flex;flex-direction:column;overflow:auto">
+
+        <sc-if value="{{ wz.s1 }}" hint-placeholder-val="{{ true }}">
+          <p style="margin:0 0 16px;color:#5D5D5D">Pour quel album ? Les photos de ce téléphone seront rangées dans son dossier.</p>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <sc-for list="{{ wz.albums }}" as="o" hint-placeholder-count="3">
+              <button onClick="{{ o.pick }}" style="display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 16px;border-radius:4px;background:{{ o.bg }};border:1px solid {{ o.border }};font:inherit;color:#1B1B1B;text-align:left" style-hover="background:#F6F6F6">
+                <span style="width:20px;height:20px;border-radius:10px;flex:none;border:{{ o.ring }};background:#FFFFFF"></span>
+                <span style="width:32px;height:32px;border-radius:16px;flex:none;background:{{ o.color }};color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-weight:600">{{ o.initial }}</span>
+                <span style="flex:1;min-width:0"><span style="display:block;font-weight:600">{{ o.name }}</span><span style="display:block;font-size:12px;line-height:16px;color:#5D5D5D">{{ o.meta }}</span></span>
+              </button>
+            </sc-for>
+            <button onClick="{{ wz.pickNew }}" style="display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 16px;border-radius:4px;background:{{ wz.newBg }};border:1px solid {{ wz.newBorder }};font:inherit;color:#1B1B1B;text-align:left" style-hover="background:#F6F6F6">
+              <span style="width:20px;height:20px;border-radius:10px;flex:none;border:{{ wz.newRing }};background:#FFFFFF"></span>
+              <span style="width:32px;height:32px;border-radius:16px;flex:none;background:#F3F3F3;display:flex;align-items:center;justify-content:center"><span style="width:16px;height:16px;background-color:#1B1B1B;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/add_20_regular.svg) center / contain no-repeat"></span></span>
+              <span style="flex:1;font-weight:600">Créer un nouvel album</span>
+            </button>
+            <sc-if value="{{ wz.isNew }}" hint-placeholder-val="{{ false }}">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px 0 0 32px">
+                <label style="display:flex;flex-direction:column;gap:6px"><span>Nom</span><input value="{{ wz.newName }}" onChange="{{ wz.setNewName }}" placeholder="Par exemple : Lucas" style="height:32px;padding:0 11px;border-radius:4px;border:1px solid #E5E5E5;border-bottom:1px solid #868686;background:#FFFFFF;font:inherit;color:#1B1B1B;outline:none" style-focus="border-bottom:2px solid #005FB8"></label>
+                <div style="display:flex;flex-direction:column;gap:6px"><span>Dossier</span><div style="height:32px;display:flex;align-items:center;padding:0 11px;border-radius:4px;border:1px solid #E5E5E5;background:#F9F9F9;font-family:'Cascadia Mono',Consolas,ui-monospace,monospace;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ wz.newFolder }}</div></div>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ wz.s2 }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:16px">
+            <div style="width:232px;height:232px;padding:14px;background:#FFFFFF;border:1px solid #E5E5E5;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.06)">{{ qr }}</div>
+            <div style="display:flex;align-items:center;gap:12px;font-size:12px;color:#5D5D5D"><span style="font-variant-numeric:tabular-nums">Code valable encore {{ wz.countdown }}</span><span>·</span><a href="#" onClick="{{ wz.regen }}">Générer un nouveau code</a></div>
+            <div style="align-self:stretch;display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px">
+              <div style="display:flex;gap:12px;padding:12px 16px;border-radius:4px;background:#F9F9F9;border:1px solid rgba(0,0,0,0.0578)"><span style="width:20px;height:20px;margin-top:2px;flex:none;background-color:#005FB8;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/phone_checkmark_20_regular.svg) center / contain no-repeat"></span><div><div style="font-weight:600">L'app est installée</div><div style="color:#5D5D5D;text-wrap:pretty">Ouvrez Mon Album PC sur le téléphone et scannez ce code.</div></div></div>
+              <div style="display:flex;gap:12px;padding:12px 16px;border-radius:4px;background:#F9F9F9;border:1px solid rgba(0,0,0,0.0578)"><span style="width:20px;height:20px;margin-top:2px;flex:none;background-color:#005FB8;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/arrow_download_20_regular.svg) center / contain no-repeat"></span><div><div style="font-weight:600">L'app n'est pas installée</div><div style="color:#5D5D5D;text-wrap:pretty">Scannez avec l'appareil photo du téléphone pour la télécharger.</div></div></div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ wz.s3 }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center">
+            {{ waitDots }}
+            <div style="font-size:16px;font-weight:600">Le téléphone a scanné le code</div>
+            <div style="color:#5D5D5D;max-width:380px">Connexion avec le téléphone… Gardez l'app ouverte sur le téléphone quelques secondes.</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ wz.s4 }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center">
+            <span style="width:56px;height:56px;background-color:#0F7B0F;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/checkmark_circle_20_filled.svg) center / contain no-repeat"></span>
+            <div style="font-size:16px;font-weight:600;max-width:420px;text-wrap:pretty">{{ wz.successText }}</div>
+            <div style="color:#5D5D5D">La première sauvegarde va commencer. Vous pouvez fermer cette fenêtre.</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ wz.hasError }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center">
+            <span style="width:48px;height:48px;background-color:{{ wz.errColor }};mask:url({{ wz.errIcon }}) center / contain no-repeat"></span>
+            <div style="font-size:16px;font-weight:600">{{ wz.errTitle }}</div>
+            <div style="color:#5D5D5D;max-width:440px;text-wrap:pretty">{{ wz.errText }}</div>
+          </div>
+        </sc-if>
+      </div>
+      <div style="padding:24px;background:#F3F3F3;border-top:1px solid rgba(0,0,0,0.0578);display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <sc-if value="{{ wz.hasPrimary }}" hint-placeholder-val="{{ true }}">
+          <button onClick="{{ wz.primary }}" disabled="{{ wz.primaryDisabled }}" style="height:32px;padding:0 12px;border-radius:4px;border:1px solid #005FB8;border-bottom-color:#003E92;background:#005FB8;color:#FFFFFF;font:inherit;opacity:{{ wz.primaryOp }}" style-hover="background:#1A6CC0">{{ wz.primaryLabel }}</button>
+        </sc-if>
+        <sc-if value="{{ wz.noPrimary }}" hint-placeholder-val="{{ false }}"><span></span></sc-if>
+        <button onClick="{{ wz.secondary }}" style="height:32px;padding:0 12px;border-radius:4px;border:1px solid #E5E5E5;border-bottom-color:#CCCCCC;background:#FDFDFD;font:inherit;color:#1B1B1B" style-hover="background:#F6F6F6">{{ wz.secondaryLabel }}</button>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+  <div style="position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:40;display:flex;align-items:center;gap:12px;max-width:560px;padding:10px 12px 10px 16px;border-radius:8px;background:#FCFCFC;border:1px solid rgba(0,0,0,0.0578);box-shadow:0 8px 16px rgba(0,0,0,0.14)">
+    <span style="width:16px;height:16px;flex:none;background-color:#005FB8;mask:url(https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/info_20_filled.svg) center / contain no-repeat"></span>
+    <span style="flex:1;min-width:0;word-break:break-word">{{ toast.text }}</span>
+    <sc-if value="{{ toast.undo }}" hint-placeholder-val="{{ false }}"><button onClick="{{ undoDelete }}" style="height:28px;padding:0 10px;border-radius:4px;border:1px solid #E5E5E5;border-bottom-color:#CCCCCC;background:#FDFDFD;font:inherit;color:#1B1B1B" style-hover="background:#F6F6F6">Annuler</button></sc-if>
+  </div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;photosState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;normal&quot;,&quot;vide&quot;,&quot;indexation&quot;],&quot;default&quot;:&quot;normal&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;États&quot;},&quot;destinationOffline&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;États&quot;},&quot;syncState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;à jour&quot;,&quot;réception&quot;],&quot;default&quot;:&quot;réception&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;États&quot;},&quot;wizardOutcome&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;succès&quot;,&quot;code expiré&quot;,&quot;injoignable&quot;,&quot;réseau bloqué&quot;],&quot;default&quot;:&quot;succès&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Assistant&quot;},&quot;fillMode&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Miniatures&quot;}}">
+const ICB='https://cdn.jsdelivr.net/npm/@fluentui/svg-icons/icons/';
+const ic=(n,v)=>ICB+n+'_20_'+(v||'regular')+'.svg';
+const MONTHS=[{key:'2026-10',label:'Octobre 2026',short:'octobre',n:16,top:17},{key:'2026-09',label:'Septembre 2026',short:'septembre',n:12,top:29},{key:'2026-08',label:'Août 2026',short:'août',n:10,top:30}];
+const ALBUMS0=[
+ {id:'marie',name:'Marie',folder:'D:\\Photos\\Marie',color:'#005FB8',photos:'4 812',phones:[{id:'p1',name:'A35 de Marie',model:'Samsung Galaxy A35',last:'il y a 2 h',old:false,count:'4 812'}]},
+ {id:'paul',name:'Paul',folder:'D:\\Photos\\Paul',color:'#8764B8',photos:'2 307',phones:[{id:'p2',name:'Pixel 8 de Paul',model:'Google Pixel 8',last:'il y a 9 jours',old:true,count:'2 307'}]},
+ {id:'jeanne',name:'Jeanne',folder:'E:\\Famille\\Jeanne',color:'#CA5010',photos:'918',phones:[{id:'p3',name:'Redmi de Jeanne',model:'Xiaomi Redmi Note 13',last:'hier',old:false,count:'918'}]},
+ {id:'lucas',name:'Lucas',folder:'D:\\Photos\\Lucas',color:'#038387',photos:'0',phones:[]}
+];
+const PH={marie:'A35 de Marie',paul:'Pixel 8 de Paul',jeanne:'Redmi de Jeanne'};
+const CYC=['marie','paul','marie','jeanne','marie','paul','jeanne'];
+const PHOTOS=(()=>{const out=[];let i=0;MONTHS.forEach(m=>{for(let k=0;k<m.n;k++){i++;const album=CYC[i%7];const video=i%6===4;const day=Math.max(1,m.top-Math.floor(k*1.7));const hh=String(8+(i*5)%13).padStart(2,'0'),mm=String((i*17)%60).padStart(2,'0');const dd=String(day).padStart(2,'0');
+ out.push({id:'ph'+i,slot:'mapc-thumb-'+i,month:m.key,album,video,dur:video?'0:'+String(12+(i*7)%47).padStart(2,'0'):'',date:day+' '+m.short+' 2026 à '+hh+':'+mm,phone:PH[album],size:video?(14+i%30)+' Mo':(2+(i%5)*0.6).toFixed(1).replace('.',',')+' Mo',dims:video?'1920 × 1080':(i%3===0?'3000 × 4000':'4000 × 3000'),name:(video?'VID_':'IMG_')+m.key.replace('-','')+dd+'_'+hh+mm+'.'+(video?'mp4':'jpg')})}});return out})();
+const HIST=[
+ {g:"Aujourd'hui · dimanche 18 octobre",time:'09:14',phone:'A35 de Marie',album:'marie',text:'8 photos',ch:'Wi-Fi'},
+ {g:"Aujourd'hui · dimanche 18 octobre",time:'08:02',phone:'Redmi de Jeanne',album:'jeanne',text:'3 photos, 1 vidéo',ch:'Wi-Fi'},
+ {g:'Hier · samedi 17 octobre',time:'21:47',phone:'A35 de Marie',album:'marie',text:'Sauvegarde échouée',ch:'Wi-Fi',err:true,reason:'Le dossier D:\\Photos\\Marie était introuvable.',advice:'vérifiez que le disque externe est branché. Le téléphone réessaiera automatiquement.'},
+ {g:'Hier · samedi 17 octobre',time:'16:20',phone:'Redmi de Jeanne',album:'jeanne',text:'340 photos et vidéos',ch:'USB'},
+ {g:'Mercredi 14 octobre',time:'18:32',phone:'A35 de Marie',album:'marie',text:'52 photos, 3 vidéos',ch:'Wi-Fi'},
+ {g:'Mercredi 14 octobre',time:'12:05',phone:'Pixel 8 de Paul',album:'paul',text:'Interrompue à 31 sur 120',ch:'Wi-Fi',err:true,reason:'La connexion Wi-Fi a été perdue pendant le transfert.',advice:'rien à faire : le transfert reprendra quand le téléphone retrouvera le Wi-Fi de la maison.'},
+ {g:'Vendredi 9 octobre',time:'20:11',phone:'Pixel 8 de Paul',album:'paul',text:'120 photos, 6 vidéos',ch:'Wi-Fi'},
+ {g:'Vendredi 9 octobre',time:'10:40',phone:'A35 de Marie',album:'marie',text:'Sauvegarde échouée',ch:'Wi-Fi',err:true,reason:'Le PC a refusé la connexion du téléphone.',advice:'le pare-feu de Windows bloque peut-être l\'app.',diag:true},
+ {g:'Vendredi 9 octobre',time:'09:58',phone:'A35 de Marie',album:'marie',text:'340 photos et vidéos',ch:'USB'}
+];
+const DIAG={
+ profile:{err:['Le réseau Windows est en mode « Public »','Dans ce mode, Windows rend le PC invisible aux autres appareils : les téléphones ne peuvent pas le trouver.'],ok:['Le réseau « Livebox-4F2A » est en mode « Privé »','Les téléphones peuvent trouver ce PC.'],fix:true},
+ fw:{err:['La règle du pare-feu est absente','Le pare-feu de Windows bloque les photos envoyées par les téléphones. Mon Album PC a besoin d\'une autorisation pour les recevoir.'],ok:['Le pare-feu autorise Mon Album PC','Les téléphones peuvent envoyer leurs photos (port 53317).'],fix:true},
+ vpn:{warn:['Un VPN est actif','Un VPN fait passer la connexion par un autre réseau : les téléphones de la maison risquent de ne plus joindre le PC. Désactivez-le pendant les sauvegardes.'],ok:['Aucun VPN actif',''],open:true},
+ guest:{warn:['Le Wi-Fi semble être un réseau « invité »','Les Wi-Fi invités empêchent les appareils de se voir entre eux. Connectez le PC et les téléphones au Wi-Fi principal de la box.'],nofix:true},
+ link:{ok:['Le PC est connecté au réseau','Wi-Fi « Livebox-4F2A », adresse 192.168.1.24.']}
+};
+const ST={ok:{icon:ic('checkmark_circle','filled'),color:'#0F7B0F',label:'OK'},warn:{icon:ic('warning','filled'),color:'#9D5D00',label:'Attention'},err:{icon:ic('error_circle','filled'),color:'#C42B1C',label:'Erreur'}};
+const OUTCOME_ERR={expired:{t:'Ce code a expiré',x:'Pour votre sécurité, un code n\'est valable que 5 minutes. Générez-en un nouveau et scannez-le.',c:'#9D5D00',i:ic('warning','filled')},unreachable:{t:'Le téléphone ne répond pas',x:'Vérifiez qu\'il est allumé, connecté au même Wi-Fi que ce PC, et que l\'app Mon Album PC est ouverte, puis réessayez.',c:'#C42B1C',i:ic('error_circle','filled')},blocked:{t:'Le réseau empêche le téléphone de joindre ce PC',x:'Le téléphone a bien scanné le code, mais la connexion est bloquée. Le diagnostic réseau peut trouver la cause et la corriger.',c:'#C42B1C',i:ic('shield_error','regular')}};
+const tog=(on,label)=>({bg:on?'#005FB8':'transparent',border:on?'#005FB8':'rgba(0,0,0,0.6)',knob:on?'#FFFFFF':'rgba(0,0,0,0.62)',left:on?'23px':'3px',label:label?(on?'Activé':'Désactivé'):''});
+function mkQR(seed){const N=25,cells=[];let s=seed;const r=()=>{s=(s*9301+49297)%233280;return s/233280};
+ const finder=(x,y)=>{const dx=x<7?x:(x>=N-7?x-(N-7):-1),dy=y<7?y:(y>=N-7?y-(N-7):-1);return dx>=0&&dy>=0&&!(x>=N-7&&y>=N-7)?[dx,dy]:null};
+ for(let y=0;y<N;y++)for(let x=0;x<N;x++){const f=finder(x,y);let on;if(f){const[a,b]=f;on=a===0||a===6||b===0||b===6||(a>=2&&a<=4&&b>=2&&b<=4)}else if((x===7||y===7||x===N-8&&y<8||y===N-8&&x<8)&&(x<8||y<8)){on=false}else on=r()>0.52;
+ if(on)cells.push(React.createElement('rect',{key:x+'-'+y,x,y,width:1.02,height:1.02}))}
+ return React.createElement('svg',{viewBox:'0 0 25 25',width:'100%',height:'100%',fill:'#1B1B1B',shapeRendering:'crispEdges'},cells)}
+
+class Component extends DCLogic {
+  state={page:'photos',navCompact:null,vw:window.innerWidth,albumFilter:'all',monthFilter:null,thumb:150,selected:'ph1',viewer:null,infoOpen:true,rot:{},deleted:{},lastDeleted:null,
+    albums:JSON.parse(JSON.stringify(ALBUMS0)),dlg:null,af:null,unlink:null,wiz:null,toast:null,tip:null,menu:null,offlineHidden:false,
+    hAlbum:'all',hPhone:'all',hErrors:false,set:{launch:true,nEnd:true,nErr:true,nUsb:true,auto:true},upd:'idle',
+    diag:{profile:'err',fw:'err',vpn:'warn',guest:'warn',link:'ok'},fixing:null,syncN:12,qrSeed:7};
+  componentDidMount(){
+    this._key=e=>this.onKey(e);window.addEventListener('keydown',this._key);
+    this._t=setInterval(()=>this.tick(),1000);
+    this._rs=()=>this.setState({vw:window.innerWidth});window.addEventListener('resize',this._rs);
+  }
+  componentWillUnmount(){window.removeEventListener('resize',this._rs);window.removeEventListener('keydown',this._key);clearInterval(this._t);clearTimeout(this._toastT)}
+  flash(text,undo){clearTimeout(this._toastT);this.setState({toast:{text,undo:!!undo}});this._toastT=setTimeout(()=>this.setState({toast:null}),4000)}
+  outcome(){return this.props.wizardOutcome??'succès'}
+  tick(){
+    const s=this.state;
+    if((this.props.syncState??'réception')==='réception')this.setState({syncN:s.syncN>=52?1:s.syncN+1});
+    const w=s.wiz;if(!w||w.error)return;
+    const el=(Date.now()-w.t)/1000;
+    if(w.step===2){const secs=w.secs-1;
+      if(secs<=0)return this.setState({wiz:{...w,secs:0,error:'expired'}});
+      if((this.outcome()!=='code expiré'||w.regen)&&el>=7)return this.setState({wiz:{...w,step:3,t:Date.now()}});
+      this.setState({wiz:{...w,secs}})}
+    else if(w.step===3&&el>=3){const o=this.outcome();
+      if(o==='injoignable')return this.setState({wiz:{...w,error:'unreachable'}});
+      if(o==='réseau bloqué')return this.setState({wiz:{...w,error:'blocked'}});
+      this.finishWizard()}
+  }
+  finishWizard(){const w=this.state.wiz;let albums=this.state.albums.map(a=>({...a,phones:[...a.phones]}));let alb;
+    if(w.album==='__new'){const nm=w.newName.trim();alb={id:'a'+Date.now(),name:nm,folder:'D:\\Photos\\'+nm,color:'#C239B3',photos:'0',phones:[]};albums.push(alb)}else alb=albums.find(a=>a.id===w.album);
+    const phone={id:'p'+Date.now(),name:'A55 de '+alb.name,model:'Samsung Galaxy A55',last:'à l\'instant',old:false,count:'0'};alb.phones.push(phone);
+    this.setState({albums,wiz:{...w,step:4,phoneName:phone.name,albumName:alb.name}})}
+  filtered(){const s=this.state;return PHOTOS.filter(p=>!s.deleted[p.id]&&(s.albumFilter==='all'||p.album===s.albumFilter)&&(!s.monthFilter||p.month===s.monthFilter))}
+  onKey(e){const s=this.state;
+    if(s.viewer!==null&&!s.dlg){if(e.key==='ArrowRight')this.step(1);else if(e.key==='ArrowLeft')this.step(-1);else if(e.key==='Escape')this.setState({viewer:null});else if(e.key==='Delete')this.askDelete();return}
+    if(s.dlg&&e.key==='Escape'){this.setState({dlg:null,wiz:null});return}
+    if(s.page==='photos'&&!s.dlg&&e.target.tagName!=='INPUT'){const list=this.filtered();const i=list.findIndex(p=>p.id===s.selected);
+      if(e.key==='Enter'&&i>=0)this.setState({viewer:i});
+      else if(e.key==='ArrowRight'&&i<list.length-1)this.setState({selected:list[i+1].id});
+      else if(e.key==='ArrowLeft'&&i>0)this.setState({selected:list[i-1].id});
+      else if(e.key==='Delete'&&i>=0)this.askDelete()}}
+  step(d){const n=this.filtered().length;this.setState(s=>{const v=Math.max(0,Math.min(n-1,s.viewer+d));return{viewer:v,selected:this.filtered()[v].id}})}
+  currentId(){const s=this.state;if(s.viewer!==null){const p=this.filtered()[s.viewer];return p&&p.id}return s.selected}
+  askDelete(){if(this.currentId())this.setState({dlg:'delete'})}
+  rotate(d){const id=this.currentId();if(!id)return;this.setState(s=>({rot:{...s.rot,[id]:(s.rot[id]||0)+d}}))}
+  openWizard(albumId){this.setState({dlg:'wizard',viewer:null,wiz:{step:1,album:albumId||this.state.albums[0].id,newName:'',secs:300,t:Date.now(),error:null}})}
+  albumForm(a){this.setState({dlg:'album',af:a?{mode:'edit',id:a.id,name:a.name,folder:a.folder,orig:a.folder}:{mode:'new',name:'',folder:'',orig:''}})}
+
+  renderVals(){
+    const s=this.state,p=this.props;
+    const pstate=p.photosState??'normal',offline=!!(p.destinationOffline??false)&&!s.offlineHidden,sync=(p.syncState??'réception')==='réception';
+    const fill=!!(p.fillMode??false);
+    const vw=Math.max(1024,s.vw),compact=s.navCompact??(vw<1280),narrow=vw<1360;
+    const center=vw-(compact?48:272)-(pstate==='vide'?0:(narrow?184:216))-(s.infoOpen&&pstate!=='vide'?(narrow?248:288):0)-50;
+    const albName=id=>(s.albums.find(a=>a.id===id)||{}).name||id;
+    const albFolder=id=>(s.albums.find(a=>a.id===id)||{}).folder||'';
+    const go=page=>()=>this.setState({page,viewer:null});
+    const navTop=[['photos','Photos',ic('image_multiple')],['albums','Albums et téléphones',ic('phone')],['history','Historique',ic('history')]].map(([k,l,i])=>({key:k,label:l,icon:i,sel:s.page===k,bg:s.page===k?'rgba(0,0,0,0.0373)':'transparent',go:go(k)}));
+    const setSel=s.page==='settings'||s.page==='diag';
+
+    const live=PHOTOS.filter(x=>!s.deleted[x.id]);
+    const inAlb=live.filter(x=>s.albumFilter==='all'||x.album===s.albumFilter);
+    const filterAlbums=[{id:'all',label:'Tous les albums',color:'#8A8A8A'},...s.albums.filter(a=>a.id!=='lucas'||true).map(a=>({id:a.id,label:a.name,color:a.color}))].map(f=>({...f,count:f.id==='all'?live.length:live.filter(x=>x.album===f.id).length,sel:s.albumFilter===f.id,bg:s.albumFilter===f.id?'rgba(0,0,0,0.0373)':'transparent',go:()=>this.setState({albumFilter:f.id,selected:null})}));
+    const filterMonths=MONTHS.map(m=>({label:m.short[0].toUpperCase()+m.short.slice(1),count:inAlb.filter(x=>x.month===m.key).length,sel:s.monthFilter===m.key,bg:s.monthFilter===m.key?'rgba(0,0,0,0.0373)':'transparent',go:()=>this.setState({monthFilter:m.key,selected:null})}));
+    const list=this.filtered();
+    const groups=MONTHS.map(m=>{const items=list.filter(x=>x.month===m.key).map(x=>({...x,rot:s.rot[x.id]||0,sel:s.selected===x.id,overlay:!fill,select:()=>this.setState({selected:x.id}),open:()=>this.setState({selected:x.id,viewer:list.indexOf(x)})}));return{label:m.label,count:items.length+' élément'+(items.length>1?'s':''),items}}).filter(g=>g.items.length);
+    const selP=list.find(x=>x.id===s.selected);
+    const cap=[s.albumFilter==='all'?'Tous les albums':albName(s.albumFilter),s.monthFilter?MONTHS.find(m=>m.key===s.monthFilter).label:null,list.length+' éléments'].filter(Boolean).join(' · ');
+    const pathOf=x=>albFolder(x.album)+'\\2026\\'+x.month+'\\';
+    const vItem=s.viewer!==null?list[s.viewer]:null;
+    const cur=list.find(x=>x.id===this.currentId());
+
+    const albumCards=s.albums.map(a=>({...a,initial:a.name[0],meta:a.photos+' photos · '+(a.phones.length?a.phones.length+' téléphone'+(a.phones.length>1?'s':''):'aucun téléphone'),noPhones:!a.phones.length,cannotDelete:a.phones.length>0,delOpacity:a.phones.length?0.4:1,tipShow:s.tip===a.id&&a.phones.length>0,
+      tipOn:()=>this.setState({tip:a.id}),tipOff:()=>this.setState({tip:null}),edit:()=>this.albumForm(a),
+      del:()=>{if(a.phones.length)return;this.setState(st=>({albums:st.albums.filter(b=>b.id!==a.id)}));this.flash('Album '+a.name+' supprimé. Le dossier et ses photos sont conservés.')},
+      openFolder:()=>this.flash('Ouvert dans l\'Explorateur : '+a.folder),addPhone:()=>this.openWizard(a.id),
+      phones:a.phones.map(ph=>({...ph,lastColor:ph.old?'#9D5D00':'#1B1B1B',lastWeight:ph.old?600:400,menuOpen:s.menu===ph.id,menu:()=>this.setState({menu:s.menu===ph.id?null:ph.id}),unlink:()=>this.setState({menu:null,dlg:'unlink',unlink:{album:a.id,phone:ph.id,name:ph.name}})}))}));
+
+    const hRows=HIST.filter(h=>(s.hAlbum==='all'||h.album===s.hAlbum)&&(s.hPhone==='all'||h.phone===s.hPhone)&&(!s.hErrors||h.err));
+    const histGroups=[];hRows.forEach(h=>{let g=histGroups.find(x=>x.label===h.g);if(!g){g={label:h.g,rows:[]};histGroups.push(g)}
+      g.rows.push({...h,albumName:albName(h.album),err:!!h.err,diag:!!h.diag,bg:h.err?'#FDE7E9':'#FFFFFF',icon:h.err?ic('error_circle','filled'):ic('checkmark_circle','filled'),iconColor:h.err?'#C42B1C':'#0F7B0F',color:h.err?'#C42B1C':'#1B1B1B',weight:h.err?600:400,chIcon:h.ch==='USB'?ic('usb_stick'):ic('wifi_1')})});
+
+    const fix=k=>()=>{this.setState({fixing:k});setTimeout(()=>this.setState(st=>({fixing:null,diag:{...st.diag,[k]:'ok'}})),1300)};
+    const diagRows=Object.keys(DIAG).map(k=>{const st=s.diag[k],m=DIAG[k],txt=m[st]||m.ok,fixing=s.fixing===k;return{title:txt[0],desc:txt[1],icon:ST[st].icon,color:ST[st].color,status:ST[st].label,fixing,canFix:!!m.fix&&st!=='ok'&&!fixing,canOpen:!!m.open&&st!=='ok',noFix:!!m.nofix&&st!=='ok',fix:fix(k),open:()=>this.flash('Paramètres VPN de Windows ouverts.')}});
+    const nErr=Object.values(s.diag).filter(v=>v==='err').length,nWarn=Object.values(s.diag).filter(v=>v==='warn').length;
+    const diagSum=nErr?{bg:'#FDE7E9',color:'#C42B1C',icon:ic('error_circle','filled'),title:nErr+' problème'+(nErr>1?'s empêchent':' empêche')+' les téléphones de joindre ce PC.',text:''}:nWarn?{bg:'#FFF4CE',color:'#9D5D00',icon:ic('warning','filled'),title:'Plus de blocage détecté.',text:nWarn+' point'+(nWarn>1?'s méritent':' mérite')+' encore votre attention.'}:{bg:'#DFF6DD',color:'#0F7B0F',icon:ic('checkmark_circle','filled'),title:'Tout est en ordre.',text:'Les téléphones peuvent joindre ce PC.'};
+
+    const af=s.af||{};const afFolder=af.folder||'';
+    const w=s.wiz;let wz={};
+    if(w){const step=w.error?0:w.step;const err=w.error&&OUTCOME_ERR[w.error];const newFolder='D:\\Photos\\'+(w.newName.trim()||'…');
+      const canNext=w.album!=='__new'||w.newName.trim().length>0;
+      const prim=w.error==='expired'?['Générer un nouveau code',()=>this.setState({wiz:{...w,step:2,error:null,secs:300,t:Date.now(),regen:true},qrSeed:s.qrSeed+11})]:
+        w.error==='unreachable'?['Réessayer',()=>this.setState({wiz:{...w,step:2,error:null,secs:300,t:Date.now()},qrSeed:s.qrSeed+5})]:
+        w.error==='blocked'?['Ouvrir le diagnostic réseau',()=>this.setState({dlg:null,wiz:null,page:'diag'})]:
+        step===1?['Suivant',()=>canNext&&this.setState({wiz:{...w,step:2,t:Date.now(),secs:this.outcome()==='code expiré'?10:300}})]:
+        step===4?['Terminer',()=>this.setState({dlg:null,wiz:null,page:'albums'})]:null;
+      wz={stepNum:Math.min(step||w.step,3),showSteps:!w.error&&w.step<4,s1:step===1,s2:step===2,s3:step===3,s4:step===4,hasError:!!err,errTitle:err&&err.t,errText:err&&err.x,errColor:err&&err.c,errIcon:err&&err.i,
+        albums:s.albums.map(a=>({...a,initial:a.name[0],meta:a.folder+' · '+(a.phones.length||'aucun')+' téléphone'+(a.phones.length>1?'s':''),pick:()=>this.setState({wiz:{...w,album:a.id}}),bg:w.album===a.id?'#F3F8FC':'#FFFFFF',border:w.album===a.id?'#005FB8':'#E5E5E5',ring:w.album===a.id?'5px solid #005FB8':'1px solid rgba(0,0,0,0.6)'})),
+        pickNew:()=>this.setState({wiz:{...w,album:'__new'}}),isNew:w.album==='__new',newBg:w.album==='__new'?'#F3F8FC':'#FFFFFF',newBorder:w.album==='__new'?'#005FB8':'#E5E5E5',newRing:w.album==='__new'?'5px solid #005FB8':'1px solid rgba(0,0,0,0.6)',
+        newName:w.newName,setNewName:e=>this.setState({wiz:{...w,newName:e.target.value}}),newFolder,
+        countdown:Math.floor(w.secs/60)+':'+String(w.secs%60).padStart(2,'0'),regen:e=>{e.preventDefault();this.setState({wiz:{...w,secs:300,t:Date.now(),regen:true},qrSeed:s.qrSeed+3})},
+        successText:(w.phoneName||'')+' est relié à l\'album '+(w.albumName||'')+'.',
+        hasPrimary:!!prim,noPrimary:!prim,primaryLabel:prim&&prim[0],primary:prim&&prim[1],primaryDisabled:step===1&&!canNext,primaryOp:step===1&&!canNext?0.45:1,
+        secondaryLabel:step===4?'Fermer':'Annuler',secondary:()=>this.setState({dlg:null,wiz:null})}}
+
+    const spin=React.createElement('span',{style:{width:16,height:16,flex:'none',borderRadius:8,border:'2px solid rgba(0,95,184,0.2)',borderTopColor:'#005FB8',animation:'mapcSpin .8s linear infinite',display:'inline-block'}});
+    const dots=React.createElement('div',{style:{display:'flex',gap:8,height:40,alignItems:'center'}},[0,1,2].map(i=>React.createElement('span',{key:i,style:{width:10,height:10,borderRadius:5,background:'#005FB8',animation:'mapcPulse 1.2s ease-in-out '+(i*0.2)+'s infinite'}})));
+
+    return {
+      navW:compact?'48px':'272px',showLabels:!compact,toggleNav:()=>this.setState({navCompact:!compact}),navTop,cmdLabels:center>=700,sliderW:center>=520?'120px':'72px',filterW:narrow?'184px':'216px',infoW:narrow?'248px':'288px',
+      navSettings:{sel:setSel,bg:setSel?'rgba(0,0,0,0.0373)':'transparent',go:go('settings')},
+      status:{ok:!sync&&!offline,sync:sync&&!offline,warn:offline,n:s.syncN,pct:Math.round(s.syncN/52*100)+'%'},
+      offlineBanner:offline,dismissOffline:()=>this.setState({offlineHidden:true}),retryOffline:()=>this.flash('Le dossier D:\\Photos est toujours introuvable. Nouvel essai automatique dans 5 minutes.'),
+      isPhotos:s.page==='photos',isAlbums:s.page==='albums',isHistory:s.page==='history',isSettings:s.page==='settings',isDiag:s.page==='diag',
+      showGrid:pstate!=='vide',showEmpty:pstate==='vide',indexing:pstate==='indexation',
+      filterAlbums,filterMonths,allMonths:{count:inAlb.length,sel:!s.monthFilter,bg:!s.monthFilter?'rgba(0,0,0,0.0373)':'transparent',go:()=>this.setState({monthFilter:null})},
+      gridCaption:cap,groups,thumb:s.thumb,thumbPx:s.thumb+'px',onThumb:e=>this.setState({thumb:+e.target.value}),
+      actOpacity:cur?1:0.4,actEvents:cur?'auto':'none',
+      rotL:()=>this.rotate(-90),rotR:()=>this.rotate(90),askDelete:()=>this.askDelete(),
+      openExplorer:()=>cur&&this.flash('Ouvert dans l\'Explorateur : '+pathOf(cur)),share:()=>cur&&this.flash('Fenêtre de partage de Windows ouverte pour '+cur.name+'.'),
+      toggleInfo:()=>this.setState({infoOpen:!s.infoOpen}),infoOpen:s.infoOpen,infoBtnBg:s.infoOpen?'rgba(0,0,0,0.0373)':'transparent',vInfoBg:s.infoOpen?'rgba(255,255,255,0.0837)':'transparent',
+      showInfoPane:s.infoOpen&&pstate!=='vide',hasSel:!!selP,noSel:!selP,sel:selP?{...selP,albumName:albName(selP.album),path:pathOf(selP)}:{},
+      openWizard:()=>this.openWizard(),
+      viewerOpen:!!vItem,v:vItem?{...vItem,rot:s.rot[vItem.id]||0,albumName:albName(vItem.album)}:{},vCounter:vItem?(s.viewer+1)+' sur '+list.length:'',
+      closeViewer:()=>this.setState({viewer:null}),vPrev:()=>this.step(-1),vNext:()=>this.step(1),vPrevOp:s.viewer>0?1:0.3,vNextOp:s.viewer<list.length-1?1:0.3,
+      newAlbum:()=>this.albumForm(null),albumCards,menuOpen:!!s.menu,closeMenu:()=>this.setState({menu:null}),
+      hAlbum:s.hAlbum,hPhone:s.hPhone,setHAlbum:e=>this.setState({hAlbum:e.target.value}),setHPhone:e=>this.setState({hPhone:e.target.value}),toggleHErr:()=>this.setState({hErrors:!s.hErrors}),tErr:tog(s.hErrors),histGroups,histEmpty:!histGroups.length,
+      goDiag:e=>{e&&e.preventDefault&&e.preventDefault();this.setState({page:'diag'})},goSettings:e=>{e.preventDefault();this.setState({page:'settings'})},
+      tg:{launch:{...tog(s.set.launch,true),toggle:()=>this.setState({set:{...s.set,launch:!s.set.launch}})},auto:{...tog(s.set.auto,true),toggle:()=>this.setState({set:{...s.set,auto:!s.set.auto}})}},
+      notifs:[['nEnd','Fin d\'une sauvegarde'],['nErr','Erreurs'],['nUsb','Téléphone branché en USB']].map(([k,l])=>{const on=s.set[k];return{label:l,bg:on?'#005FB8':'#FFFFFF',border:on?'#005FB8':'rgba(0,0,0,0.6)',mark:on?'#FFFFFF':'transparent',toggle:()=>this.setState({set:{...s.set,[k]:!on}})}}),
+      diagHasErr:nErr>0,diagErrLabel:nErr+' problème'+(nErr>1?'s':''),
+      updChecking:s.upd==='checking',updText:s.upd==='latest'?'Vous utilisez la dernière version.':s.upd==='checking'?'Recherche en cours…':'Dernière vérification : aujourd\'hui à 08:00',
+      checkUpd:()=>{this.setState({upd:'checking'});setTimeout(()=>this.setState({upd:'latest'}),1500)},showApk:()=>this.setState({dlg:'apk'}),
+      diagRows,diagSum,rerunDiag:()=>this.flash('Vérifications relancées.'),spinner:spin,waitDots:dots,
+      dlgOpen:!!s.dlg,dlgW:s.dlg==='wizard'?'640px':s.dlg==='album'?'520px':s.dlg==='apk'?'540px':'440px',
+      dlg:{isDelete:s.dlg==='delete',isUnlink:s.dlg==='unlink',isApk:s.dlg==='apk',isAlbum:s.dlg==='album',isWizard:s.dlg==='wizard'},closeDlg:()=>this.setState({dlg:null,wiz:null}),
+      delTitle:cur&&cur.video?'Supprimer cette vidéo ?':'Supprimer cette photo ?',delName:cur?cur.name:'',
+      confirmDelete:()=>{const id=this.currentId();const n=this.filtered().length;this.setState(st=>({dlg:null,deleted:{...st.deleted,[id]:true},lastDeleted:id,selected:null,viewer:st.viewer===null?null:(n<=1?null:Math.min(st.viewer,n-2))}));this.flash('Placé dans la Corbeille de Windows.',true)},
+      undoDelete:()=>{const id=s.lastDeleted;this.setState(st=>{const d={...st.deleted};delete d[id];return{deleted:d,toast:null,selected:id}})},
+      unlinkName:s.unlink?s.unlink.name:'',confirmUnlink:()=>{const u=s.unlink;this.setState(st=>({dlg:null,albums:st.albums.map(a=>a.id===u.album?{...a,phones:a.phones.filter(x=>x.id!==u.phone)}:a)}));this.flash(u.name+' est dissocié. Ses photos restent dans le dossier.')},
+      qr:mkQR(s.qrSeed),qrApk:mkQR(42),
+      af:{title:af.mode==='edit'?'Modifier l\'album':'Nouvel album',name:af.name||'',setName:e=>this.setState({af:{...af,name:e.target.value}}),folderShown:afFolder||'Aucun dossier choisi',folderColor:afFolder?'#1B1B1B':'#8A8A8A',hasFolder:!!afFolder,preview:afFolder+'\\2026\\2026-10\\',
+        browse:()=>{const nm=(af.name||'Album').trim()||'Album';const opts=['D:\\Photos\\'+nm,'E:\\Famille\\'+nm];this.setState({af:{...af,folder:af.folder===opts[0]?opts[1]:opts[0]}})},
+        moved:af.mode==='edit'&&afFolder!==af.orig,orig:af.orig,invalid:!(af.name||'').trim()||!afFolder,saveOp:(af.name||'').trim()&&afFolder?1:0.45,saveLabel:af.mode==='edit'?'Enregistrer':'Créer l\'album',
+        save:()=>{if(!(af.name||'').trim()||!afFolder)return;if(af.mode==='edit')this.setState(st=>({dlg:null,albums:st.albums.map(a=>a.id===af.id?{...a,name:af.name.trim(),folder:afFolder}:a)}));else this.setState(st=>({dlg:null,albums:[...st.albums,{id:'a'+Date.now(),name:af.name.trim(),folder:afFolder,color:'#C239B3',photos:'0',phones:[]}]}));this.flash(af.mode==='edit'?'Album enregistré.':'Album '+af.name.trim()+' créé.')}},
+      wz,hasToast:!!s.toast,toast:s.toast||{}
+    };
+  }
+}
+</script>
+</body>
+</html>
