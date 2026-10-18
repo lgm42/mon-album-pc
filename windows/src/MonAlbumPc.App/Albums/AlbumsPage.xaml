@@ -49,7 +49,8 @@
                 <Button Grid.Column="4" Style="{StaticResource IconButton}" Margin="8,0,0,0" Content="&#xE712;"
                         ToolTip="Plus d'actions" Tag="{Binding}" Click="OnPhoneMenu">
                     <Button.ContextMenu>
-                        <ContextMenu>
+                        <!-- Own font: a context menu inherits the icon font of the button that opens it. -->
+                        <ContextMenu FontFamily="{x:Static SystemFonts.MessageFontFamily}" FontSize="14">
                             <MenuItem Header="Dissocier…" Click="OnUnpair" />
                         </ContextMenu>
                     </Button.ContextMenu>
