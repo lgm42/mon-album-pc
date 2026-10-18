@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using MonAlbumPc.Core;
 using MonAlbumPc.Core.Import;
+using MonAlbumPc.Core.Media;
 using MonAlbumPc.Core.Model;
 using MonAlbumPc.Core.Pairing;
 using MonAlbumPc.Core.Storage;
@@ -121,6 +122,7 @@ internal static class ApiEndpoints
             var upload = core.Uploads.Begin(album, device.Id, new UploadDeclaration(
                 sha256, request.Size, request.Name, request.SourceFolder, request.Mime, request.TakenAt, request.ModifiedAt));
             var offset = core.Uploads.Offset(album, upload);
+            core.Sessions.Touch(device.Id, album.Id, ImportChannel.Wifi);
             return offset == request.Size && request.Size > 0
                 ? Complete(core, album, device, upload)
                 : Results.Ok(new UploadResponse("upload", upload.Id, offset));
@@ -160,6 +162,7 @@ internal static class ApiEndpoints
             {
                 return Results.NotFound();
             }
+            core.Sessions.Touch(device.Id, album.Id, ImportChannel.Wifi);
             var newOffset = await core.Uploads.AppendAsync(album, upload, offset, http.Request.Body, http.RequestAborted);
             return newOffset == upload.Declaration.Size
                 ? Complete(core, album, device, upload)
@@ -197,6 +200,10 @@ internal static class ApiEndpoints
         {
             var result = core.Import.Import(incoming);
             core.Uploads.Delete(album, upload);
+            if (result.Outcome == ImportOutcome.Saved)
+            {
+                core.Sessions.RecordSaved(device.Id, album.Id, ImportChannel.Wifi, MediaTypes.IsVideo(declaration.Name));
+            }
             return Results.Ok(new OffsetResponse(declaration.Size, result.Outcome == ImportOutcome.Saved ? "saved" : "exists"));
         }
         catch (HashMismatchException e)
@@ -206,10 +213,12 @@ internal static class ApiEndpoints
         }
         catch (DestinationUnavailableException e)
         {
+            core.Sessions.RecordError(device.Id, album.Id, ImportChannel.Wifi, "destination_unavailable", e.Message);
             return Error(StatusCodes.Status503ServiceUnavailable, "destination_unavailable", e.Message);
         }
         catch (DiskFullException e)
         {
+            core.Sessions.RecordError(device.Id, album.Id, ImportChannel.Wifi, "disk_full", e.Message);
             return Error(StatusCodes.Status507InsufficientStorage, "disk_full", e.Message);
         }
     }

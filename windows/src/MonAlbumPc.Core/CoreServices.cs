@@ -26,6 +26,8 @@ public sealed class CoreServices : IDisposable
         Pairing = new PairingService(Albums, Devices, clock);
         Authenticator = new DeviceAuthenticator(Devices);
         Uploads = new UploadStore(clock);
+        SessionHistory = new SessionStore(Database);
+        Sessions = new SessionTracker(SessionHistory, clock);
         Certificate = ServerCertificate.LoadOrCreate(Path.Combine(dataDirectory, "server-certificate.dat"));
     }
 
@@ -45,6 +47,8 @@ public sealed class CoreServices : IDisposable
     public PairingService Pairing { get; }
     public DeviceAuthenticator Authenticator { get; }
     public UploadStore Uploads { get; }
+    public SessionStore SessionHistory { get; }
+    public SessionTracker Sessions { get; }
     public TransferLocks Locks { get; } = new();
     public X509Certificate2 Certificate { get; }
     public string CertificateFingerprint => ServerCertificate.Fingerprint(Certificate);

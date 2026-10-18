@@ -17,6 +17,7 @@ public sealed class MonAlbumServer(CoreServices core, ServerOptions options, ILo
 {
     private WebApplication? _app;
     private MdnsAdvertiser? _mdns;
+    private Timer? _idleSessions;
 
     public int ApiPort { get; private set; }
     public int DownloadPort { get; private set; }
@@ -52,10 +53,12 @@ public sealed class MonAlbumServer(CoreServices core, ServerOptions options, ILo
         {
             _mdns = new MdnsAdvertiser(core, ApiPort);
         }
+        _idleSessions = new Timer(_ => core.Sessions.CloseIdle(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
     }
 
     public async Task StopAsync()
     {
+        _idleSessions?.Dispose();
         _mdns?.Dispose();
         _mdns = null;
         if (_app is not null)
@@ -66,6 +69,7 @@ public sealed class MonAlbumServer(CoreServices core, ServerOptions options, ILo
 
     public async ValueTask DisposeAsync()
     {
+        _idleSessions?.Dispose();
         _mdns?.Dispose();
         _mdns = null;
         if (_app is not null)

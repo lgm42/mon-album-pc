@@ -54,6 +54,21 @@ public sealed class Database
         CREATE INDEX ix_index_sha ON index_entries(album_id, sha256);
         CREATE INDEX ix_index_name ON index_entries(album_id, name COLLATE NOCASE);
         """,
+        """
+        CREATE TABLE sessions (
+            id INTEGER PRIMARY KEY,
+            device_id TEXT NOT NULL,
+            album_id TEXT NOT NULL,
+            channel TEXT NOT NULL,
+            started_at TEXT NOT NULL,
+            ended_at TEXT NOT NULL,
+            photos INTEGER NOT NULL,
+            videos INTEGER NOT NULL,
+            error_code TEXT,
+            error_message TEXT
+        );
+        CREATE INDEX ix_sessions_started ON sessions(started_at);
+        """,
     ];
 
     private readonly string _connectionString;

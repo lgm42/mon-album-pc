@@ -46,6 +46,7 @@ public sealed class ApiTests
         var done = (await last.Content.ReadFromJsonAsync<OffsetResponse>())!;
         Assert.Equal("saved", done.Status);
         Assert.True(File.Exists(Path.Combine(fixture.Album.DestinationRoot, "2024", "2024-05", "IMG_1.jpg")));
+        Assert.Equal(1, Assert.Single(fixture.Core.Sessions.Active).Photos);
 
         check = await (await api.PostAsJsonAsync("check", new CheckRequest([new CheckItem(sha, photo.Length)])))
             .Content.ReadFromJsonAsync<CheckResponse>();
