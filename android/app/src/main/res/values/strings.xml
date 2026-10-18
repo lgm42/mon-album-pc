@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Mon Album PC</string>
+
+    <!-- Bottom navigation -->
+    <string name="nav_photos">Photos</string>
+    <string name="nav_folders">Dossiers</string>
+    <string name="nav_settings">Réglages</string>
+
+    <!-- Photos -->
+    <string name="photos_greeting">Bonjour</string>
+    <string name="photos_title">Vos souvenirs</string>
+    <string name="status_ok_title">Tout est sauvegardé</string>
+    <string name="status_ok_detail">dernière sauvegarde il y a 2 h</string>
+    <string name="photos_placeholder">Vos photos et vidéos apparaîtront ici.</string>
+
+    <!-- Folders -->
+    <string name="folders_title">Dossiers</string>
+    <string name="folders_placeholder">Choisissez ici les dossiers à sauvegarder sur votre PC.</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Réglages</string>
+    <string name="settings_placeholder">Les réglages de la sauvegarde apparaîtront ici.</string>
+</resources>
