@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/modernist-c0b63252-cc1e-4d39-b4ac-8e88e8b4ba40/styles.css">
+<script src="_ds/modernist-c0b63252-cc1e-4d39-b4ac-8e88e8b4ba40/_ds_bundle.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+:root{--warn-bg:#fbe7c4;--warn-fg:#4a3000;--warn-ic:#a85f00}
+[data-theme]{--color-bg:#f7f6f1;--color-surface:#e9efe9;--color-text:#22302c;--color-accent:#2f7d6b;--color-accent-600:#276b5b;--color-accent-700:#1f5a4c;--color-accent-100:#d7ece4;--color-accent-800:#184a3e;--color-divider:color-mix(in srgb,#22302c 14%,transparent);--color-neutral-100:#e9efe9;--color-neutral-800:#3a4a45;--font-heading-weight:800;--font-heading:"Nunito",system-ui,sans-serif;--font-body:"Nunito",system-ui,sans-serif}
+[data-theme] .btn{border-radius:999px;font-weight:700}
+[data-theme] h1,[data-theme] h2{letter-spacing:-0.01em}
+[data-theme] .dialog{border-radius:28px}
+[data-theme="dark"]{--color-bg:#141c1a;--color-surface:#1f2a27;--color-text:#eef3ef;--color-divider:color-mix(in srgb,#eef3ef 16%,transparent);--color-accent:#7cc9b3;--color-accent-600:#97d6c4;--color-accent-700:#b6e4d6;--color-accent-100:#1f3d35;--color-accent-800:#b6e4d6;--color-neutral-100:#1f2a27;--color-neutral-800:#e9efe9;--warn-bg:#3d2a0c;--warn-fg:#ffdca0;--warn-ic:#ffb54a;--shadow-lg:0 0 0 1px #3a3837,0 12px 32px #000a}
+body{margin:0;background:#e4e9e3}
+a{color:var(--color-accent-700)}a:hover{color:var(--color-accent)}
+@keyframes scan{from{top:4%}to{top:94%}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ma-scroll::-webkit-scrollbar{display:none}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;flex-wrap:wrap;gap:48px;align-items:flex-start;justify-content:center;padding:40px 24px;font-family:var(--font-body);color:#201e1d;background:#e4e9e3">
+
+<div style="flex:none;padding:10px;background:#121110;border-radius:44px;box-shadow:0 30px 60px #0004">
+<div data-theme="{{ theme }}" data-screen-label="{{ screenLabel }}" style="position:relative;width:412px;height:892px;border-radius:34px;overflow:hidden;background:var(--color-bg);color:var(--color-text);display:flex;flex-direction:column;font-family:var(--font-body)">
+
+<div style="height:30px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-size:13px;font-weight:600;color:{{ sbColor }};background:{{ sbBg }};z-index:5">
+<span>14:32</span>
+<span style="display:flex;gap:6px;align-items:center">{{ ic.wifiS }}<span style="display:block;width:22px;height:11px;border:1.5px solid currentColor;padding:1px"><span style="display:block;width:70%;height:100%;background:currentColor"></span></span></span>
+</div>
+
+<div style="flex:1;min-height:0;position:relative;display:flex;flex-direction:column">
+
+<sc-if value="{{ is.welcome }}" hint-placeholder-val="{{ true }}">
+<div style="flex:1;display:flex;flex-direction:column;padding:16px 24px 24px">
+<div style="display:flex;gap:8px"><sc-for list="{{ steps }}" as="s"><div style="width:10px;height:10px;border-radius:50%;background:{{ s.bg }}"></div></sc-for></div>
+<div style="display:flex;align-items:center;gap:12px;margin-top:40px">
+<div style="width:56px;height:56px;border-radius:16px;background:#2f7d6b;position:relative;flex:none"><div style="position:absolute;left:10px;top:12px;width:36px;height:24px;border:3px solid #fff"></div><div style="position:absolute;left:16px;top:18px;width:12px;height:12px;background:#fff"></div><div style="position:absolute;left:22px;top:39px;width:12px;height:3px;background:#fff"></div><div style="position:absolute;left:16px;top:44px;width:24px;height:3px;background:#fff"></div></div>
+<div style="font-family:var(--font-heading);font-weight:800;font-size:20px;line-height:1.05;letter-spacing:-0.01em">Mon Album<br><span style="color:var(--color-accent)">PC</span></div>
+</div>
+<div style="position:relative;height:200px;margin:20px 0 20px">
+<div style="position:absolute;left:4px;top:22px;width:150px;height:150px;border-radius:22px;border:5px solid #fff;background:url(assets/photo.jpg) 25% 70%/460%;background-color:#c6e0d4;background-blend-mode:multiply;transform:rotate(-6deg);box-shadow:0 10px 24px #22302c22"></div>
+<div style="position:absolute;left:118px;top:0;width:150px;height:150px;border-radius:22px;border:5px solid #fff;background:url(assets/photo.jpg) 70% 30%/380%;background-color:#f1e3c4;background-blend-mode:multiply;transform:rotate(3deg);box-shadow:0 10px 24px #22302c22;z-index:1"></div>
+<div style="position:absolute;left:220px;top:40px;width:140px;height:140px;border-radius:22px;border:5px solid #fff;background:url(assets/photo.jpg) 50% 90%/520%;background-color:#cfe0ef;background-blend-mode:multiply;transform:rotate(-2deg);box-shadow:0 10px 24px #22302c22"></div>
+</div>
+<h1 style="font-size:36px;line-height:1.08;margin:0;text-wrap:pretty">Sauvegardez vos photos sur votre PC, automatiquement.</h1>
+<p style="font-size:17px;line-height:1.5;margin:20px 0 0;color:color-mix(in srgb,var(--color-text) 75%,transparent);text-wrap:pretty">Elles se copient toutes seules sur l'ordinateur de la maison, par le Wi-Fi. Sans câble, sans abonnement.</p>
+<div style="flex:1"></div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-top:0;border-bottom:0;margin-bottom:24px">
+<div style="padding:12px 8px 12px 0;font-size:13px;line-height:1.3"><div style="color:var(--color-accent)">{{ ic.wifi }}</div><div style="margin-top:6px">Par le Wi-Fi de la maison</div></div>
+<div style="padding:12px 8px;font-size:13px;line-height:1.3;border-left:0"><div style="color:var(--color-accent)">{{ ic.monitor }}</div><div style="margin-top:6px">Rangées sur votre PC</div></div>
+<div style="padding:12px 0 12px 8px;font-size:13px;line-height:1.3;border-left:0"><div style="color:var(--color-accent)">{{ ic.check }}</div><div style="margin-top:6px">Sans rien faire ensuite</div></div>
+</div>
+<button class="btn btn-primary" onClick="{{ goPermPhotos }}" style="width:100%;min-height:56px;justify-content:center;font-size:17px;padding:0 20px;gap:10px">Commencer {{ ic.arrow }}</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.permPhotos }}" hint-placeholder-val="{{ false }}">
+<div style="flex:1;display:flex;flex-direction:column;padding:16px 24px 24px">
+<div style="display:flex;gap:8px"><sc-for list="{{ steps }}" as="s"><div style="width:10px;height:10px;border-radius:50%;background:{{ s.bg }}"></div></sc-for></div>
+<div style="margin-top:48px;width:76px;height:76px;border-radius:50%;background:var(--color-accent);color:var(--color-bg);display:flex;align-items:center;justify-content:center">{{ ic.imageL }}</div>
+<div style="font-size:13px;margin-top:28px;color:var(--color-accent-700)">Autorisation 1 sur 2</div>
+<h2 style="font-size:30px;margin:8px 0 0">Accès à vos photos et vidéos</h2>
+<p style="font-size:17px;line-height:1.5;margin:16px 0 0;text-wrap:pretty">Mon Album PC en a besoin <strong>pour pouvoir les copier sur votre PC</strong>. Elles ne sont envoyées nulle part ailleurs.</p>
+<p style="font-size:15px;line-height:1.5;margin:16px 0 0;color:color-mix(in srgb,var(--color-text) 70%,transparent)">Le téléphone va vous poser la question. Choisissez « Tout autoriser ».</p>
+<div style="flex:1"></div>
+<button class="btn btn-primary" onClick="{{ askPhotos }}" style="width:100%;min-height:56px;justify-content:center;font-size:17px;padding:0 20px;gap:10px">Continuer {{ ic.arrow }}</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.partial }}" hint-placeholder-val="{{ false }}">
+<div style="flex:1;display:flex;flex-direction:column;padding:16px 24px 24px">
+<div style="display:flex;gap:8px"><sc-for list="{{ steps }}" as="s"><div style="width:10px;height:10px;border-radius:50%;background:{{ s.bg }}"></div></sc-for></div>
+<div style="margin-top:48px;width:76px;height:76px;border-radius:50%;background:var(--warn-bg);color:var(--warn-ic);display:flex;align-items:center;justify-content:center">{{ ic.alertL }}</div>
+<h2 style="font-size:30px;margin:28px 0 0;text-wrap:pretty">Une partie seulement de vos photos sera sauvegardée</h2>
+<p style="font-size:17px;line-height:1.5;margin:16px 0 0;text-wrap:pretty">{{ partialText }}</p>
+<div style="margin-top:20px;border-top:0;border-bottom:0;padding:14px 0;display:flex;gap:12px;font-size:15px;line-height:1.45"><span style="color:var(--color-accent)">{{ ic.info }}</span><span>Sur l'écran suivant, choisissez <strong>« Tout autoriser »</strong>.</span></div>
+<div style="flex:1"></div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<button class="btn btn-primary" onClick="{{ askPhotos }}" style="width:100%;min-height:56px;justify-content:center;font-size:17px;padding:0 20px">Autoriser toutes les photos</button>
+<button class="btn btn-secondary" onClick="{{ goPermNotif }}" style="width:100%;min-height:56px;justify-content:center;font-size:17px;padding:0 20px">Continuer quand même</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.permNotif }}" hint-placeholder-val="{{ false }}">
+<div style="flex:1;display:flex;flex-direction:column;padding:16px 24px 24px">
+<div style="display:flex;gap:8px"><sc-for list="{{ steps }}" as="s"><div style="width:10px;height:10px;border-radius:50%;background:{{ s.bg }}"></div></sc-for></div>
+<div style="margin-top:48px;width:76px;height:76px;border-radius:50%;background:var(--color-accent);color:var(--color-bg);display:flex;align-items:center;justify-content:center">{{ ic.bellL }}</div>
+<div style="font-size:13px;margin-top:28px;color:var(--color-accent-700)">Autorisation 2 sur 2</div>
+<h2 style="font-size:30px;margin:8px 0 0">Notifications</h2>
+<p style="font-size:17px;line-height:1.5;margin:16px 0 0;text-wrap:pretty">Elles servent <strong>à vous prévenir quand c'est sauvegardé</strong>, ou s'il y a un souci. Jamais de publicité.</p>
+<div style="flex:1"></div>
+<button class="btn btn-primary" onClick="{{ askNotif }}" style="width:100%;min-height:56px;justify-content:center;font-size:17px;padding:0 20px;gap:10px">Continuer {{ ic.arrow }}</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.scan }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:-30px 0 0 0;background:#0d0c0c;color:#fff;display:flex;flex-direction:column">
+<div style="position:absolute;inset:0;background:url(assets/photo.jpg) center/cover;filter:grayscale(1) blur(6px) brightness(.45)"></div>
+<div style="position:relative;padding:56px 24px 0;display:flex;flex-direction:column;gap:12px">
+<button class="btn" onClick="{{ goPermNotif }}" style="color:#fff;width:48px;height:48px;padding:0;margin-left:-12px">{{ ic.back }}</button>
+<h2 style="font-size:26px;margin:0;color:#fff">Scannez le QR code du PC</h2>
+<p style="font-size:16px;line-height:1.45;margin:0;color:#fff">Sur le PC, ouvrez <strong>Mon Album PC</strong> et cliquez sur « Ajouter un téléphone ».</p>
+</div>
+<div onClick="{{ scanOk }}" style="position:relative;margin:36px auto 0;width:280px;height:280px;cursor:pointer">
+<div style="position:absolute;left:0;top:0;width:44px;height:44px;border-left:4px solid var(--color-accent)"></div>
+<div style="position:absolute;right:0;top:0;width:44px;height:44px;border-right:4px solid var(--color-accent)"></div>
+<div style="position:absolute;left:0;bottom:0;width:44px;height:44px;border-left:4px solid var(--color-accent);border-bottom:4px solid var(--color-accent)"></div>
+<div style="position:absolute;right:0;bottom:0;width:44px;height:44px;border-right:4px solid var(--color-accent);border-bottom:4px solid var(--color-accent)"></div>
+<div style="position:absolute;inset:14px;overflow:hidden">{{ scanLine }}</div>
+</div>
+<div style="position:relative;text-align:left;padding:16px 24px 0;font-size:14px;color:#ffffffcc;width:328px;margin:0 auto">Placez le QR code dans le cadre. Le téléphone le lit tout seul.</div>
+<div style="flex:1"></div>
+<div style="position:relative;padding:0 24px 32px;display:flex;flex-direction:column;gap:4px">
+<button class="btn" onClick="{{ goCode }}" style="color:#fff;min-height:48px;justify-content:center;padding:0;font-size:16px;text-decoration:underline;text-underline-offset:4px">Je n'ai pas de caméra qui fonctionne</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.code }}" hint-placeholder-val="{{ false }}">
+<div style="flex:1;display:flex;flex-direction:column;padding:8px 24px 24px">
+<button class="btn" onClick="{{ goScan }}" style="width:48px;height:48px;padding:0;margin-left:-12px">{{ ic.back }}</button>
+<h2 style="font-size:28px;margin:16px 0 0">Saisissez le code du PC</h2>
+<p style="font-size:16px;line-height:1.5;margin:12px 0 0;text-wrap:pretty">Sous le QR code, le PC affiche un code de 6 chiffres. Tapez-le ici.</p>
+<div style="display:grid;grid-template-columns:repeat(3,1fr) 12px repeat(3,1fr);gap:6px;margin-top:28px">
+<sc-for list="{{ codeCells }}" as="c"><sc-if value="{{ c.gap }}"><div></div></sc-if><sc-if value="{{ c.box }}"><input ref="{{ c.ref }}" value="{{ c.value }}" onChange="{{ c.onChange }}" onKeyDown="{{ c.onKey }}" inputMode="numeric" maxLength="1" style="height:64px;width:100%;text-align:center;font:700 28px var(--font-heading);color:var(--color-text);background:var(--color-surface);border:0;border-bottom:3px solid {{ c.line }};border-radius:12px;padding:0" aria-label="Chiffre"></sc-if></sc-for>
+</div>
+<sc-if value="{{ codeErr }}"><div style="margin-top:14px;font-size:15px;color:var(--color-accent-700);display:flex;gap:8px;align-items:flex-start"><span style="padding-top:1px">{{ ic.alertS }}</span>Ce code ne correspond à aucun PC. Vérifiez les chiffres affichés sur le PC.</div></sc-if>
+<div style="flex:1"></div>
+<button class="btn btn-primary" onClick="{{ submitCode }}" disabled="{{ codeIncomplete }}" style="width:100%;min-height:56px;justify-content:center;font-size:17px;padding:0 20px">Valider</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.err }}" hint-placeholder-val="{{ false }}">
+<div style="flex:1;display:flex;flex-direction:column;padding:8px 24px 24px">
+<button class="btn" onClick="{{ goScan }}" style="width:48px;height:48px;padding:0;margin-left:-12px">{{ ic.back }}</button>
+<div style="margin-top:24px;width:76px;height:76px;border-radius:50%;background:var(--warn-bg);color:var(--warn-ic);display:flex;align-items:center;justify-content:center">{{ err.icon }}</div>
+<h2 style="font-size:28px;margin:28px 0 0;text-wrap:pretty">{{ err.title }}</h2>
+<p style="font-size:17px;line-height:1.5;margin:14px 0 0;text-wrap:pretty">{{ err.body }}</p>
+<sc-if value="{{ err.hasList }}"><div style="margin-top:20px;border-top:0"><sc-for list="{{ err.list }}" as="l"><div style="display:flex;gap:14px;padding:14px 0;border-bottom:0;font-size:15px;line-height:1.4"><span style="font:700 15px var(--font-heading);color:var(--color-accent);width:16px;flex:none">{{ l.n }}</span><span>{{ l.t }}</span></div></sc-for></div></sc-if>
+<div style="flex:1"></div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<button class="btn btn-primary" onClick="{{ err.primary.on }}" style="width:100%;min-height:56px;justify-content:center;font-size:17px;padding:0 20px">{{ err.primary.label }}</button>
+<button class="btn btn-secondary" onClick="{{ err.secondary.on }}" style="width:100%;min-height:56px;justify-content:center;font-size:17px;padding:0 20px">{{ err.secondary.label }}</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.success }}" hint-placeholder-val="{{ false }}">
+<div style="flex:1;display:flex;flex-direction:column;padding:16px 24px 24px">
+<div style="display:flex;gap:8px"><sc-for list="{{ steps }}" as="s"><div style="width:10px;height:10px;border-radius:50%;background:{{ s.bg }}"></div></sc-for></div>
+<div style="margin-top:48px;width:76px;height:76px;border-radius:50%;background:var(--color-accent);color:var(--color-bg);display:flex;align-items:center;justify-content:center">{{ ic.checkL }}</div>
+<h2 style="font-size:30px;margin:28px 0 0">C'est relié</h2>
+<p style="font-size:19px;line-height:1.45;margin:12px 0 0;text-wrap:pretty">Ce téléphone est relié à <strong>PC-SALON</strong>, album de <strong>Marie</strong>.</p>
+<div style="display:grid;grid-template-columns:1fr 1fr;margin-top:28px;border-top:0;border-bottom:0">
+<div style="padding:16px 12px 16px 0"><div style="font-size:12px;opacity:.65">Ordinateur</div><div style="font:700 20px var(--font-heading);margin-top:6px">PC-SALON</div></div>
+<div style="padding:16px 0 16px 12px;border-left:0"><div style="font-size:12px;opacity:.65">Album</div><div style="font:700 20px var(--font-heading);margin-top:6px">Marie</div></div>
+</div>
+<div style="flex:1"></div>
+<button class="btn btn-primary" onClick="{{ goSetupFolders }}" style="width:100%;min-height:56px;justify-content:center;font-size:17px;padding:0 20px;gap:10px">Continuer {{ ic.arrow }}</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.started }}" hint-placeholder-val="{{ false }}">
+<div style="flex:1;display:flex;flex-direction:column;padding:16px 24px 24px">
+<div style="display:flex;gap:8px"><sc-for list="{{ steps }}" as="s"><div style="width:10px;height:10px;border-radius:50%;background:{{ s.bg }}"></div></sc-for></div>
+<h2 style="font-size:36px;margin:56px 0 0">C'est parti.</h2>
+<p style="font-size:17px;line-height:1.5;margin:12px 0 0">La première sauvegarde a commencé.</p>
+<div style="margin-top:36px;border-top:0;padding-top:20px">
+<div style="font-size:13px;opacity:.65">Photos et vidéos copiées</div>
+<div style="display:flex;align-items:baseline;gap:8px;margin-top:8px"><span style="font:700 48px/1 var(--font-heading);letter-spacing:-0.02em;font-variant-numeric:tabular-nums">{{ startedDone }}</span><span style="font:600 20px var(--font-heading);opacity:.7">/ {{ startedTotal }}</span></div>
+<div style="height:8px;border-radius:4px;overflow:hidden;background:var(--color-surface);margin-top:18px"><div style="height:100%;width:{{ startedPct }};background:var(--color-accent);transition:width .5s"></div></div>
+<div style="font-size:14px;margin-top:10px;opacity:.75">Environ 2 h restantes, si le téléphone reste en Wi-Fi.</div>
+</div>
+<div style="margin-top:28px;background:var(--color-surface);border-radius:24px;padding:16px;display:flex;gap:12px;font-size:16px;line-height:1.45"><span style="color:var(--color-accent)">{{ ic.check }}</span><span><strong>Vous pouvez fermer l'app</strong>, la sauvegarde continue. Une notification vous préviendra à la fin.</span></div>
+<div style="flex:1"></div>
+<button class="btn btn-primary" onClick="{{ goPhotosProgress }}" style="width:100%;min-height:56px;justify-content:center;font-size:17px;padding:0 20px;gap:10px">Voir mes photos {{ ic.arrow }}</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.unlinked }}" hint-placeholder-val="{{ false }}">
+<div style="flex:1;display:flex;flex-direction:column;padding:16px 24px 24px">
+<div style="margin-top:72px;width:76px;height:76px;border-radius:50%;background:var(--warn-bg);color:var(--warn-ic);display:flex;align-items:center;justify-content:center">{{ ic.unlinkL }}</div>
+<h2 style="font-size:30px;margin:28px 0 0;text-wrap:pretty">Ce téléphone n'est plus relié à PC-SALON</h2>
+<p style="font-size:17px;line-height:1.5;margin:14px 0 0;text-wrap:pretty">Le PC l'a retiré de sa liste, les sauvegardes sont arrêtées.</p>
+<div style="margin-top:20px;border-top:0;border-bottom:0;padding:14px 0;display:flex;gap:12px;font-size:15px;line-height:1.45"><span style="color:var(--color-accent)">{{ ic.check }}</span><span>Rien n'a été supprimé : vos photos sont toujours sur ce téléphone, et celles déjà sauvegardées sont toujours sur le PC.</span></div>
+<div style="flex:1"></div>
+<button class="btn btn-primary" onClick="{{ goScan }}" style="width:100%;min-height:56px;justify-content:center;font-size:17px;padding:0 20px;gap:10px">Associer à nouveau {{ ic.arrow }}</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.folders }}" hint-placeholder-val="{{ false }}">
+<div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<sc-if value="{{ is.setupFolders }}"><div style="padding:16px 24px 0"><div style="display:flex;gap:8px"><sc-for list="{{ steps }}" as="s"><div style="width:10px;height:10px;border-radius:50%;background:{{ s.bg }}"></div></sc-for></div><h2 style="font-size:28px;margin:28px 0 0">Que faut-il sauvegarder ?</h2><p style="font-size:16px;line-height:1.45;margin:8px 0 16px">Les dossiers recommandés sont déjà cochés. Vous pouvez simplement valider.</p></div></sc-if>
+<sc-if value="{{ is.dossiers }}"><div style="padding:12px 20px 12px;display:flex;align-items:baseline;justify-content:space-between;border-bottom:0"><h2 style="font-size:26px;margin:0">Dossiers</h2><span style="font-size:14px;opacity:.7">{{ trackedSummary }}</span></div></sc-if>
+<div class="ma-scroll" style="flex:1;min-height:0;overflow-y:auto">
+<sc-for list="{{ folderSections }}" as="sec" hint-placeholder-count="3">
+<div style="padding:20px 20px 8px;font-size:16px;font-weight:700;border-bottom:0;display:flex;justify-content:space-between"><span>{{ sec.title }}</span><span style="opacity:.6;font-weight:400">{{ sec.note }}</span></div>
+<sc-for list="{{ sec.rows }}" as="f">
+<div onClick="{{ f.toggle }}" role="switch" aria-checked="{{ f.on }}" style="display:flex;align-items:center;gap:14px;padding:10px 16px;margin:0 16px 8px;background:var(--color-surface);border-radius:22px;min-height:72px;border-bottom:0;cursor:pointer" style-hover="background:var(--color-accent-100)">
+<div style="width:52px;height:52px;flex:none;background:url(assets/photo.jpg);background-size:{{ f.bgSize }};background-position:{{ f.bgPos }};background-color:{{ f.tint }};background-blend-mode:multiply;border-radius:14px;opacity:{{ f.thumbOp }}"></div>
+<div style="flex:1;min-width:0"><div style="font-size:17px;font-weight:600;line-height:1.25;display:flex;gap:8px;align-items:center;flex-wrap:wrap">{{ f.name }}<sc-if value="{{ f.sd }}"><span class="tag tag-neutral" style="font-size:12px;padding:2px 8px;border-radius:8px;border:1px solid var(--color-divider)">Carte SD</span></sc-if></div><div style="font-size:14px;opacity:.7;margin-top:2px">{{ f.countLabel }}</div></div>
+<div style="width:52px;height:30px;flex:none;position:relative;border-radius:999px;border:2px solid {{ f.trackBorder }};background:{{ f.trackBg }};transition:background .15s"><div style="position:absolute;top:4px;left:{{ f.thumbLeft }};width:18px;height:18px;border-radius:50%;background:{{ f.knob }};transition:left .15s"></div></div>
+</div>
+</sc-for>
+</sc-for>
+<div style="padding:16px 20px 24px"><button class="btn btn-secondary" onClick="{{ addFolder }}" style="width:100%;min-height:56px;justify-content:center;font-size:16px;padding:0 16px;gap:10px">{{ ic.plus }} Ajouter un dossier…</button></div>
+</div>
+<sc-if value="{{ is.setupFolders }}"><div style="padding:12px 24px 24px;border-top:0"><button class="btn btn-primary" onClick="{{ goStarted }}" style="width:100%;min-height:56px;justify-content:center;font-size:17px;padding:0 20px;gap:10px">Valider · {{ trackedSummary }}</button></div></sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.photos }}" hint-placeholder-val="{{ false }}">
+<div style="flex:1;min-height:0;display:flex;flex-direction:column;position:relative">
+<div style="padding:10px 20px 10px;display:flex;align-items:center;gap:10px">
+<div style="width:28px;height:28px;border-radius:8px;background:#2f7d6b;position:relative;flex:none"><div style="position:absolute;left:5px;top:6px;width:18px;height:12px;border:2px solid #fff"></div><div style="position:absolute;left:8px;top:9px;width:6px;height:6px;background:#fff"></div><div style="position:absolute;left:8px;top:21px;width:12px;height:2px;background:#fff"></div></div>
+<div style="flex:1"><div style="font-size:14px;opacity:.7">Bonjour Marie</div><h2 style="font-size:26px;margin:0">Vos souvenirs</h2></div>
+</div>
+<div onClick="{{ banner.on }}" style="display:flex;gap:12px;align-items:flex-start;margin:4px 16px 0;padding:14px 16px;border-radius:18px;overflow:hidden;background:{{ banner.bg }};color:{{ banner.fg }};cursor:{{ banner.cursor }};position:relative">
+<span style="color:{{ banner.ic }};padding-top:1px">{{ banner.icon }}</span>
+<div style="flex:1;min-width:0;font-size:15px;line-height:1.4"><strong style="font-weight:600">{{ banner.lead }}</strong>{{ banner.rest }}</div>
+<sc-if value="{{ banner.hasAction }}"><span style="font-size:14px;font-weight:600;text-decoration:underline;text-underline-offset:3px;white-space:nowrap;padding-top:1px">{{ banner.action }}</span></sc-if>
+<sc-if value="{{ banner.hasBar }}"><div style="position:absolute;left:0;right:0;bottom:0;height:4px;background:var(--color-surface)"><div style="height:100%;width:{{ banner.pct }};background:var(--color-accent);transition:width .4s"></div></div></sc-if>
+</div>
+<sc-if value="{{ showUpdate }}">
+<div style="margin:12px 20px 0;background:var(--color-surface);border-radius:24px;padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:12px;font-size:15px;line-height:1.4"><span style="color:var(--color-accent)">{{ ic.download }}</span><span>Une nouvelle version de Mon Album PC est disponible.</span></div>
+<div style="display:flex;gap:8px"><button class="btn btn-primary" onClick="{{ askInstall }}" style="min-height:48px;padding:0 16px;font-size:15px">Mettre à jour</button><button class="btn btn-ghost" onClick="{{ dismissUpdate }}" style="min-height:48px;padding:0 12px;font-size:15px">Plus tard</button></div>
+</div>
+</sc-if>
+<div class="ma-scroll" style="display:flex;gap:8px;margin:12px 0 0;padding:0 16px;overflow-x:auto">
+<sc-for list="{{ filters }}" as="fl"><button onClick="{{ fl.on }}" aria-pressed="{{ fl.active }}" style="flex:none;min-height:48px;border:1px solid {{ fl.line }};border-radius:24px;background:{{ fl.bg }};color:{{ fl.fg }};font:600 15px var(--font-body);cursor:pointer;padding:0 16px;display:flex;align-items:center;gap:6px">{{ fl.label }}<span style="font-weight:400;font-size:13px;opacity:.75">{{ fl.count }}</span></button></sc-for>
+</div>
+<div style="flex:1;min-height:0;position:relative;margin-top:8px">
+<div ref="{{ gridRef }}" onScroll="{{ onGridScroll }}" class="ma-scroll" style="position:absolute;inset:0;overflow-y:auto;padding-bottom:96px">
+<sc-for list="{{ groups }}" as="g" hint-placeholder-count="2">
+<div data-month="{{ g.label }}" style="display:flex;align-items:baseline;justify-content:space-between;padding:16px 20px 8px"><span style="font:700 17px var(--font-heading)">{{ g.label }}</span><span style="font-size:13px;opacity:.65">{{ g.count }}</span></div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:0 14px">
+<sc-for list="{{ g.items }}" as="m">
+<div onClick="{{ m.open }}" style="position:relative;aspect-ratio:1;cursor:pointer;overflow:hidden;border-radius:16px;background:var(--color-surface)">
+<div style="position:absolute;inset:0;background:url(assets/photo.jpg);background-size:{{ m.bgSize }};background-position:{{ m.bgPos }};background-color:{{ m.tint }};background-blend-mode:multiply;opacity:{{ m.op }}"></div>
+<sc-if value="{{ m.video }}"><div style="position:absolute;left:4px;bottom:4px;display:flex;align-items:center;gap:2px;background:#201e1dcc;border-radius:8px;color:#fff;font-size:11px;font-weight:600;padding:1px 5px 1px 3px;line-height:16px">{{ ic.playXS }}{{ m.dur }}</div></sc-if>
+<div title="{{ m.stateLabel }}" style="position:absolute;right:4px;bottom:4px;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:{{ m.bBg }};color:{{ m.bFg }};box-shadow:inset 0 0 0 1.5px {{ m.bLine }}">{{ m.bIcon }}</div>
+<sc-if value="{{ m.hasBar }}"><div style="position:absolute;left:0;right:0;top:0;height:4px;background:#201e1d99"><div style="height:100%;width:{{ m.pct }};background:var(--color-accent);transition:width .4s"></div></div></sc-if>
+</div>
+</sc-for>
+</div>
+</sc-for>
+<sc-if value="{{ emptyFilter }}"><div style="padding:48px 24px;display:flex;flex-direction:column;gap:10px"><span style="color:var(--color-accent)">{{ ic.checkL }}</span><div style="font:700 22px var(--font-heading)">{{ emptyFilterTitle }}</div><div style="font-size:16px;line-height:1.45;opacity:.8">{{ emptyFilterBody }}</div></div></sc-if>
+<sc-if value="{{ emptyAll }}"><div style="padding:40px 24px;display:flex;flex-direction:column;gap:12px"><div style="width:76px;height:76px;border-radius:50%;background:var(--color-surface);display:flex;align-items:center;justify-content:center">{{ ic.imageL }}</div><div style="font:700 24px var(--font-heading);text-wrap:pretty">Aucune photo dans les dossiers suivis</div><div style="font-size:16px;line-height:1.45;opacity:.8">Dès que vous prendrez une photo, elle apparaîtra ici et sera sauvegardée sur PC-SALON.</div><button class="btn btn-secondary" onClick="{{ goDossiers }}" style="min-height:52px;justify-content:center;font-size:16px;padding:0 16px;margin-top:8px;align-self:flex-start">Choisir les dossiers</button></div></sc-if>
+</div>
+<sc-if value="{{ fs.show }}">
+<div onPointerDown="{{ fs.down }}" onPointerMove="{{ fs.move }}" onPointerUp="{{ fs.up }}" style="position:absolute;right:0;top:{{ fs.top }};height:56px;width:40px;display:flex;align-items:center;justify-content:flex-end;cursor:grab;touch-action:none;opacity:{{ fs.op }};transition:opacity .3s">
+<sc-if value="{{ fs.label }}"><div style="position:absolute;right:44px;white-space:nowrap;background:var(--color-text);color:var(--color-bg);font:700 15px var(--font-heading);padding:10px 14px;border-radius:12px">{{ fs.month }}</div></sc-if>
+<div style="width:28px;height:48px;border-radius:14px;background:var(--color-text);color:var(--color-bg);display:flex;align-items:center;justify-content:center">{{ ic.grip }}</div>
+</div>
+</sc-if>
+</div>
+<sc-if value="{{ showFab }}">
+<button class="btn btn-primary" onClick="{{ backupNow }}" style="position:absolute;right:16px;bottom:16px;min-height:56px;padding:0 20px;font-size:16px;gap:10px;justify-content:center;box-shadow:var(--shadow-lg)">{{ ic.upload }} Sauvegarder maintenant</button>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.reglages }}" hint-placeholder-val="{{ false }}">
+<div class="ma-scroll" style="flex:1;min-height:0;overflow-y:auto">
+<div style="padding:12px 20px;border-bottom:0"><h2 style="font-size:26px;margin:0">Réglages</h2></div>
+<div style="padding:20px 20px 8px;font-size:12px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase">Mon PC</div>
+<div style="margin:0 20px;background:var(--color-surface);border-radius:24px;padding:16px;display:flex;gap:14px;align-items:flex-start">
+<span style="color:var(--color-accent);padding-top:2px">{{ ic.monitor }}</span>
+<div style="flex:1"><div style="font:700 20px var(--font-heading)">PC-SALON</div><div style="font-size:15px;margin-top:4px">Album de Marie</div><div style="font-size:14px;opacity:.7;margin-top:2px">Dernière sauvegarde : {{ lastSave }}</div></div>
+<button class="btn btn-secondary" onClick="{{ askUnlink }}" aria-label="Dissocier ce téléphone" title="Dissocier ce téléphone" style="width:48px;height:48px;padding:0;margin:-4px -4px 0 0">{{ ic.trash }}</button>
+</div>
+<div style="padding:28px 20px 8px;font-size:16px;font-weight:700;border-bottom:0">Sauvegarde</div>
+<div onClick="{{ toggleCharge }}" role="switch" aria-checked="{{ charge.on }}" style="display:flex;align-items:center;gap:14px;padding:12px 18px;margin:0 16px 8px;background:var(--color-surface);border-radius:22px;min-height:72px;border-bottom:0;cursor:pointer" style-hover="background:var(--color-accent-100)">
+<span>{{ ic.zap }}</span>
+<div style="flex:1"><div style="font-size:17px;font-weight:600;line-height:1.3">Sauvegarder uniquement pendant la recharge</div><div style="font-size:14px;opacity:.7;margin-top:2px">Utile si la batterie se vide vite</div></div>
+<div style="width:52px;height:30px;flex:none;position:relative;border-radius:999px;border:2px solid {{ charge.trackBorder }};background:{{ charge.trackBg }}"><div style="position:absolute;top:4px;left:{{ charge.thumbLeft }};width:18px;height:18px;border-radius:50%;background:{{ charge.knob }};transition:left .15s"></div></div>
+</div>
+<div onClick="{{ openNotifSettings }}" style="display:flex;align-items:center;gap:14px;padding:12px 18px;margin:0 16px 8px;background:var(--color-surface);border-radius:22px;min-height:64px;border-bottom:0;cursor:pointer" style-hover="background:var(--color-accent-100)"><span>{{ ic.bell }}</span><div style="flex:1;font-size:17px;font-weight:600">Notifications</div><span style="font-size:14px;opacity:.7">Réglages Android</span>{{ ic.ext }}</div>
+<div onClick="{{ goUsb }}" style="display:flex;align-items:center;gap:14px;padding:12px 18px;margin:0 16px 8px;background:var(--color-surface);border-radius:22px;min-height:72px;border-bottom:0;cursor:pointer" style-hover="background:var(--color-accent-100)"><span>{{ ic.plug }}</span><div style="flex:1"><div style="font-size:17px;font-weight:600">Brancher en USB</div><div style="font-size:14px;opacity:.7;margin-top:2px">Plus rapide pour beaucoup de photos</div></div>{{ ic.chev }}</div>
+<div style="padding:28px 20px 8px;font-size:16px;font-weight:700;border-bottom:0">À propos</div>
+<div style="display:flex;align-items:center;gap:14px;padding:12px 18px;margin:0 16px 8px;background:var(--color-surface);border-radius:22px;min-height:64px;border-bottom:0"><div style="flex:1"><div style="font-size:17px;font-weight:600">Version</div><div style="font-size:14px;opacity:.7;margin-top:2px">{{ versionLine }}</div></div><sc-if value="{{ updateAvail }}"><button class="btn btn-primary" onClick="{{ askInstall }}" style="min-height:48px;padding:0 16px;font-size:15px">Mettre à jour</button></sc-if></div>
+<div style="display:flex;align-items:center;gap:14px;padding:12px 18px;margin:0 16px 8px;background:var(--color-surface);border-radius:22px;min-height:64px;border-bottom:0;cursor:pointer" style-hover="background:var(--color-accent-100)"><div style="flex:1;font-size:17px;font-weight:600">Licence</div>{{ ic.chev }}</div>
+<div style="height:24px"></div>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.usb }}" hint-placeholder-val="{{ false }}">
+<div class="ma-scroll" style="flex:1;min-height:0;overflow-y:auto">
+<div style="padding:4px 12px;display:flex;align-items:center;gap:4px;border-bottom:0"><button class="btn" onClick="{{ goReglages }}" aria-label="Retour" style="width:48px;height:48px;padding:0">{{ ic.back }}</button><h2 style="font-size:22px;margin:0">Brancher en USB</h2></div>
+<p style="font-size:16px;line-height:1.5;margin:16px 20px 4px">Pour la première sauvegarde, le câble est plus rapide que le Wi-Fi.</p>
+<div style="margin:12px 20px 0;border-top:0">
+<div style="display:grid;grid-template-columns:36px 1fr;gap:4px 8px;padding:16px 0;border-bottom:0"><span style="font:700 24px/1 var(--font-heading);color:var(--color-accent)">1</span><div style="font-size:16px;line-height:1.45">Branchez le téléphone au PC avec son câble de recharge.</div></div>
+<div style="display:grid;grid-template-columns:36px 1fr;gap:10px 8px;padding:16px 0;border-bottom:0"><span style="font:700 24px/1 var(--font-heading);color:var(--color-accent)">2</span><div style="font-size:16px;line-height:1.45">Sur le téléphone, faites glisser le haut de l'écran vers le bas et touchez la notification <strong>« Chargement de cet appareil via USB »</strong>.</div>
+<div></div><div style="background:#e9e6ef;color:#1b1b1f;border-radius:24px;padding:12px 14px;font-family:system-ui,sans-serif;display:flex;gap:10px;align-items:center;box-shadow:0 0 0 3px var(--color-accent)"><span style="width:28px;height:28px;border-radius:50%;background:#5b5f8a;color:#fff;display:flex;align-items:center;justify-content:center;flex:none">{{ ic.plugS }}</span><div style="font-size:13px;line-height:1.3"><div style="font-weight:600">Chargement de cet appareil via USB</div><div style="opacity:.7">Appuyez pour plus d'options.</div></div></div></div>
+<div style="display:grid;grid-template-columns:36px 1fr;gap:10px 8px;padding:16px 0;border-bottom:0"><span style="font:700 24px/1 var(--font-heading);color:var(--color-accent)">3</span><div style="font-size:16px;line-height:1.45">Choisissez <strong>« Transfert de fichiers »</strong>. Mon Album PC s'occupe du reste sur le PC.</div>
+<div></div><div style="background:#f4f1f8;color:#1b1b1f;border-radius:24px;padding:14px 8px 8px;font-family:system-ui,sans-serif;font-size:14px"><div style="font-size:12px;opacity:.65;padding:0 10px 6px">Utiliser la connexion USB pour</div><sc-for list="{{ usbOpts }}" as="u"><div style="display:flex;gap:12px;align-items:center;padding:8px 10px;border-radius:12px;background:{{ u.bg }};font-weight:{{ u.w }}"><span style="width:18px;height:18px;border-radius:50%;border:2px solid {{ u.ring }};box-shadow:inset 0 0 0 3px #f4f1f8;background:{{ u.dot }};flex:none"></span>{{ u.label }}</div></sc-for></div></div>
+</div>
+<div style="margin:20px 20px 24px;background:var(--color-surface);border-radius:24px;padding:14px 16px;display:flex;gap:12px;font-size:15px;line-height:1.45"><span style="color:var(--color-accent)">{{ ic.info }}</span><span>Si rien ne se passe, débranchez puis rebranchez le câble. Certains câbles ne servent qu'à recharger.</span></div>
+</div>
+</sc-if>
+
+<sc-if value="{{ hasNav }}" hint-placeholder-val="{{ false }}">
+<div style="flex:none;display:grid;grid-template-columns:repeat(3,1fr);border-radius:28px 28px 0 0;background:var(--color-surface)">
+<sc-for list="{{ nav }}" as="n"><button onClick="{{ n.on }}" aria-current="{{ n.cur }}" style="position:relative;min-height:80px;border:0;background:transparent;color:{{ n.fg }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;font:{{ n.font }}"><span style="display:flex;align-items:center;justify-content:center;width:64px;height:32px;border-radius:16px;background:{{ n.bar }}">{{ n.icon }}</span>{{ n.label }}</button></sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ v.show }}">
+<div style="position:absolute;inset:-30px 0 0 0;background:#000;color:#fff;display:flex;flex-direction:column;z-index:20">
+<div style="padding:38px 8px 4px;display:flex;align-items:center;gap:4px"><button class="btn" onClick="{{ v.close }}" aria-label="Fermer" style="color:#fff;width:48px;height:48px;padding:0">{{ ic.back }}</button><div style="flex:1;font-size:15px">{{ v.date }}</div><span style="font-size:14px;opacity:.7;padding-right:12px">{{ v.pos }}</span></div>
+<div onPointerDown="{{ v.down }}" onPointerUp="{{ v.up }}" style="flex:1;min-height:0;position:relative;touch-action:pan-y;cursor:grab;user-select:none">
+<div style="position:absolute;inset:0 0;background:url(assets/photo.jpg);background-size:{{ v.bgSize }};background-position:{{ v.bgPos }};background-color:{{ v.tint }};background-blend-mode:multiply;transform:translateX({{ v.dx }});transition:transform .2s"></div>
+<sc-if value="{{ v.video }}"><button onClick="{{ v.togglePlay }}" aria-label="Lecture" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:72px;height:72px;border:0;background:#000a;border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer">{{ v.playIcon }}</button>
+<div style="position:absolute;left:16px;right:16px;bottom:12px;display:flex;align-items:center;gap:10px;font-size:13px;font-variant-numeric:tabular-nums"><span>{{ v.elapsed }}</span><div style="flex:1;height:4px;background:#fff4"><div style="height:100%;width:{{ v.vpct }};background:#fff"></div></div><span>{{ v.dur }}</span></div></sc-if>
+<button onClick="{{ v.prev }}" aria-label="Précédente" style="position:absolute;left:0;top:50%;margin-top:-28px;width:48px;height:56px;border:0;background:#0006;border-radius:24px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:{{ v.prevOp }}">{{ ic.back }}</button>
+<button onClick="{{ v.next }}" aria-label="Suivante" style="position:absolute;right:0;top:50%;margin-top:-28px;width:48px;height:56px;border:0;background:#0006;border-radius:24px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:{{ v.nextOp }}">{{ ic.chev }}</button>
+</div>
+<div data-theme="{{ theme }}" style="background:var(--color-bg);color:var(--color-text);padding:8px 20px 24px;border-radius:24px 24px 0 0;margin-top:-20px;position:relative">
+<div style="width:36px;height:4px;background:var(--color-divider);margin:4px auto 14px"></div>
+<div style="display:flex;gap:12px;align-items:flex-start">
+<div style="width:28px;height:28px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;background:{{ v.bBg }};color:{{ v.bFg }};box-shadow:inset 0 0 0 1.5px {{ v.bLine }}">{{ v.bIcon }}</div>
+<div style="flex:1;min-width:0"><div style="font:700 18px var(--font-heading)">{{ v.stateTitle }}</div><div style="font-size:15px;line-height:1.45;margin-top:4px">{{ v.stateBody }}</div></div>
+</div>
+<sc-if value="{{ v.hasAction }}"><button class="btn btn-primary" onClick="{{ v.action }}" style="width:100%;min-height:52px;justify-content:center;font-size:16px;padding:0 16px;margin-top:14px">{{ v.actionLabel }}</button></sc-if>
+<div style="display:grid;grid-template-columns:1fr 1fr;margin-top:14px;border-top:0;font-size:14px"><div style="padding:10px 8px 0 0"><div style="opacity:.65;font-size:12px">Dossier</div>{{ v.folder }}</div><div style="padding:10px 0 0 10px;border-left:0"><div style="opacity:.65;font-size:12px">Taille</div>{{ v.size }}</div></div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ dlg.show }}">
+<div style="position:absolute;inset:-30px 0 0 0;background:color-mix(in srgb,#000 55%,transparent);display:flex;align-items:center;padding:20px;z-index:30">
+<div class="dialog" role="dialog" style="width:100%;padding:24px;gap:12px">
+<div class="dialog-title" style="font-size:22px;line-height:1.2">{{ dlg.title }}</div>
+<div style="font-size:16px;line-height:1.5">{{ dlg.body }}</div>
+<sc-if value="{{ dlg.hasNote }}"><div style="display:flex;gap:10px;font-size:15px;line-height:1.45;padding:12px 0;border-top:0;border-bottom:0"><span style="color:var(--color-accent)">{{ ic.check }}</span><span>{{ dlg.note }}</span></div></sc-if>
+<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px"><sc-for list="{{ dlg.actions }}" as="a"><button class="{{ a.cls }}" onClick="{{ a.on }}" style="width:100%;min-height:52px;justify-content:center;font-size:16px;padding:0 16px">{{ a.label }}</button></sc-for></div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ sys.show }}">
+<div style="position:absolute;inset:-30px 0 0 0;background:#0008;display:flex;align-items:flex-end;justify-content:center;padding:16px 16px 28px;z-index:40;font-family:system-ui,Roboto,sans-serif">
+<div style="width:100%;background:{{ sys.bg }};color:{{ sys.fg }};border-radius:28px;padding:24px 20px 12px;display:flex;flex-direction:column;align-items:center;gap:8px">
+<span style="color:{{ sys.ic }}">{{ sys.icon }}</span>
+<div style="font-size:18px;line-height:1.35;text-align:center;padding:0 8px 8px">{{ sys.title }}</div>
+<sc-for list="{{ sys.opts }}" as="o"><button onClick="{{ o.on }}" style="width:100%;min-height:52px;border:0;border-radius:24px;background:{{ o.bg }};color:{{ sys.fg }};font:500 15px system-ui,Roboto,sans-serif;cursor:pointer">{{ o.label }}</button></sc-for>
+<div style="font-size:11px;opacity:.55;padding-top:4px">Fenêtre du système Android</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ snack.show }}">
+<div style="position:absolute;left:16px;right:16px;bottom:{{ snack.bottom }};background:var(--color-text);color:var(--color-bg);padding:14px 16px;font-size:15px;line-height:1.4;display:flex;gap:10px;align-items:flex-start;z-index:25;border-radius:14px;box-shadow:var(--shadow-lg)"><span>{{ snack.icon }}</span><span>{{ snack.text }}</span></div>
+</sc-if>
+
+</div>
+<div style="height:18px;flex:none;display:flex;align-items:center;justify-content:center;background:{{ gbBg }}"><div style="width:108px;height:4px;border-radius:2px;background:{{ sbColor }};opacity:.6"></div></div>
+</div>
+</div>
+
+<div style="flex:1 1 300px;max-width:380px;display:flex;flex-direction:column;gap:28px;font-size:14px">
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="font-size:11px;opacity:.6">Prototype · Android</div>
+<div style="font:700 28px/1.1 var(--font-heading)">Mon Album PC</div>
+<p style="margin:0;line-height:1.5;opacity:.8">Cliquez dans le téléphone comme sur un vrai. Les listes ci-dessous permettent d'aller directement à un écran ou une situation.</p>
+</div>
+<div style="display:flex;gap:16px;align-items:center;border-top:2px solid #201e1d66;padding-top:16px">
+<div style="width:72px;height:72px;background:#2f7d6b;position:relative;flex:none;border-radius:16px"><div style="position:absolute;left:14px;top:17px;width:44px;height:30px;border:3.5px solid #fff"></div><div style="position:absolute;left:21px;top:24px;width:15px;height:15px;background:#fff"></div><div style="position:absolute;left:29px;top:50px;width:14px;height:3.5px;background:#fff"></div><div style="position:absolute;left:21px;top:55px;width:30px;height:3.5px;background:#fff"></div></div>
+<div style="width:40px;height:40px;background:#2f7d6b;position:relative;flex:none;border-radius:50%;overflow:hidden"><div style="position:absolute;left:9px;top:11px;width:22px;height:15px;border:2px solid #fff"></div><div style="position:absolute;left:13px;top:15px;width:7px;height:7px;background:#fff"></div><div style="position:absolute;left:12px;top:29px;width:16px;height:2px;background:#fff"></div></div>
+<div style="font-size:12px;line-height:1.4;opacity:.75">Icône d'app (adaptative, ici en carré arrondi et rond) : un écran de PC qui reçoit une photo. Le même signe sert de logo à l'app Windows.</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<div style="font-size:11px;opacity:.6">Thème</div>
+<div class="seg" style="align-self:flex-start;border-color:#201e1d66"><sc-for list="{{ themeOpts }}" as="t"><button onClick="{{ t.on }}" style="border:0;border-left:{{ t.sep }};padding:8px 16px;font:600 13px var(--font-body);cursor:pointer;background:{{ t.bg }};color:{{ t.fg }}">{{ t.label }}</button></sc-for></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:0">
+<div style="font-size:11px;opacity:.6;padding-bottom:8px;border-bottom:2px solid #201e1d66">Situations de l'écran Photos</div>
+<sc-for list="{{ scenOpts }}" as="o"><button onClick="{{ o.on }}" style="text-align:left;border:0;border-bottom:1px solid #201e1d33;background:{{ o.bg }};color:{{ o.fg }};padding:9px 8px;font:400 14px var(--font-body);cursor:pointer;display:flex;gap:8px"><span style="width:6px;flex:none;background:{{ o.mark }}"></span>{{ o.label }}</button></sc-for>
+<button onClick="{{ toggleUpdate }}" style="text-align:left;border:0;border-bottom:1px solid #201e1d33;background:transparent;color:#201e1d;padding:9px 8px;font:400 14px var(--font-body);cursor:pointer;display:flex;gap:8px"><span style="width:6px;flex:none;background:{{ updMark }}"></span>Mise à jour disponible</button>
+</div>
+<sc-for list="{{ jump }}" as="gp">
+<div style="display:flex;flex-direction:column">
+<div style="font-size:11px;opacity:.6;padding-bottom:8px;border-bottom:2px solid #201e1d66">{{ gp.title }}</div>
+<sc-for list="{{ gp.items }}" as="it"><button onClick="{{ it.on }}" style="text-align:left;border:0;border-bottom:1px solid #201e1d33;background:{{ it.bg }};color:{{ it.fg }};padding:9px 8px;font:400 14px var(--font-body);cursor:pointer">{{ it.label }}</button></sc-for>
+</div>
+</sc-for>
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:11px;opacity:.6;padding-bottom:8px;border-bottom:2px solid #201e1d66">Notifications Android</div>
+<sc-for list="{{ notifs }}" as="nt"><div style="background:#f4f1f8;border-radius:24px;padding:12px 14px;display:flex;gap:12px;font-family:system-ui,Roboto,sans-serif;color:#1b1b1f"><div style="width:28px;height:28px;border-radius:50%;background:#2f7d6b;flex:none;position:relative"><div style="position:absolute;left:7px;top:8px;width:14px;height:10px;border:1.5px solid #fff"></div><div style="position:absolute;left:9px;top:21px;width:10px;height:1.5px;background:#fff"></div></div><div style="flex:1;min-width:0;font-size:13px;line-height:1.35"><div style="font-size:11px;opacity:.65">Mon Album PC · {{ nt.when }}</div><div style="font-weight:600;margin-top:2px">{{ nt.title }}</div><div>{{ nt.body }}</div><sc-if value="{{ nt.bar }}"><div style="height:4px;background:#d7d3e0;border-radius:2px;margin-top:8px"><div style="width:23%;height:100%;background:#2f7d6b;border-radius:2px"></div></div></sc-if></div></div></sc-for>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light'|'dark'&quot;},&quot;scenario&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;ok&quot;,&quot;pending&quot;,&quot;progress&quot;,&quot;unreachable&quot;,&quot;disk&quot;,&quot;errors&quot;,&quot;empty&quot;],&quot;default&quot;:&quot;ok&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Écran Photos&quot;},&quot;update&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Écran Photos&quot;}}">
+const h = React.createElement;
+const IC = {
+  check: ['M20 6 9 17l-5-5'],
+  clock: [['circle', { cx: 12, cy: 12, r: 10 }], 'M12 6v6l4 2'],
+  up: ['m5 12 7-7 7 7', 'M12 19V5'],
+  alert: [['circle', { cx: 12, cy: 12, r: 10 }], 'M12 8v4', 'M12 16h.01'],
+  tri: ['m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3', 'M12 9v4', 'M12 17h.01'],
+  minus: ['M5 12h14'],
+  image: [['rect', { x: 3, y: 3, width: 18, height: 18, rx: 0 }], ['circle', { cx: 9, cy: 9, r: 2 }], 'm21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21'],
+  folder: ['M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z'],
+  settings: ['M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z', ['circle', { cx: 12, cy: 12, r: 3 }]],
+  monitor: [['rect', { x: 2, y: 3, width: 20, height: 14 }], 'M8 21h8', 'M12 17v4'],
+  trash: ['M3 6h18', 'M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6', 'M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2'],
+  upload: ['M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4', 'M17 8l-5-5-5 5', 'M12 3v12'],
+  download: ['M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4', 'm7 10 5 5 5-5', 'M12 15V3'],
+  back: ['m15 18-6-6 6-6'],
+  chev: ['m9 18 6-6-6-6'],
+  arrow: ['M5 12h14', 'm12 5 7 7-7 7'],
+  info: [['circle', { cx: 12, cy: 12, r: 10 }], 'M12 16v-4', 'M12 8h.01'],
+  bell: ['M10.268 21a2 2 0 0 0 3.464 0', 'M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326'],
+  zap: ['M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z'],
+  plug: ['M12 22v-5', 'M9 8V2', 'M15 8V2', 'M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z'],
+  wifi: ['M12 20h.01', 'M2 8.82a15 15 0 0 1 20 0', 'M5 12.859a10 10 0 0 1 14 0', 'M8.5 16.429a5 5 0 0 1 7 0'],
+  wifiOff: ['M12 20h.01', 'M8.5 16.429a5 5 0 0 1 7 0', 'M5 12.859a10 10 0 0 1 5.17-2.69', 'M19 12.859a10 10 0 0 0-2.007-1.523', 'M2 8.82a15 15 0 0 1 4.177-2.643', 'M22 8.82a15 15 0 0 0-11.288-3.764', 'm2 2 20 20'],
+  drive: ['M22 12H2', 'M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z', 'M6 16h.01', 'M10 16h.01'],
+  plus: ['M5 12h14', 'M12 5v14'],
+  unlink: ['M9 17H7A5 5 0 0 1 7 7', 'M15 7h2a5 5 0 0 1 4 8', 'M8 12h4', 'm2 2 20 20'],
+  qr: [['rect', { x: 3, y: 3, width: 7, height: 7 }], ['rect', { x: 14, y: 3, width: 7, height: 7 }], ['rect', { x: 3, y: 14, width: 7, height: 7 }], 'M14 14h3v3h-3z', 'M20 20v1', 'M17 20h1'],
+  ext: ['M15 3h6v6', 'M10 14 21 3', 'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'],
+  grip: ['M8 9l4-4 4 4', 'M8 15l4 4 4-4'],
+  play: [['polygon', { points: '6 3 20 12 6 21 6 3', fill: 'currentColor' }]],
+  pause: [['rect', { x: 6, y: 4, width: 4, height: 16, fill: 'currentColor' }], ['rect', { x: 14, y: 4, width: 4, height: 16, fill: 'currentColor' }]],
+  refresh: ['M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8', 'M21 3v5h-5', 'M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16', 'M8 16H3v5'],
+};
+function icon(n, s = 24, sw = 2) {
+  return h('svg', { width: s, height: s, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: sw, strokeLinecap: 'round', strokeLinejoin: 'round', style: { display: 'block', flex: 'none' } },
+    IC[n].map((x, i) => typeof x === 'string' ? h('path', { key: i, d: x }) : h(x[0], { key: i, ...x[1] })));
+}
+const ic = {};
+Object.keys(IC).forEach(k => { ic[k] = icon(k); });
+Object.assign(ic, { imageL: icon('image', 32), alertL: icon('tri', 32), bellL: icon('bell', 32), checkL: icon('check', 32, 2.5), unlinkL: icon('unlink', 32), wifiS: icon('wifi', 15, 2.5), alertS: icon('alert', 18), playXS: icon('play', 10), plugS: icon('plug', 16) });
+const B = { check: icon('check', 13, 3), clock: icon('clock', 13, 2.5), up: icon('up', 13, 3), err: icon('alert', 13, 2.5), minus: icon('minus', 13, 3) };
+const BL = { check: icon('check', 16, 3), clock: icon('clock', 16, 2.5), up: icon('up', 16, 3), err: icon('alert', 16, 2.5), minus: icon('minus', 16, 3) };
+
+const FOLDERS = [
+  { id: 'cam', name: 'Appareil photo', count: 8412, sec: 0 }, { id: 'shot', name: "Captures d'écran", count: 643, sec: 0 },
+  { id: 'wai', name: 'WhatsApp Images', count: 1187, sec: 0 }, { id: 'wav', name: 'WhatsApp Video', count: 70, sec: 0 },
+  { id: 'wasent', name: 'Photos envoyées WhatsApp', count: 312, sec: 1 }, { id: 'wastat', name: 'Statuts WhatsApp', count: 48, sec: 1 },
+  { id: 'snap', name: 'Snapchat', count: 156, sec: 1 }, { id: 'insta', name: 'Instagram', count: 89, sec: 1 },
+  { id: 'dl', name: 'Téléchargements', count: 37, sec: 2 }, { id: 'bt', name: 'Bluetooth', count: 12, sec: 2 },
+  { id: 'sd', name: 'Appareil photo', count: 1024, sec: 2, sd: true },
+];
+const FNAME = Object.fromEntries(FOLDERS.map(f => [f.id, f.name]));
+const fmt = n => n.toLocaleString('fr-FR');
+const TINTS = ['#c6e0d4', '#cfe0ef', '#e3dcef', '#f1e3c4', '#d3e6c4', '#bfd8de', '#ecd9d2'];
+let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+const MONTHS = [['Octobre 2026', 10, 26, 18], ['Septembre 2026', 9, 30, 30], ['Août 2026', 8, 31, 32], ['Juillet 2026', 7, 31, 20]];
+const MNAMES = { 10: 'octobre', 9: 'septembre', 8: 'août', 7: 'juillet' };
+const POOL = ['cam', 'cam', 'cam', 'cam', 'cam', 'cam', 'wai', 'wai', 'shot', 'snap', 'wav'];
+const MEDIA = [];
+MONTHS.forEach(([label, m, maxDay, n]) => {
+  let day = maxDay;
+  for (let i = 0; i < n; i++) {
+    const folder = POOL[Math.floor(rnd() * POOL.length)];
+    const video = folder === 'wav' || (folder === 'cam' && rnd() < 0.14);
+    const secs = 6 + Math.floor(rnd() * 170);
+    day = Math.max(1, day - (rnd() < 0.5 ? 1 : 0));
+    const hh = 8 + Math.floor(rnd() * 13), mm = Math.floor(rnd() * 60);
+    MEDIA.push({
+      id: MEDIA.length, tint: TINTS[(MEDIA.length * 3) % TINTS.length], month: label, m, day, folder, video, secs,
+      dur: Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0'),
+      bgSize: Math.round(260 + rnd() * 420) + '%', bgPos: Math.round(rnd() * 100) + '% ' + Math.round(rnd() * 100) + '%',
+      time: String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0'),
+      size: video ? (secs * 0.9).toFixed(0) + ' Mo' : (2 + rnd() * 4).toFixed(1).replace('.', ',') + ' Mo',
+    });
+  }
+});
+const ERR_REASONS = [
+  "Le disque du PC était plein. Nouvel essai automatique dès qu'il y aura de la place.",
+  "Le Wi-Fi a été coupé pendant l'envoi. Nouvel essai automatique.",
+  "Le PC n'a pas pu enregistrer ce fichier. Nouvel essai automatique dans 1 h.",
+];
+const SCEN = [
+  ['ok', 'Tout est sauvegardé'], ['pending', 'Photos en attente'], ['progress', 'Sauvegarde en cours'],
+  ['unreachable', 'PC introuvable (orange)'], ['disk', 'Disque du PC débranché (orange)'], ['errors', 'Quelques erreurs'], ['empty', 'Aucune photo (état vide)'],
+];
+const STEP = { welcome: 0, permPhotos: 1, partial: 1, permNotif: 2, scan: 3, code: 3, success: 4, setupFolders: 4, started: 5 };
+const LABELS = { welcome: 'Bienvenue', permPhotos: 'Autorisation photos', partial: 'Accès partiel', permNotif: 'Autorisation notifications', scan: 'Scanner le QR code', code: 'Saisie du code', success: 'Association réussie', setupFolders: 'Choix des dossiers', started: "C'est parti", errQr: 'QR code expiré', errWifi: 'PC introuvable', errAlready: 'Déjà associé', photos: 'Photos', dossiers: 'Dossiers', reglages: 'Réglages', usb: 'Aide USB', unlinked: 'Téléphone dissocié' };
+const PENDING_N = 52;
+
+class Component extends DCLogic {
+  state = {
+    screen: 'welcome', theme: null, scenario: null, update: null, updateDismissed: false,
+    folders: Object.fromEntries(FOLDERS.map(f => [f.id, f.sec === 0])),
+    filter: 'all', done: 12, pct: 0, started: 1240, viewer: null, viewerIds: [], playing: false, vpct: 0, dx: 0,
+    dlg: null, sys: null, snack: null, charge: false, partialDenied: false, lastSave: "aujourd'hui à 12:31",
+    code: ['', '', '', '', '', ''], codeErr: false, fsFrac: 0, fsMonth: '', fsActive: false, fsDrag: false,
+  };
+  gridRef = React.createRef();
+  codeRefs = [0, 1, 2, 3, 4, 5].map(() => React.createRef());
+
+  componentDidMount() { this.tick = setInterval(() => this.onTick(), 450); }
+  componentWillUnmount() { clearInterval(this.tick); clearTimeout(this.snackT); clearTimeout(this.fsT); }
+
+  scen() { return this.state.scenario ?? this.props.scenario ?? 'ok'; }
+  onTick() {
+    const s = this.state;
+    if (s.screen === 'started' && s.started < 10312) this.setState({ started: Math.min(10312, s.started + 37) });
+    if (this.scen() === 'progress') {
+      const total = this.pendingList().length;
+      if (s.done >= total) { this.setState({ scenario: 'ok', lastSave: "aujourd'hui à 14:32" }); this.snack(total + ' photos et vidéos sauvegardées sur PC-SALON', ic.check); }
+      else if (s.pct >= 100) this.setState({ done: s.done + 1, pct: 0 });
+      else this.setState({ pct: s.pct + 50 });
+    }
+    if (s.playing && s.viewer != null) {
+      const m = MEDIA[s.viewerIds[s.viewer]];
+      const np = s.vpct + 100 * 0.45 / Math.min(m.secs, 30);
+      this.setState(np >= 100 ? { vpct: 0, playing: false } : { vpct: np });
+    }
+  }
+  snack(text, iconEl) {
+    clearTimeout(this.snackT);
+    this.setState({ snack: { text, icon: iconEl || ic.info } });
+    this.snackT = setTimeout(() => this.setState({ snack: null }), 3800);
+  }
+  go(screen, extra) { this.setState({ screen, viewer: null, dlg: null, sys: null, playing: false, ...(extra || {}) }); }
+  setScen(sc) {
+    this.go('photos', { scenario: sc, done: 12, pct: 0, filter: 'all' });
+    if (this.gridRef.current) this.gridRef.current.scrollTop = 0;
+  }
+  trackedMedia() { const f = this.state.folders; return MEDIA.filter(m => f[m.folder]); }
+  pendingList() { return this.trackedMedia().slice(0, PENDING_N); }
+  mediaState(m) {
+    if (!this.state.folders[m.folder]) return { k: 'untracked' };
+    const sc = this.scen();
+    if (sc === 'errors') {
+      const t = this.trackedMedia(); const idx = t.indexOf(m);
+      const e = [2, 9, 31].indexOf(idx);
+      if (e >= 0) return { k: 'error', reason: ERR_REASONS[e] };
+      return { k: 'saved' };
+    }
+    if (sc === 'ok' || sc === 'empty') return { k: 'saved' };
+    const p = this.pendingList(); const i = p.indexOf(m);
+    if (i < 0) return { k: 'saved' };
+    if (sc === 'progress') {
+      if (i < this.state.done) return { k: 'saved', fresh: true };
+      if (i === this.state.done) return { k: 'up', pct: this.state.pct };
+    }
+    return { k: 'pending' };
+  }
+  badge(k, large) {
+    const b = large ? BL : B;
+    switch (k) {
+      case 'saved': return { bg: '#201e1d99', fg: '#fff', line: 'transparent', icon: b.check, label: 'Sauvegardé' };
+      case 'pending': return { bg: '#ffffff', fg: '#201e1d', line: '#201e1d', icon: b.clock, label: 'En attente' };
+      case 'up': return { bg: '#201e1d', fg: '#fff', line: '#2f7d6b', icon: b.up, label: 'En cours' };
+      case 'error': return { bg: '#c8463d', fg: '#fff', line: 'transparent', icon: b.err, label: 'Erreur' };
+      default: return { bg: '#f3f2f2', fg: '#605d5d', line: '#9b9797', icon: b.minus, label: 'Non suivi' };
+    }
+  }
+  openViewer(ids, idx) { this.setState({ viewer: idx, viewerIds: ids, playing: false, vpct: 0, dx: 0 }); }
+  vStep(d) {
+    const s = this.state; const n = s.viewer + d;
+    if (n < 0 || n >= s.viewerIds.length) return;
+    this.setState({ viewer: n, playing: false, vpct: 0 });
+  }
+  onGridScroll = (e) => {
+    const el = e.currentTarget; const max = el.scrollHeight - el.clientHeight;
+    const heads = el.querySelectorAll('[data-month]'); let month = '';
+    heads.forEach(hd => { if (hd.offsetTop <= el.scrollTop + 40) month = hd.getAttribute('data-month'); });
+    if (!month && heads[0]) month = heads[0].getAttribute('data-month');
+    clearTimeout(this.fsT);
+    this.setState({ fsFrac: max > 0 ? el.scrollTop / max : 0, fsMonth: month, fsActive: true });
+    this.fsT = setTimeout(() => { if (!this.state.fsDrag) this.setState({ fsActive: false }); }, 1400);
+  };
+  fsSet(clientY, target) {
+    const el = this.gridRef.current; if (!el) return;
+    const r = el.getBoundingClientRect();
+    const f = Math.max(0, Math.min(1, (clientY - r.top - 28) / (r.height - 56)));
+    el.scrollTop = f * (el.scrollHeight - el.clientHeight);
+  }
+
+  renderVals() {
+    const s = this.state, P = this.props;
+    const theme = s.theme ?? P.theme ?? 'light';
+    const sc = this.scen();
+    const updateAvail = (s.update ?? P.update ?? false);
+    const scr = s.screen;
+    const isErr = ['errQr', 'errWifi', 'errAlready'].includes(scr);
+    const is = {
+      welcome: scr === 'welcome', permPhotos: scr === 'permPhotos', partial: scr === 'partial', permNotif: scr === 'permNotif',
+      scan: scr === 'scan', code: scr === 'code', err: isErr, success: scr === 'success', started: scr === 'started',
+      setupFolders: scr === 'setupFolders', dossiers: scr === 'dossiers', folders: scr === 'setupFolders' || scr === 'dossiers',
+      photos: scr === 'photos', reglages: scr === 'reglages', usb: scr === 'usb', unlinked: scr === 'unlinked',
+    };
+    const darkTop = is.scan || s.viewer != null;
+    const dk = theme === 'dark';
+    const step = STEP[scr] ?? 0;
+    const steps = [0, 1, 2, 3, 4, 5].map(i => ({ bg: i <= step ? 'var(--color-accent)' : 'var(--color-divider)' }));
+
+    // folders
+    const mkSwitch = on => ({ trackBorder: on ? 'var(--color-accent)' : 'var(--color-text)', trackBg: on ? 'var(--color-accent)' : 'transparent', thumbLeft: on ? '26px' : '4px', knob: on ? 'var(--color-bg)' : 'var(--color-text)' });
+    const toggleFolder = (f) => {
+      const on = s.folders[f.id];
+      if (on && scr === 'dossiers') {
+        this.setState({ dlg: { title: `Ne plus sauvegarder « ${f.name} » ?`, body: 'Les nouvelles photos de ce dossier ne seront plus copiées sur le PC.', note: 'Les photos déjà sauvegardées restent sur votre PC.', actions: [
+          { label: 'Ne plus sauvegarder', primary: true, on: () => this.setState(st => ({ dlg: null, folders: { ...st.folders, [f.id]: false } })) },
+          { label: 'Annuler', on: () => this.setState({ dlg: null }) }] } });
+      } else this.setState(st => ({ folders: { ...st.folders, [f.id]: !on } }));
+    };
+    const secTitles = ['Recommandés', 'Autres applications', 'Autres dossiers'];
+    const folderSections = [0, 1, 2].map(sec => {
+      const rows = FOLDERS.filter(f => f.sec === sec).map((f, i) => {
+        const on = !!s.folders[f.id];
+        return { ...f, on, countLabel: fmt(f.count) + ' éléments', toggle: () => toggleFolder(f), thumbOp: on ? 1 : 0.5, tint: TINTS[(i + sec * 3) % TINTS.length], bgSize: (300 + i * 90 + sec * 40) + '%', bgPos: (20 + sec * 30 + i * 13) % 100 + '% ' + (60 - i * 17 + 100) % 100 + '%', ...mkSwitch(on) };
+      });
+      const n = rows.filter(r => r.on).length;
+      return { title: secTitles[sec], note: n ? n + ' sauvegardé' + (n > 1 ? 's' : '') : '', rows };
+    });
+    const nOn = FOLDERS.filter(f => s.folders[f.id]);
+    const trackedSummary = nOn.length + ' dossier' + (nOn.length > 1 ? 's' : '') + ' · ' + fmt(nOn.reduce((a, f) => a + f.count, 0)) + ' éléments';
+
+    // media
+    const empty = sc === 'empty';
+    const all = empty ? [] : MEDIA;
+    const st = all.map(m => ({ m, st: this.mediaState(m) }));
+    const counts = { all: st.length, pending: st.filter(x => x.st.k === 'pending' || x.st.k === 'up').length, error: st.filter(x => x.st.k === 'error').length, untracked: st.filter(x => x.st.k === 'untracked').length };
+    const fk = s.filter;
+    const vis = st.filter(x => fk === 'all' || (fk === 'pending' ? (x.st.k === 'pending' || x.st.k === 'up') : x.st.k === fk));
+    const visIds = vis.map(x => x.m.id);
+    const groups = [];
+    vis.forEach((x, i) => {
+      let g = groups[groups.length - 1];
+      if (!g || g.label !== x.m.month) { g = { label: x.m.month, items: [], n: 0 }; groups.push(g); }
+      const b = this.badge(x.st.k);
+      g.items.push({ ...x.m, op: x.st.k === 'untracked' ? 0.35 : 1, bBg: b.bg, bFg: b.fg, bLine: b.line, bIcon: b.icon, stateLabel: b.label, hasBar: x.st.k === 'up', pct: (x.st.pct || 0) + '%', open: () => this.openViewer(visIds, i) });
+    });
+    groups.forEach(g => { g.count = g.items.length + ' élément' + (g.items.length > 1 ? 's' : ''); });
+    const filters = [['all', 'Tout'], ['pending', 'En attente'], ['error', 'Erreurs'], ['untracked', 'Non suivis']].map(([k, label], i) => ({
+      label, count: counts[k], active: fk === k, on: () => { this.setState({ filter: k }); if (this.gridRef.current) this.gridRef.current.scrollTop = 0; },
+      bg: fk === k ? 'var(--color-accent-100)' : 'transparent', fg: fk === k ? 'var(--color-accent-800)' : 'var(--color-text)', line: fk === k ? 'var(--color-accent-100)' : 'var(--color-divider)', sep: i ? '1px solid var(--color-divider)' : '0',
+    }));
+    const emptyFilter = !empty && vis.length === 0;
+    const EF = { pending: ['Rien en attente', 'Toutes les photos des dossiers suivis sont sur PC-SALON.'], error: ['Aucune erreur', 'Tout s\'est bien passé.'], untracked: ['Tout est suivi', 'Toutes vos photos font partie d\'un dossier sauvegardé.'] };
+
+    // banner
+    const pend = counts.pending;
+    const warn = { bg: 'var(--warn-bg)', fg: 'var(--warn-fg)', ic: 'var(--warn-ic)', rule: 'var(--warn-ic)' };
+    const neutral = { bg: 'var(--color-surface)', fg: 'var(--color-text)', ic: 'var(--color-accent)', rule: 'var(--color-divider)' };
+    const helpWifi = () => this.setState({ dlg: { title: 'PC-SALON est introuvable', body: 'Le téléphone ne voit plus le PC depuis 3 jours. Vos photos attendent sur le téléphone, rien n\'est perdu.', note: 'Vérifiez que le PC est allumé et que le téléphone est sur le Wi-Fi de la maison.', actions: [{ label: 'Réessayer maintenant', primary: true, on: () => { this.setState({ dlg: null }); this.snack('Toujours introuvable. Nouvel essai automatique dans 15 min.', ic.wifiOff); } }, { label: 'Fermer', on: () => this.setState({ dlg: null }) }] } });
+    const helpDisk = () => this.setState({ dlg: { title: 'Le disque du PC est débranché', body: 'PC-SALON range vos photos sur un disque externe qui n\'est plus branché. Rebranchez-le : la sauvegarde reprendra toute seule.', note: 'Vos photos attendent sur le téléphone, rien n\'est perdu.', actions: [{ label: 'Compris', primary: true, on: () => this.setState({ dlg: null }) }] } });
+    let banner;
+    if (empty) banner = { ...neutral, icon: ic.info, lead: 'Aucune photo à sauvegarder', rest: ' pour l\'instant' };
+    else if (sc === 'progress') banner = { ...neutral, icon: ic.upload, lead: 'Sauvegarde en cours', rest: ` · ${s.done} / ${this.pendingList().length}`, hasBar: true, pct: Math.round(100 * (s.done + s.pct / 100) / this.pendingList().length) + '%' };
+    else if (sc === 'pending') banner = { ...neutral, icon: ic.clock, lead: `${pend} photos et vidéos en attente`, rest: ' · sauvegarde dès que le PC est joignable' };
+    else if (sc === 'unreachable') banner = { ...warn, icon: ic.wifiOff, lead: 'PC-SALON introuvable depuis 3 jours', rest: '', hasAction: true, action: 'Que faire ?', on: helpWifi };
+    else if (sc === 'disk') banner = { ...warn, icon: ic.drive, lead: 'Le PC ne peut pas recevoir les photos', rest: ' : son disque de destination est débranché', hasAction: true, action: 'Aide', on: helpDisk };
+    else if (sc === 'errors') banner = { ...neutral, ic: 'var(--color-accent)', icon: ic.alert, lead: `${counts.error} éléments n'ont pas pu être sauvegardés`, rest: ' · nouvel essai automatique', hasAction: true, action: 'Voir', on: () => this.setState({ filter: 'error' }) };
+    else banner = { ...neutral, icon: ic.check, lead: 'Tout est sauvegardé', rest: ' · dernière sauvegarde ' + (s.lastSave.includes('14:32') ? 'à l\'instant' : 'il y a 2 h') };
+    banner.cursor = banner.on ? 'pointer' : 'default';
+    banner.on = banner.on || (() => {});
+
+    const backupNow = () => {
+      if (sc === 'unreachable') return this.snack('PC-SALON est introuvable. Vérifiez qu\'il est allumé et sur le même Wi-Fi.', ic.wifiOff);
+      if (sc === 'disk') return this.snack('Impossible pour l\'instant : le disque du PC est débranché.', ic.drive);
+      if (sc === 'ok' || sc === 'errors') { this.setState({ scenario: 'ok', lastSave: "aujourd'hui à 14:32" }); return this.snack('Tout était déjà sauvegardé sur PC-SALON.', ic.check); }
+      this.setState({ scenario: 'progress', done: 0, pct: 0 });
+    };
+
+    // fast scroll
+    const gridH = 520;
+    const fs = {
+      show: is.photos && vis.length > 24, top: `calc(${(s.fsFrac * 100).toFixed(2)}% - ${(s.fsFrac * 56).toFixed(1)}px)`,
+      op: s.fsActive || s.fsDrag ? 1 : 0, label: (s.fsActive || s.fsDrag) && !!s.fsMonth, month: s.fsMonth,
+      down: (e) => { e.currentTarget.setPointerCapture(e.pointerId); this.setState({ fsDrag: true, fsActive: true }); },
+      move: (e) => { if (this.state.fsDrag) this.fsSet(e.clientY); },
+      up: () => { this.setState({ fsDrag: false }); clearTimeout(this.fsT); this.fsT = setTimeout(() => this.setState({ fsActive: false }), 1000); },
+    };
+
+    // viewer
+    let v = { show: false };
+    if (s.viewer != null && s.viewerIds.length) {
+      const m = MEDIA[s.viewerIds[s.viewer]]; const ms = this.mediaState(m); const b = this.badge(ms.k, true);
+      const dstr = String(m.day).padStart(2, '0') + '/' + String(m.m).padStart(2, '0') + '/2026';
+      const T = {
+        saved: ['Sauvegardé', `Sauvegardé le ${ms.fresh ? '18/10/2026' : dstr} sur PC-SALON.`],
+        pending: ['En attente', 'Sera envoyé sur PC-SALON dès que le PC est joignable.'],
+        up: ['Envoi en cours', `Copie vers PC-SALON · ${ms.pct || 0} %`],
+        error: ['Pas encore sauvegardé', ms.reason],
+        untracked: ['Non sauvegardé', `Le dossier « ${FNAME[m.folder]} » n'est pas sauvegardé.`],
+      }[ms.k];
+      const hasAction = ms.k === 'error' || ms.k === 'untracked';
+      let x0 = null;
+      v = {
+        show: true, date: (m.video ? 'Vidéo' : 'Photo') + ' · ' + m.day + ' ' + MNAMES[m.m] + ' 2026, ' + m.time, pos: (s.viewer + 1) + ' / ' + s.viewerIds.length,
+        bgSize: m.bgSize, bgPos: m.bgPos, tint: m.tint, dx: s.dx + 'px', video: m.video, dur: m.dur,
+        playIcon: s.playing ? icon('pause', 28) : icon('play', 28), togglePlay: (e) => { e.stopPropagation(); this.setState({ playing: !s.playing }); },
+        vpct: s.vpct + '%', elapsed: (() => { const t = Math.round(m.secs * s.vpct / 100); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); })(),
+        close: () => this.setState({ viewer: null, playing: false }), prev: (e) => { e.stopPropagation(); this.vStep(-1); }, next: (e) => { e.stopPropagation(); this.vStep(1); },
+        prevOp: s.viewer > 0 ? 1 : 0.25, nextOp: s.viewer < s.viewerIds.length - 1 ? 1 : 0.25,
+        down: (e) => { this._x0 = e.clientX; }, up: (e) => { if (this._x0 == null) return; const d = e.clientX - this._x0; this._x0 = null; if (d > 50) this.vStep(-1); else if (d < -50) this.vStep(1); },
+        bBg: b.bg, bFg: b.fg, bLine: b.line, bIcon: b.icon, stateTitle: T[0], stateBody: T[1],
+        rule: ms.k === 'error' ? 'var(--color-accent)' : ms.k === 'pending' || ms.k === 'up' ? 'var(--color-text)' : 'var(--color-divider)',
+        hasAction, actionLabel: ms.k === 'error' ? 'Réessayer maintenant' : 'Sauvegarder ce dossier',
+        action: () => { if (ms.k === 'untracked') { this.setState(st2 => ({ folders: { ...st2.folders, [m.folder]: true } })); this.snack(`« ${FNAME[m.folder]} » sera sauvegardé.`, ic.check); } else this.snack('Nouvel essai lancé.', ic.refresh); },
+        folder: FNAME[m.folder], size: m.size,
+      };
+    }
+
+    // dialogs
+    const dlg = s.dlg ? { show: true, ...s.dlg, hasNote: !!s.dlg.note, actions: s.dlg.actions.map(a => ({ ...a, cls: a.primary ? 'btn btn-primary' : 'btn btn-secondary' })) } : { show: false };
+    const sysBase = dk ? { bg: '#2b2930', fg: '#e6e1e5', ic: '#d0bcff', opt: '#3b3842' } : { bg: '#ece6f0', fg: '#1d1b20', ic: '#6750a4', opt: '#ddd6e6' };
+    const sys = s.sys ? { show: true, ...sysBase, ...s.sys, opts: s.sys.opts.map(o => ({ ...o, bg: sysBase.opt })) } : { show: false };
+    const askPhotos = () => this.setState({ sys: { icon: icon('image', 26), title: 'Autoriser Mon Album PC à accéder aux photos et vidéos de cet appareil ?', opts: [
+      { label: 'Tout autoriser', on: () => this.go('permNotif', { partialDenied: false }) },
+      { label: 'Sélectionner des photos et vidéos', on: () => this.go('partial', { partialDenied: false }) },
+      { label: 'Ne pas autoriser', on: () => this.go('partial', { partialDenied: true }) }] } });
+    const askNotif = () => this.setState({ sys: { icon: icon('bell', 26), title: 'Autoriser Mon Album PC à vous envoyer des notifications ?', opts: [
+      { label: 'Autoriser', on: () => this.go('scan') }, { label: 'Ne pas autoriser', on: () => this.go('scan') }] } });
+    const askInstall = () => this.setState({ sys: { icon: icon('download', 26), title: 'Voulez-vous installer cette mise à jour de Mon Album PC ?', opts: [
+      { label: 'Mettre à jour', on: () => { this.setState({ sys: null, update: false }); this.snack('Mon Album PC est à jour (version 1.5.0).', ic.check); } },
+      { label: 'Annuler', on: () => this.setState({ sys: null }) }] } });
+    const askUnlink = () => this.setState({ dlg: { title: 'Dissocier ce téléphone ?', body: 'Les photos de ce téléphone ne seront plus sauvegardées sur PC-SALON.', note: 'Rien n\'est supprimé : ni sur le téléphone, ni sur le PC.', actions: [
+      { label: 'Dissocier', primary: true, on: () => this.go('welcome') }, { label: 'Annuler', on: () => this.setState({ dlg: null }) }] } });
+
+    // code entry
+    const codeCells = [];
+    s.code.forEach((val, i) => {
+      if (i === 3) codeCells.push({ gap: true });
+      codeCells.push({ box: true, value: val, ref: this.codeRefs[i], line: s.codeErr ? 'var(--color-accent)' : val ? 'var(--color-text)' : 'var(--color-divider)',
+        onChange: (e) => { const d = e.target.value.replace(/\D/g, '').slice(-1); const c = [...this.state.code]; c[i] = d; this.setState({ code: c, codeErr: false }); if (d && i < 5) this.codeRefs[i + 1].current?.focus(); },
+        onKey: (e) => { if (e.key === 'Backspace' && !this.state.code[i] && i > 0) this.codeRefs[i - 1].current?.focus(); } });
+    });
+    const codeStr = s.code.join('');
+    const submitCode = () => { if (codeStr === '000000') this.setState({ codeErr: true }); else this.go('success'); };
+
+    // errors
+    const ERR = {
+      errQr: { icon: icon('qr', 32), title: "Ce QR code n'est plus valable", body: 'Il a expiré ou a déjà servi. Sur le PC, cliquez à nouveau sur « Ajouter un téléphone » : un nouveau QR code s\'affichera.', primary: { label: 'Scanner à nouveau', on: () => this.go('scan') }, secondary: { label: 'Saisir le code à la place', on: () => this.go('code') } },
+      errWifi: { icon: icon('wifiOff', 32), title: 'PC introuvable', body: 'Le téléphone et le PC doivent être connectés au même Wi-Fi.', list: ['Le PC est allumé et Mon Album PC est ouvert.', 'Le téléphone est sur le Wi-Fi de la maison, pas en 4G ou 5G.', 'Le PC est relié à la même box que le téléphone.'], primary: { label: 'Réessayer', on: () => this.go('success') }, secondary: { label: 'Ouvrir les réglages Wi-Fi', on: () => this.snack('Ouvre les réglages Wi-Fi d\'Android.', ic.wifi) } },
+      errAlready: { icon: icon('unlink', 32), title: 'Ce téléphone est déjà relié à un autre PC', body: 'Il est relié à BUREAU-PAPA. Pour le relier à PC-SALON, il faut d\'abord le dissocier. Rien n\'est supprimé, ni sur le téléphone ni sur le PC.', primary: { label: 'Dissocier et relier à PC-SALON', on: () => this.go('success') }, secondary: { label: 'Annuler', on: () => this.go('scan') } },
+    };
+    const err = ERR[scr] || ERR.errQr;
+    err.hasList = !!err.list; err.list = (err.list || []).map((t, i) => ({ n: i + 1, t }));
+
+    const nav = [['photos', 'Photos', 'image'], ['dossiers', 'Dossiers', 'folder'], ['reglages', 'Réglages', 'settings']].map(([k, label, ik]) => {
+      const cur = scr === k || (k === 'reglages' && scr === 'usb');
+      return { label, icon: ic[ik], cur, on: () => this.go(k), fg: cur ? 'var(--color-accent-700)' : 'var(--color-text)', bar: cur ? 'var(--color-accent-100)' : 'transparent', font: (cur ? '700' : '400') + ' 14px var(--font-body)' };
+    });
+
+    const usbOpts = ['Transfert de fichiers / Android Auto', 'Partage de connexion via USB', 'MIDI', 'PTP', 'Aucun transfert de données'].map((label, i) => ({ label, bg: i === 0 ? '#d7ece4' : 'transparent', w: i === 0 ? 600 : 400, ring: i === 0 ? '#2f7d6b' : '#79747e', dot: i === 0 ? '#2f7d6b' : 'transparent' }));
+
+    const jumpItem = ([k, label]) => ({ label, on: () => k === 'viewer' ? (this.go('photos'), setTimeout(() => this.openViewer(MEDIA.map(m => m.id), 0), 0)) : this.go(k, { code: ['', '', '', '', '', ''], codeErr: false }), bg: (k === scr && s.viewer == null) || (k === 'viewer' && s.viewer != null) ? '#201e1d' : 'transparent', fg: (k === scr && s.viewer == null) || (k === 'viewer' && s.viewer != null) ? '#f3f2f2' : '#201e1d' });
+    const jump = [
+      { title: 'Premier lancement', items: [['welcome', 'Bienvenue'], ['permPhotos', 'Autorisation photos'], ['partial', 'Accès partiel'], ['permNotif', 'Autorisation notifications'], ['scan', 'Scanner le QR code (touchez le cadre)'], ['code', 'Saisie du code'], ['success', 'Association réussie'], ['setupFolders', 'Choix des dossiers'], ['started', "C'est parti"]].map(jumpItem) },
+      { title: "Erreurs d'association", items: [['errQr', 'QR code expiré ou déjà utilisé'], ['errWifi', 'PC introuvable (Wi-Fi)'], ['errAlready', 'Déjà associé à un autre PC']].map(jumpItem) },
+      { title: 'Application', items: [['photos', 'Photos'], ['viewer', 'Vue plein écran'], ['dossiers', 'Dossiers'], ['reglages', 'Réglages'], ['usb', 'Aide USB'], ['unlinked', 'Téléphone dissocié par le PC']].map(jumpItem) },
+    ];
+    const scenOpts = SCEN.map(([k, label]) => ({ label, on: () => this.setScen(k), bg: 'transparent', fg: '#201e1d', mark: sc === k ? '#2f7d6b' : '#201e1d22' }));
+    const themeOpts = [['light', 'Clair'], ['dark', 'Sombre']].map(([k, label], i) => ({ label, on: () => this.setState({ theme: k }), bg: theme === k ? '#2f7d6b' : 'transparent', fg: theme === k ? '#fff' : '#201e1d', sep: i ? '1px solid #201e1d66' : '0' }));
+    const notifs = [
+      { when: 'maintenant', title: 'Sauvegarde en cours', body: '12 / 52 · PC-SALON', bar: true },
+      { when: 'il y a 5 min', title: 'Sauvegarde terminée', body: '52 photos et 3 vidéos sauvegardées sur PC-SALON' },
+      { when: 'hier', title: 'Sauvegarde impossible', body: 'Le disque du PC est plein. Libérez de la place sur PC-SALON.' },
+    ];
+
+    const hasNav = is.photos || is.dossiers || is.reglages || is.usb;
+    return {
+      theme, is, steps, ic, scanLine: h('div', { style: { position: 'absolute', left: 0, right: 0, height: 2, background: 'var(--color-accent)', boxShadow: '0 0 12px var(--color-accent)', animation: 'scan 2.2s ease-in-out infinite alternate' } }),
+      screenLabel: LABELS[scr] || scr,
+      sbColor: darkTop ? '#fff' : 'var(--color-text)', sbBg: darkTop ? 'transparent' : 'var(--color-bg)', gbBg: s.viewer != null ? 'var(--color-bg)' : (is.scan ? '#0d0c0c' : 'var(--color-bg)'),
+      goPermPhotos: () => this.go('permPhotos'), goPermNotif: () => this.go('permNotif'), goScan: () => this.go('scan'), goCode: () => this.go('code', { code: ['', '', '', '', '', ''], codeErr: false }),
+      scanOk: () => this.go('success'), goSetupFolders: () => this.go('setupFolders'), goStarted: () => this.go('started', { started: 1240 }),
+      goPhotosProgress: () => this.setScen('progress'), goDossiers: () => this.go('dossiers'), goReglages: () => this.go('reglages'), goUsb: () => this.go('usb'),
+      partialText: s.partialDenied ? "Sans accès aux photos, Mon Album PC ne peut rien copier sur votre PC." : "Vous avez choisi quelques photos seulement. Les autres, et toutes les nouvelles, ne pourront pas être copiées sur votre PC.",
+      askPhotos, askNotif, askInstall, askUnlink,
+      codeCells, codeErr: s.codeErr, codeIncomplete: codeStr.length < 6, submitCode,
+      err, startedDone: fmt(s.started), startedTotal: fmt(10312), startedPct: (100 * s.started / 10312).toFixed(1) + '%',
+      folderSections, trackedSummary, addFolder: () => this.snack('Ouvre le sélecteur de dossiers d\'Android.', ic.folder),
+      banner: { hasAction: false, hasBar: false, pct: '0%', action: '', ...banner }, filters, groups, gridRef: this.gridRef, onGridScroll: this.onGridScroll, fs,
+      emptyFilter, emptyFilterTitle: (EF[fk] || [])[0], emptyFilterBody: (EF[fk] || [])[1], emptyAll: empty,
+      showFab: sc !== 'progress' && !empty, backupNow,
+      showUpdate: updateAvail && !s.updateDismissed, dismissUpdate: () => this.setState({ updateDismissed: true }), updateAvail,
+      versionLine: updateAvail ? 'Version 1.4.0 · la 1.5.0 est disponible' : 'Version 1.4.0 · à jour',
+      lastSave: s.lastSave, charge: { on: s.charge, ...mkSwitch(s.charge) }, toggleCharge: () => this.setState({ charge: !s.charge }),
+      openNotifSettings: () => this.snack('Ouvre les réglages de notifications d\'Android.', ic.bell),
+      usbOpts, nav, hasNav, v, dlg, sys,
+      snack: s.snack ? { show: true, ...s.snack, bottom: hasNav ? '88px' : '24px' } : { show: false },
+      jump, scenOpts, themeOpts, notifs, toggleUpdate: () => this.setState({ update: !updateAvail, updateDismissed: false }), updMark: updateAvail ? '#2f7d6b' : '#201e1d22',
+    };
+  }
+}
+</script>
+</body>
+</html>
