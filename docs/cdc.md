@@ -149,6 +149,7 @@ que le français.
 4. **Si l'app n'est pas installée**, l'utilisateur scanne avec l'appareil photo. Une page web servie par
    le PC s'ouvre, avec un bouton pour télécharger l'APK. Après installation, il scanne à nouveau le même
    QR code depuis l'app (ou ouvre l'app avec un lien qui transmet le jeton).
+   Si la caméra ne fonctionne pas, le PC affiche aussi un **code à 6 chiffres** à saisir dans l'app.
 5. Le premier écran de l'app propose les dossiers suivis (§4.1), puis la première synchronisation démarre.
 
 ### 6.2 Sécurité
