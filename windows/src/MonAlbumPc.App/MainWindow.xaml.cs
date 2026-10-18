@@ -64,7 +64,7 @@ public partial class MainWindow : Window
                 "albums" => new AlbumsPage(_host, this),
                 "history" => new HistoryPage(_host.Core),
                 "settings" => new SettingsPage(_host),
-                _ => new PhotosPage(this),
+                _ => new Photos.PhotosPage(_host.Core, this),
             };
             _pages[tag] = page;
         }

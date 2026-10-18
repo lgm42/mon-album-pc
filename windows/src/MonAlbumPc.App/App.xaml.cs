@@ -24,7 +24,10 @@ public partial class App : Application
             return;
         }
 
-        _host = new AppHost(CoreServices.DefaultDataDirectory);
+        // --data <folder>: separate catalog, for development and tests.
+        var dataIndex = Array.IndexOf(e.Args, "--data");
+        var dataDirectory = dataIndex >= 0 && dataIndex + 1 < e.Args.Length ? e.Args[dataIndex + 1] : CoreServices.DefaultDataDirectory;
+        _host = new AppHost(dataDirectory);
         await _host.StartAsync();
 
         _tray = new TrayIcon(_host, ShowMainWindow, ShowAddPhone, Quit);
