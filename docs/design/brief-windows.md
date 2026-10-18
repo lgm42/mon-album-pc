@@ -23,7 +23,8 @@ et propose une visionneuse rapide.
 - Interface **en français uniquement**, vouvoiement.
 - Vocabulaire du quotidien. Les termes techniques (port, pare-feu, profil réseau) n'apparaissent que dans
   l'écran de diagnostic, et toujours avec une explication et un bouton « Corriger ».
-- Même icône et même logo que l'app Android (à proposer dans le brief Android).
+- Même icône et même logo que l'app Android, générés avec Gemini (voir
+  [`prompt-logo-gemini.md`](prompt-logo-gemini.md)).
 
 ## 4. Contraintes de plateforme
 

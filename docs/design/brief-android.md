@@ -24,8 +24,9 @@ maison, en Wi-Fi, sans câble ni cloud. Une app Windows compagnon reçoit les fi
   « synchroniser des buckets », « MediaStore », « MTP », « hash », « TLS ». Si un terme technique est
   inévitable (par exemple « Transfert de fichiers » dans le menu USB d'Android), on l'écrit entre
   guillemets, exactement comme le téléphone l'affiche.
-- **À proposer** : une icône d'app et un petit logo, communs aux deux apps (Android et Windows).
-  Le nom doit rester lisible en petit.
+- **Icône et logo** : ils sont communs aux deux apps (Android et Windows) et générés à part avec Gemini
+  (voir [`prompt-logo-gemini.md`](prompt-logo-gemini.md)). Claude Design les intègre et s'aligne sur
+  leur palette : bleu profond `#1F4E8C`, accent ambre `#F2A33A`.
 
 ## 4. Contraintes de plateforme
 
@@ -164,7 +165,7 @@ C'est une page HTML statique, légère, sans dépendance externe : elle doit fon
 
 ## 9. Livrables attendus
 
-- L'icône d'app et le logo.
+- L'intégration de l'icône Gemini : icône adaptative et icône de notification.
 - Les maquettes des écrans du §6, en clair et en sombre, y compris les états vides et d'erreur listés.
 - Les composants : miniature avec badge (5 états), bandeau d'état (variantes), ligne de dossier.
 - La page web du §8.
