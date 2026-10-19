@@ -19,15 +19,29 @@ android {
         // CI passes -PversionCode=... -PversionName=...
         versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 1
         versionName = (project.findProperty("versionName") as String?) ?: "0.1.0"
+        // Phones only: the x86 builds of ML Kit's native library are for emulators and double the APK size.
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
     }
 
     signingConfigs {
-        // Committed keystore, so that every CI-built debug APK can update the previous one.
+        // Committed keystore, so that local debug builds can update each other.
         getByName("debug") {
             storeFile = file("debug.keystore")
             storePassword = "android"
             keyAlias = "androiddebugkey"
             keyPassword = "android"
+        }
+        // Release key, kept out of the repo: CI decodes it from its secrets (PKCS12, one password).
+        val releaseKeystore = System.getenv("MONALBUMPC_KEYSTORE")
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = System.getenv("MONALBUMPC_KEYSTORE_PASSWORD")
+                keyAlias = "monalbumpc"
+                keyPassword = System.getenv("MONALBUMPC_KEYSTORE_PASSWORD")
+            }
         }
     }
 
@@ -36,7 +50,9 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            signingConfig = signingConfigs.findByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
