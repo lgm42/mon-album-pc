@@ -118,6 +118,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
             is Connection.Connected -> c
             Connection.Unreachable -> {
                 prefs.setIssue(BackupIssue.PC_UNREACHABLE, System.currentTimeMillis())
+                catchUpLater()
                 return Result.success()
             }
             Connection.Busy -> return Result.success()
@@ -216,6 +217,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
         }
         return when (outcome) {
             RunOutcome.Completed -> {
+                if (!isCatchUp) BackupScheduler.cancelCatchUp(applicationContext)
                 prefs.setLastBackup(now)
                 prefs.setIssue(BackupIssue.NONE, now)
                 notifications.cancelIssue()
@@ -231,12 +233,26 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
                 Result.success()
             }
             RunOutcome.Quiet -> Result.success()
-            RunOutcome.Retry -> Result.retry()
+            // Stopped by the system: WorkManager brings this run back. Connection lost: retry on our own schedule.
+            RunOutcome.Retry -> if (isStopped) {
+                Result.retry()
+            } else {
+                catchUpLater()
+                Result.success()
+            }
             RunOutcome.Unpaired -> {
                 forgetPc()
                 Result.success()
             }
         }
+    }
+
+    private val isCatchUp: Boolean
+        get() = tags.contains(BackupScheduler.TAG_CATCH_UP)
+
+    private suspend fun catchUpLater() {
+        val attempt = inputData.getInt(BackupScheduler.KEY_ATTEMPT, 0)
+        BackupScheduler.scheduleCatchUp(applicationContext, attempt, prefs.current().chargingOnly, isCatchUp)
     }
 
     /** The reset cancels this very work: finish it whatever happens. */

@@ -10,6 +10,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import androidx.work.workDataOf
 import java.util.concurrent.TimeUnit
 
 /**
@@ -22,12 +23,22 @@ object BackupScheduler {
     const val PERIODIC = "backup-periodic"
     const val CONTENT = "backup-content"
     const val NOW = "backup-now"
+    const val CATCH_UP = "backup-catchup"
+
+    /** Tag of the work retrying while the PC does not answer, which queues its own successor. */
+    const val TAG_CATCH_UP = "backup-catchup-retry"
+
+    /** Input of the catch-up work: how many times in a row the PC has not answered. */
+    const val KEY_ATTEMPT = "catchUpAttempt"
+
+    // Delays between catch-up attempts, then every 15 minutes until the PC answers.
+    private val catchUpMinutes = longArrayOf(1, 2, 5, 10, 15)
 
     /** Tag of the work woken up by new media, which re-arms itself after each run. */
     const val TAG_CONTENT = "backup-content-trigger"
 
     /** Every unique work name, newest-first priority for the UI. */
-    val uniqueNames = listOf(NOW, CONTENT, PERIODIC)
+    val uniqueNames = listOf(NOW, CATCH_UP, CONTENT, PERIODIC)
 
     /** On app start and after pairing; [replace] after the charging setting changed. */
     fun schedule(context: Context, chargingOnly: Boolean, replace: Boolean = false) {
@@ -70,6 +81,28 @@ object BackupScheduler {
             .addTag(TAG)
             .build()
         WorkManager.getInstance(context).enqueueUniqueWork(NOW, ExistingWorkPolicy.KEEP, request)
+    }
+
+    /**
+     * Photos are waiting but the PC did not answer (asleep, switched off, other network): try again soon
+     * rather than at the next hourly run. [fromCatchUp] when called by the catch-up work itself, which
+     * must queue its successor instead of replacing (and so cancelling) itself.
+     */
+    fun scheduleCatchUp(context: Context, attempt: Int, chargingOnly: Boolean, fromCatchUp: Boolean) {
+        val delay = catchUpMinutes[minOf(attempt, catchUpMinutes.lastIndex)]
+        val request = OneTimeWorkRequestBuilder<BackupWorker>()
+            .setInitialDelay(delay, TimeUnit.MINUTES)
+            .setConstraints(constraints(chargingOnly))
+            .setInputData(workDataOf(KEY_ATTEMPT to attempt + 1))
+            .addTag(TAG)
+            .addTag(TAG_CATCH_UP)
+            .build()
+        val policy = if (fromCatchUp) ExistingWorkPolicy.APPEND_OR_REPLACE else ExistingWorkPolicy.REPLACE
+        WorkManager.getInstance(context).enqueueUniqueWork(CATCH_UP, policy, request)
+    }
+
+    fun cancelCatchUp(context: Context) {
+        WorkManager.getInstance(context).cancelUniqueWork(CATCH_UP)
     }
 
     fun cancelAll(context: Context) {
