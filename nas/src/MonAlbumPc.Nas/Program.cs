@@ -1,5 +1,6 @@
 using System.Net;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.FluentUI.AspNetCore.Components;
@@ -24,6 +25,16 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         cookie.Cookie.Name = "monalbumpc";
         cookie.ExpireTimeSpan = TimeSpan.FromDays(30);
         cookie.SlidingExpiration = true;
+        // A cookie issued before the last password change is rejected.
+        cookie.Events.OnValidatePrincipal = context =>
+        {
+            var current = context.HttpContext.RequestServices.GetRequiredService<AdminPassword>().Stamp;
+            if (context.Principal?.FindFirst(StampClaim)?.Value != current)
+            {
+                context.RejectPrincipal();
+            }
+            return Task.CompletedTask;
+        };
     });
 builder.Services.AddAuthorization();
 
@@ -65,22 +76,26 @@ app.Use(async (context, next) =>
 app.UseAntiforgery();
 app.MapStaticAssets();
 
-app.MapPost("/login", async (HttpContext http, AdminPassword admin) =>
+app.MapPost("/login", async (HttpContext http, AdminPassword admin, IAntiforgery antiforgery) =>
 {
+    if (!await IsGenuineAsync(http, antiforgery))
+    {
+        return Results.Redirect("/login");
+    }
     var form = await http.Request.ReadFormAsync();
     if (!admin.Verify(form["password"].ToString()))
     {
         return Results.Redirect("/login?error=1");
     }
-    await SignInAsync(http);
+    await SignInAsync(http, admin);
     return Results.Redirect("/");
 });
 
-app.MapPost("/setup", async (HttpContext http, AdminPassword admin) =>
+app.MapPost("/setup", async (HttpContext http, AdminPassword admin, IAntiforgery antiforgery) =>
 {
-    if (admin.IsSet)
+    if (admin.IsSet || !await IsGenuineAsync(http, antiforgery))
     {
-        return Results.Redirect("/login");
+        return Results.Redirect(admin.IsSet ? "/login" : "/setup");
     }
     var form = await http.Request.ReadFormAsync();
     var first = form["password"].ToString();
@@ -92,12 +107,16 @@ app.MapPost("/setup", async (HttpContext http, AdminPassword admin) =>
     {
         return Results.Redirect("/setup?error=weak");
     }
-    await SignInAsync(http);
+    await SignInAsync(http, admin);
     return Results.Redirect("/");
 });
 
-app.MapPost("/logout", async (HttpContext http) =>
+app.MapPost("/logout", async (HttpContext http, IAntiforgery antiforgery) =>
 {
+    if (!await IsGenuineAsync(http, antiforgery))
+    {
+        return Results.Redirect("/");
+    }
     await http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
     return Results.Redirect("/login");
 });
@@ -108,7 +127,28 @@ app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 
 app.Run();
 
-static Task SignInAsync(HttpContext http) => http.SignInAsync(
+static Task SignInAsync(HttpContext http, AdminPassword admin) => http.SignInAsync(
     CookieAuthenticationDefaults.AuthenticationScheme,
-    new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.Name, "admin")], CookieAuthenticationDefaults.AuthenticationScheme)),
+    new ClaimsPrincipal(new ClaimsIdentity(
+        [new Claim(ClaimTypes.Name, "admin"), new Claim(StampClaim, admin.Stamp ?? "")],
+        CookieAuthenticationDefaults.AuthenticationScheme)),
     new AuthenticationProperties { IsPersistent = true });
+
+// The sign-in forms carry an antiforgery token; these endpoints read the form by hand, so check it here.
+static async Task<bool> IsGenuineAsync(HttpContext http, IAntiforgery antiforgery)
+{
+    try
+    {
+        await antiforgery.ValidateRequestAsync(http);
+        return true;
+    }
+    catch (AntiforgeryValidationException)
+    {
+        return false;
+    }
+}
+
+internal partial class Program
+{
+    private const string StampClaim = "monalbumpc:stamp";
+}

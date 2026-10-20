@@ -22,7 +22,8 @@ public sealed class AdminPassword(string configDirectory)
             return $"Le mot de passe doit faire au moins {MinimumLength} caractères.";
         }
         var salt = RandomNumberGenerator.GetBytes(16);
-        var stored = new Stored(Convert.ToBase64String(salt), Convert.ToBase64String(Hash(password, salt)), Iterations);
+        var stored = new Stored(Convert.ToBase64String(salt), Convert.ToBase64String(Hash(password, salt)), Iterations,
+            Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16)));
         Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
         File.WriteAllText(_path, JsonSerializer.Serialize(stored));
         return null;
@@ -41,8 +42,11 @@ public sealed class AdminPassword(string configDirectory)
         return CryptographicOperations.FixedTimeEquals(expected, actual);
     }
 
+    /// <summary>Changes with every new password; sign-in cookies carry it, so older ones stop working.</summary>
+    public string? Stamp => IsSet ? JsonSerializer.Deserialize<Stored>(File.ReadAllText(_path))!.Stamp ?? "" : null;
+
     private static byte[] Hash(string password, byte[] salt) =>
         Rfc2898DeriveBytes.Pbkdf2(Encoding.UTF8.GetBytes(password), salt, Iterations, HashAlgorithmName.SHA256, 32);
 
-    private sealed record Stored(string Salt, string Hash, int Iterations);
+    private sealed record Stored(string Salt, string Hash, int Iterations, string? Stamp = null);
 }
