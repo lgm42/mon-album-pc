@@ -35,7 +35,7 @@ Un téléphone n'est associé qu'à un seul PC.
 code ; galerie Android avec état de sauvegarde ; app systray Windows avec réglages, historique et
 visionneuse simple ; conversion HEIC → JPEG ; installeur Windows ; distribution de l'APK par le PC.
 
-**Exclu** : iOS, Play Store, transfert hors réseau local (4G, Internet), suppression de médias sur le
+**Exclu** : iOS, Play Store, transfert par Internet sans VPN (voir §18.4), suppression de médias sur le
 téléphone, mode « import ponctuel » sans association, synchronisation vers plusieurs PC, langues autres
 que le français.
 
@@ -61,7 +61,7 @@ que le français.
 - Synchronisation périodique de secours et bouton **« Synchroniser maintenant »**.
 - Le téléphone détecte le PC sur le réseau local, sans restriction sur le nom du Wi-Fi (donc sans
   permission de localisation).
-- Pas d'envoi en 4G.
+- Pas d'envoi en 4G, sauf si l'option « Autoriser les données mobiles » est activée (VPN, voir §18.4).
 
 ### 4.3 Galerie
 
@@ -274,3 +274,46 @@ Nom retenu le 2026-10-17 : **Mon Album PC**, même nom pour les deux apps (Andro
 - Commits unitaires, titre court en anglais, préfixé d'un gitmoji. Aucune mention d'IA dans les messages.
 - La clé de signature de l'APK et les secrets de compilation sont dans les secrets GitHub Actions, jamais
   dans le repo.
+
+## 18. Version NAS (TrueNAS SCALE) — ajoutée le 2026-10-20
+
+Une troisième application, **serveur seul**, pour remplacer le PC par un NAS toujours allumé. Le téléphone
+reste associé à **un seul serveur** : soit un PC Windows, soit le NAS. Pour lui, le NAS n'est qu'un « PC »
+de plus, avec le même protocole.
+
+### 18.1 Forme
+
+- Conteneur Docker publié par la CI (`ghcr.io/lgm42/mon-album-pc`), installé sur **TrueNAS SCALE 24.10+**
+  en Custom App (« Install via YAML », docker compose). Un exemple de YAML est fourni dans `nas/`.
+- **Réseau de l'hôte** (`network_mode: host`) : indispensable pour l'annonce mDNS sur le réseau local.
+- Volumes :
+  - `/config` : catalogue, certificat et identité du serveur ;
+  - `/photos` : dataset parent des albums. Les dossiers des albums sont choisis **sous `/photos`**.
+- Utilisateur du conteneur : `568:568` par défaut (utilisateur `apps` de TrueNAS), modifiable. Le dataset
+  doit lui donner le droit d'écrire.
+- L'APK Android est embarqué dans l'image, comme dans l'app Windows.
+
+### 18.2 Interface web d'administration
+
+- Même périmètre que l'app Windows, visionneuse comprise : albums et téléphones, ajout d'un téléphone
+  (QR code + code à 6 chiffres), historique, réglages, diagnostic, visionneuse (grille par mois, plein écran,
+  rotation sans perte, suppression).
+- Même style Fluent et même accent indigo, en français.
+- Port **48622**, en HTTPS avec le certificat du serveur.
+- **Protégée par un mot de passe administrateur**, demandé au premier accès (ou fourni par la variable
+  `MONALBUMPC_ADMIN_PASSWORD`).
+- La suppression d'une photo depuis le web la déplace dans `/photos/.corbeille` (pas de Corbeille Windows).
+
+### 18.3 Différences avec l'app Windows
+
+- Pas d'icône de zone de notification, pas de lancement avec Windows (c'est le redémarrage du conteneur qui
+  s'en charge), pas d'import USB.
+- Pas de notification système : l'état et l'historique se consultent dans l'interface web.
+
+### 18.4 Réseau, VPN et données mobiles
+
+- Le téléphone sauvegarde dès que le serveur répond, y compris à travers un VPN (WireGuard vers la maison).
+- La découverte mDNS ne traverse pas un VPN : le téléphone utilise l'adresse mémorisée à l'association.
+- Nouvelle option Android **« Autoriser les données mobiles »**, désactivée par défaut. Sans elle, la
+  sauvegarde reste en Wi-Fi uniquement ; avec elle, elle part aussi en 4G/5G si le serveur est joignable
+  (typiquement via le VPN).
