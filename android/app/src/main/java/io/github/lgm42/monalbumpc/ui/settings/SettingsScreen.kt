@@ -60,6 +60,8 @@ fun SettingsScreen(
     onUnpair: () -> Unit,
     chargingOnly: Boolean,
     onChargingOnlyChange: (Boolean) -> Unit,
+    mobileData: Boolean,
+    onMobileDataChange: (Boolean) -> Unit,
     lastBackupMs: Long?,
     modifier: Modifier = Modifier,
 ) {
@@ -94,6 +96,19 @@ fun SettingsScreen(
             checked = chargingOnly,
             onCheckedChange = onChargingOnlyChange,
             modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        Spacer(Modifier.height(8.dp))
+        SwitchRow(
+            label = stringResource(R.string.settings_mobile_data),
+            checked = mobileData,
+            onCheckedChange = onMobileDataChange,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        Text(
+            text = stringResource(R.string.settings_mobile_data_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 6.dp),
         )
         Spacer(Modifier.height(24.dp))
     }
@@ -299,6 +314,8 @@ private fun SettingsScreenPreview() {
             onUnpair = {},
             chargingOnly = false,
             onChargingOnlyChange = {},
+            mobileData = false,
+            onMobileDataChange = {},
             lastBackupMs = null,
         )
     }

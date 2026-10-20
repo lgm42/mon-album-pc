@@ -19,14 +19,21 @@ import kotlinx.coroutines.flow.map
 
 private val Context.backupDataStore: DataStore<Preferences> by preferencesDataStore(name = "backup")
 
+/** When backups may run: only while charging, and whether mobile data (VPN) is allowed besides Wi-Fi. */
+data class BackupConditions(val chargingOnly: Boolean = false, val mobileData: Boolean = false)
+
 /** Backup settings and the outcome of the last run. */
 data class BackupState(
     val chargingOnly: Boolean = false,
+    val mobileData: Boolean = false,
     val lastBackupMs: Long? = null,
     val issue: BackupIssue = BackupIssue.NONE,
     val issueSinceMs: Long? = null,
     val notifiedIssue: BackupIssue = BackupIssue.NONE,
-)
+) {
+    val conditions: BackupConditions
+        get() = BackupConditions(chargingOnly, mobileData)
+}
 
 class BackupPrefs(context: Context) {
 
@@ -37,6 +44,7 @@ class BackupPrefs(context: Context) {
         .map { p ->
             BackupState(
                 chargingOnly = p[CHARGING_ONLY] ?: false,
+                mobileData = p[MOBILE_DATA] ?: false,
                 lastBackupMs = p[LAST_BACKUP],
                 issue = parseIssue(p[ISSUE]),
                 issueSinceMs = p[ISSUE_SINCE],
@@ -49,6 +57,10 @@ class BackupPrefs(context: Context) {
 
     suspend fun setChargingOnly(value: Boolean) {
         dataStore.edit { it[CHARGING_ONLY] = value }
+    }
+
+    suspend fun setMobileData(value: Boolean) {
+        dataStore.edit { it[MOBILE_DATA] = value }
     }
 
     suspend fun setLastBackup(timeMs: Long) {
@@ -88,6 +100,7 @@ class BackupPrefs(context: Context) {
 
     private companion object {
         val CHARGING_ONLY = booleanPreferencesKey("charging_only")
+        val MOBILE_DATA = booleanPreferencesKey("mobile_data")
         val LAST_BACKUP = longPreferencesKey("last_backup")
         val ISSUE = stringPreferencesKey("issue")
         val ISSUE_SINCE = longPreferencesKey("issue_since")

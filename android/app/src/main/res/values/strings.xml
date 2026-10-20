@@ -225,6 +225,8 @@
     <string name="settings_unpair">Dissocier ce téléphone</string>
     <string name="settings_backup">Sauvegarde</string>
     <string name="settings_charging_only">Sauvegarder uniquement pendant la recharge</string>
+    <string name="settings_mobile_data">Autoriser les données mobiles</string>
+    <string name="settings_mobile_data_hint">Pour sauvegarder hors de la maison à travers un VPN. Sans cette option, la sauvegarde se fait uniquement en Wi-Fi.</string>
     <string name="settings_last_backup">Dernière sauvegarde : %1$s</string>
     <string name="settings_last_backup_never">Dernière sauvegarde : pas encore</string>
     <string name="date_today_at">aujourd\'hui à %1$s</string>

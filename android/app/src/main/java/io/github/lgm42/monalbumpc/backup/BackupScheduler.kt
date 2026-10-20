@@ -11,6 +11,7 @@ import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
+import io.github.lgm42.monalbumpc.data.BackupConditions
 import java.util.concurrent.TimeUnit
 
 /**
@@ -41,10 +42,10 @@ object BackupScheduler {
     val uniqueNames = listOf(NOW, CATCH_UP, CONTENT, PERIODIC)
 
     /** On app start and after pairing; [replace] after the charging setting changed. */
-    fun schedule(context: Context, chargingOnly: Boolean, replace: Boolean = false) {
+    fun schedule(context: Context, conditions: BackupConditions, replace: Boolean = false) {
         val workManager = WorkManager.getInstance(context)
         val periodic = PeriodicWorkRequestBuilder<BackupWorker>(1, TimeUnit.HOURS)
-            .setConstraints(constraints(chargingOnly))
+            .setConstraints(constraints(conditions))
             .addTag(TAG)
             .build()
         workManager.enqueueUniquePeriodicWork(
@@ -52,14 +53,14 @@ object BackupScheduler {
             if (replace) ExistingPeriodicWorkPolicy.UPDATE else ExistingPeriodicWorkPolicy.KEEP,
             periodic,
         )
-        armContentTrigger(context, chargingOnly, if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP)
+        armContentTrigger(context, conditions, if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP)
     }
 
     /** One-time work that waits for a change in the photo or video collections. */
-    fun armContentTrigger(context: Context, chargingOnly: Boolean, policy: ExistingWorkPolicy) {
+    fun armContentTrigger(context: Context, conditions: BackupConditions, policy: ExistingWorkPolicy) {
         val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.UNMETERED)
-            .setRequiresCharging(chargingOnly)
+            .setRequiredNetworkType(networkType(conditions))
+            .setRequiresCharging(conditions.chargingOnly)
             .addContentUriTrigger(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, true)
             .addContentUriTrigger(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, true)
             .setTriggerContentUpdateDelay(10, TimeUnit.SECONDS)
@@ -73,11 +74,11 @@ object BackupScheduler {
         WorkManager.getInstance(context).enqueueUniqueWork(CONTENT, policy, request)
     }
 
-    /** "Sauvegarder maintenant": expedited, ignores the charging setting, still Wi-Fi only. */
-    fun backupNow(context: Context) {
+    /** "Sauvegarder maintenant": expedited, ignores the charging setting, keeps the network setting. */
+    fun backupNow(context: Context, conditions: BackupConditions) {
         val request = OneTimeWorkRequestBuilder<BackupWorker>()
             .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.UNMETERED).build())
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(networkType(conditions)).build())
             .addTag(TAG)
             .build()
         WorkManager.getInstance(context).enqueueUniqueWork(NOW, ExistingWorkPolicy.KEEP, request)
@@ -88,11 +89,11 @@ object BackupScheduler {
      * rather than at the next hourly run. [fromCatchUp] when called by the catch-up work itself, which
      * must queue its successor instead of replacing (and so cancelling) itself.
      */
-    fun scheduleCatchUp(context: Context, attempt: Int, chargingOnly: Boolean, fromCatchUp: Boolean) {
+    fun scheduleCatchUp(context: Context, attempt: Int, conditions: BackupConditions, fromCatchUp: Boolean) {
         val delay = catchUpMinutes[minOf(attempt, catchUpMinutes.lastIndex)]
         val request = OneTimeWorkRequestBuilder<BackupWorker>()
             .setInitialDelay(delay, TimeUnit.MINUTES)
-            .setConstraints(constraints(chargingOnly))
+            .setConstraints(constraints(conditions))
             .setInputData(workDataOf(KEY_ATTEMPT to attempt + 1))
             .addTag(TAG)
             .addTag(TAG_CATCH_UP)
@@ -111,8 +112,12 @@ object BackupScheduler {
         workManager.cancelAllWorkByTag(TAG)
     }
 
-    private fun constraints(chargingOnly: Boolean): Constraints = Constraints.Builder()
-        .setRequiredNetworkType(NetworkType.UNMETERED)
-        .setRequiresCharging(chargingOnly)
+    private fun constraints(conditions: BackupConditions): Constraints = Constraints.Builder()
+        .setRequiredNetworkType(networkType(conditions))
+        .setRequiresCharging(conditions.chargingOnly)
         .build()
+
+    // Wi-Fi only by default; with mobile data allowed, any connection (the PC is then reached through a VPN).
+    private fun networkType(conditions: BackupConditions): NetworkType =
+        if (conditions.mobileData) NetworkType.CONNECTED else NetworkType.UNMETERED
 }

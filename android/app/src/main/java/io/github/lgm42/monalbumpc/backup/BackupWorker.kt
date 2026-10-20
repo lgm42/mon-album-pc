@@ -91,14 +91,14 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
 
     private suspend fun rearmContentTrigger() {
         if (pairingStore.paired.first() == null) return
-        val chargingOnly = prefs.current().chargingOnly
+        val conditions = prefs.current().conditions
         // The content-triggered work queues its successor; the others only make sure one exists.
         val policy = if (tags.contains(BackupScheduler.TAG_CONTENT)) {
             ExistingWorkPolicy.APPEND_OR_REPLACE
         } else {
             ExistingWorkPolicy.KEEP
         }
-        BackupScheduler.armContentTrigger(applicationContext, chargingOnly, policy)
+        BackupScheduler.armContentTrigger(applicationContext, conditions, policy)
     }
 
     private suspend fun runBackup(): Result {
@@ -252,7 +252,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
 
     private suspend fun catchUpLater() {
         val attempt = inputData.getInt(BackupScheduler.KEY_ATTEMPT, 0)
-        BackupScheduler.scheduleCatchUp(applicationContext, attempt, prefs.current().chargingOnly, isCatchUp)
+        BackupScheduler.scheduleCatchUp(applicationContext, attempt, prefs.current().conditions, isCatchUp)
     }
 
     /** The reset cancels this very work: finish it whatever happens. */

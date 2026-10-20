@@ -115,7 +115,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** On app start and after each pairing (this view model outlives an unpairing). */
     fun ensureScheduled() {
         viewModelScope.launch {
-            BackupScheduler.schedule(app, prefs.current().chargingOnly)
+            BackupScheduler.schedule(app, prefs.current().conditions)
         }
     }
 
@@ -136,25 +136,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setFolderTracked(key: String, tracked: Boolean) {
         viewModelScope.launch {
             folderStore.setTracked(key, tracked)
-            if (tracked) BackupScheduler.backupNow(app)
+            if (tracked) BackupScheduler.backupNow(app, prefs.current().conditions)
         }
     }
 
     fun backupNow() {
-        BackupScheduler.backupNow(app)
+        viewModelScope.launch { BackupScheduler.backupNow(app, prefs.current().conditions) }
     }
 
     fun retry(mediaId: Long) {
         viewModelScope.launch {
             dao.retryErrors(listOf(mediaId))
-            BackupScheduler.backupNow(app)
+            BackupScheduler.backupNow(app, prefs.current().conditions)
         }
     }
 
     fun setChargingOnly(value: Boolean) {
         viewModelScope.launch {
             prefs.setChargingOnly(value)
-            BackupScheduler.schedule(app, value, replace = true)
+            BackupScheduler.schedule(app, prefs.current().conditions, replace = true)
+        }
+    }
+
+    fun setMobileData(value: Boolean) {
+        viewModelScope.launch {
+            prefs.setMobileData(value)
+            BackupScheduler.schedule(app, prefs.current().conditions, replace = true)
         }
     }
 

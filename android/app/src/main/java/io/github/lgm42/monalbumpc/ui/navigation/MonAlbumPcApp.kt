@@ -83,6 +83,8 @@ fun MonAlbumPcApp(pc: PairedPc, onUnpair: () -> Unit) {
                     onUnpair = onUnpair,
                     chargingOnly = state.backup.chargingOnly,
                     onChargingOnlyChange = mainViewModel::setChargingOnly,
+                    mobileData = state.backup.mobileData,
+                    onMobileDataChange = mainViewModel::setMobileData,
                     lastBackupMs = state.backup.lastBackupMs,
                 )
             }
