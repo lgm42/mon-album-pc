@@ -45,6 +45,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import io.github.lgm42.monalbumpc.R
+import io.github.lgm42.monalbumpc.ui.components.BackgroundAccessCard
+import io.github.lgm42.monalbumpc.ui.components.rememberBackgroundUnrestricted
 import io.github.lgm42.monalbumpc.data.PairedPc
 import io.github.lgm42.monalbumpc.ui.components.ScreenHeader
 import io.github.lgm42.monalbumpc.ui.theme.MonAlbumPcTheme
@@ -110,6 +112,17 @@ fun SettingsScreen(
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 6.dp),
         )
+        Spacer(Modifier.height(16.dp))
+        if (rememberBackgroundUnrestricted()) {
+            Text(
+                text = stringResource(R.string.background_ok),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                modifier = Modifier.padding(horizontal = 20.dp),
+            )
+        } else {
+            BackgroundAccessCard(modifier = Modifier.padding(horizontal = 16.dp))
+        }
         Spacer(Modifier.height(24.dp))
     }
 

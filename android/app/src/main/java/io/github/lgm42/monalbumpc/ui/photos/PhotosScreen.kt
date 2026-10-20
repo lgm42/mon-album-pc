@@ -66,6 +66,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import io.github.lgm42.monalbumpc.R
+import io.github.lgm42.monalbumpc.ui.components.BackgroundAccessCard
+import io.github.lgm42.monalbumpc.ui.components.rememberBackgroundUnrestricted
 import io.github.lgm42.monalbumpc.backup.BannerState
 import io.github.lgm42.monalbumpc.backup.Elapsed
 import io.github.lgm42.monalbumpc.ui.BackupProgress
@@ -104,6 +106,7 @@ fun PhotosScreen(
         state.cells.mapNotNull { (it as? GalleryCell.Item)?.item }
     }
     val galleryEmpty = state.loaded && state.items.none { it.state != BadgeState.UNTRACKED }
+    val backgroundUnrestricted = rememberBackgroundUnrestricted()
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyVerticalGrid(
@@ -138,6 +141,11 @@ fun PhotosScreen(
                     },
                     modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
                 )
+            }
+            if (!backgroundUnrestricted) {
+                item(key = "background", span = { GridItemSpan(maxLineSpan) }, contentType = "background") {
+                    BackgroundAccessCard(modifier = Modifier.padding(bottom = 8.dp))
+                }
             }
             item(key = "filters", span = { GridItemSpan(maxLineSpan) }, contentType = "filters") {
                 FilterRow(
