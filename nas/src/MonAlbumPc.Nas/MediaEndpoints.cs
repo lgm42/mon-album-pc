@@ -21,22 +21,24 @@ public static class MediaEndpoints
         app.MapGet("/media/file", (string path) =>
             Allowed(options, path) ? Results.File(path, ContentType(path), enableRangeProcessing: true) : Results.NotFound());
 
-        app.MapGet("/media/thumb", async (string path, int? size) =>
+        app.MapGet("/media/thumb", async (string path, int? size, bool? fit) =>
         {
             if (!Allowed(options, path))
             {
                 return Results.NotFound();
             }
-            var pixels = Math.Clamp(size ?? 320, 64, 1024);
+            var whole = fit == true;
+            var pixels = Math.Clamp(size ?? 320, 64, whole ? 2560 : 1024);
             var file = new FileInfo(path);
-            var key = Convert.ToHexStringLower(SHA1.HashData(Encoding.UTF8.GetBytes($"{file.FullName}|{file.Length}|{file.LastWriteTimeUtc.Ticks}|{pixels}")));
+            var key = Convert.ToHexStringLower(SHA1.HashData(Encoding.UTF8.GetBytes(
+                $"{file.FullName}|{file.Length}|{file.LastWriteTimeUtc.Ticks}|{pixels}|{whole}")));
             var cached = Path.Combine(cache, key[..2], key + ".jpg");
             if (!File.Exists(cached))
             {
                 await Gate.WaitAsync();
                 try
                 {
-                    if (!File.Exists(cached) && !await RenderAsync(file.FullName, cached, pixels))
+                    if (!File.Exists(cached) && !await RenderAsync(file.FullName, cached, pixels, whole))
                     {
                         return Results.NotFound();
                     }
@@ -53,7 +55,8 @@ public static class MediaEndpoints
     private static bool Allowed(NasOptions options, string path) =>
         !string.IsNullOrEmpty(path) && options.IsUnderPhotos(path) && File.Exists(path) && MediaTypes.IsMedia(path);
 
-    private static async Task<bool> RenderAsync(string source, string target, int pixels)
+    /// <summary>A square crop for the grid, or the whole picture within <paramref name="pixels"/> when <paramref name="whole"/>.</summary>
+    private static async Task<bool> RenderAsync(string source, string target, int pixels, bool whole)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);
         var temp = target + ".tmp";
@@ -61,7 +64,7 @@ public static class MediaEndpoints
         {
             if (MediaTypes.IsVideo(source))
             {
-                if (!await VideoFrameAsync(source, temp, pixels))
+                if (!await VideoFrameAsync(source, temp, pixels, whole))
                 {
                     return false;
                 }
@@ -70,12 +73,19 @@ public static class MediaEndpoints
             {
                 using var image = new MagickImage(source);
                 image.AutoOrient(); // phones store portrait photos sideways with an EXIF orientation
-                image.Thumbnail(new MagickGeometry((uint)pixels, (uint)pixels) { FillArea = true });
-                image.Crop((uint)pixels, (uint)pixels, Gravity.Center);
+                if (whole)
+                {
+                    image.Thumbnail(new MagickGeometry((uint)pixels, (uint)pixels));
+                }
+                else
+                {
+                    image.Thumbnail(new MagickGeometry((uint)pixels, (uint)pixels) { FillArea = true });
+                    image.Crop((uint)pixels, (uint)pixels, Gravity.Center);
+                }
                 image.Strip();
                 image.Quality = 82;
-                image.Format = MagickFormat.Jpeg;
-                await image.WriteAsync(temp);
+                // The temporary ".jpg.tmp" name says nothing about the format: name it explicitly.
+                await image.WriteAsync(temp, MagickFormat.Jpeg);
             }
             File.Move(temp, target, overwrite: true);
             return true;
@@ -88,7 +98,7 @@ public static class MediaEndpoints
     }
 
     /// <summary>A frame one second in, scaled and cropped to a square. Needs ffmpeg (installed in the image).</summary>
-    private static async Task<bool> VideoFrameAsync(string source, string target, int pixels)
+    private static async Task<bool> VideoFrameAsync(string source, string target, int pixels, bool whole)
     {
         var start = new ProcessStartInfo("ffmpeg")
         {
@@ -99,7 +109,9 @@ public static class MediaEndpoints
         foreach (var argument in new[]
                  {
                      "-y", "-loglevel", "error", "-ss", "1", "-i", source, "-frames:v", "1",
-                     "-vf", $"scale={pixels}:{pixels}:force_original_aspect_ratio=increase,crop={pixels}:{pixels}",
+                     "-vf", whole
+                         ? $"scale={pixels}:{pixels}:force_original_aspect_ratio=decrease"
+                         : $"scale={pixels}:{pixels}:force_original_aspect_ratio=increase,crop={pixels}:{pixels}",
                      "-f", "image2", "-c:v", "mjpeg", target,
                  })
         {
