@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.Win32;
 using MonAlbumPc.Core;
 using MonAlbumPc.Server;
 
@@ -34,6 +35,7 @@ public sealed class AppHost : IAsyncDisposable
             _server = new MonAlbumServer(Core, new ServerOptions { Apk = Apk });
             await _server.StartAsync();
             ServerError = null;
+            SystemEvents.PowerModeChanged += OnPowerModeChanged;
         }
         catch (Exception e) when (e is IOException or System.Net.Sockets.SocketException or InvalidOperationException)
         {
@@ -42,8 +44,18 @@ public sealed class AppHost : IAsyncDisposable
         }
     }
 
+    // Phones look the PC up by mDNS: announce it again once it is back from sleep.
+    private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
+    {
+        if (e.Mode == PowerModes.Resume)
+        {
+            _server?.RestartAdvertising();
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
+        SystemEvents.PowerModeChanged -= OnPowerModeChanged;
         await DisposeServerAsync();
         Core.Dispose();
     }

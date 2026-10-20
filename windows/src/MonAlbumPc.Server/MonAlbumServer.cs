@@ -56,6 +56,17 @@ public sealed class MonAlbumServer(CoreServices core, ServerOptions options, ILo
         _idleSessions = new Timer(_ => core.Sessions.CloseIdle(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
     }
 
+    /// <summary>Announces the PC again, e.g. after it wakes up: its network stack may have been reset.</summary>
+    public void RestartAdvertising()
+    {
+        if (!options.Advertise || _app is null)
+        {
+            return;
+        }
+        _mdns?.Dispose();
+        _mdns = new MdnsAdvertiser(core, ApiPort);
+    }
+
     public async Task StopAsync()
     {
         _idleSessions?.Dispose();
