@@ -107,7 +107,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
 
         // 1. Local index of the tracked folders.
         syncIndex()
-        val queue = dao.unsavedOldestFirst()
+        val queue = dao.unsavedNewestFirst()
         if (queue.isEmpty()) {
             prefs.setIssue(BackupIssue.NONE, System.currentTimeMillis())
             return Result.success()
@@ -156,7 +156,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
         }
     }
 
-    /** Hashes, checks and uploads the queue in chunks, oldest first. */
+    /** Hashes, checks and uploads the queue in chunks, newest first. */
     private suspend fun processQueue(
         pc: PairedPc,
         api: PcApi,

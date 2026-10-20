@@ -18,12 +18,12 @@ interface MediaDao {
     @Query("SELECT * FROM media WHERE mediaStoreId = :id")
     suspend fun get(id: Long): MediaEntity?
 
-    /** Items still to save, oldest first (protocol §5.3). */
+    /** Items still to save, newest first: recent photos are safe within minutes even during a huge first backup. */
     @Query(
         "SELECT * FROM media WHERE state != 'SAVED' " +
-            "ORDER BY CASE WHEN dateTaken IS NULL OR dateTaken <= 0 THEN dateModified ELSE dateTaken END ASC",
+            "ORDER BY CASE WHEN dateTaken IS NULL OR dateTaken <= 0 THEN dateModified ELSE dateTaken END DESC",
     )
-    suspend fun unsavedOldestFirst(): List<MediaEntity>
+    suspend fun unsavedNewestFirst(): List<MediaEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(items: List<MediaEntity>)

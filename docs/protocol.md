@@ -198,7 +198,7 @@ Réponse :
 
 - Les envois partiels sont conservés **7 jours** côté PC, dans un dossier temporaire situé sur le même
   volume que la destination.
-- Le téléphone envoie **un fichier à la fois**, du plus ancien au plus récent.
+- Le téléphone envoie **un fichier à la fois**, du plus récent au plus ancien : les dernières photos sont à l'abri en quelques minutes, même pendant une première sauvegarde de plusieurs milliers de fichiers.
 
 ### 5.4 `DELETE /pairing`
 
