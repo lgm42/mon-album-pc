@@ -23,3 +23,6 @@ local.properties
 
 # Android APK fetched from CI for local runs of the Windows app
 windows/src/MonAlbumPc.App/Android/
+
+# APK copied into the NAS image by CI
+nas/android/

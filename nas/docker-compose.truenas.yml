@@ -1,0 +1,17 @@
+# Mon Album PC — TrueNAS SCALE 24.10+ : Apps > Discover Apps > ⋮ > Install via YAML, then paste this file.
+# Adapt the two host paths to your datasets. The "apps" user (568) must be able to write to both.
+services:
+  monalbumpc:
+    image: ghcr.io/lgm42/mon-album-pc:develop
+    container_name: monalbumpc
+    restart: unless-stopped
+    # Host networking: needed for phones to discover the server (mDNS) and to reach its ports directly.
+    network_mode: host
+    user: "568:568"
+    environment:
+      MONALBUMPC_NAME: "NAS"                 # name shown on the phones
+      # MONALBUMPC_ADMIN_PASSWORD: "…"       # optional, otherwise chosen at the first visit
+      TZ: "Europe/Paris"
+    volumes:
+      - /mnt/tank/apps/monalbumpc:/config    # catalog, certificate (keep it: phones pin it)
+      - /mnt/tank/photos:/photos             # album folders are created under this dataset
