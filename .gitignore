@@ -26,3 +26,6 @@ windows/src/MonAlbumPc.App/Android/
 
 # APK copied into the NAS image by CI
 nas/android/
+
+# Personal to-do list of the maintainer
+TODO.md
