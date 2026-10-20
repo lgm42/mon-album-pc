@@ -1,0 +1,187 @@
+@page "/settings"
+@using System.Reflection
+@inject NasHost Host
+@inject NasOptions Options
+@inject AdminPassword Password
+@inject NavigationManager Navigation
+
+<PageTitle>Réglages · Mon Album PC</PageTitle>
+
+<div class="page settings-page">
+    <div class="page-header">
+        <h1>Réglages</h1>
+    </div>
+
+    <h2 class="section-title">Réseau</h2>
+    <div class="settings-card">
+        @if (Host.ServerError is { } error)
+        {
+            <FluentIcon Value="@(new Icons.Filled.Size20.Warning())" Color="Color.Custom" CustomColor="var(--app-caution)" />
+            <div class="settings-text">
+                <div class="settings-title">Les téléphones ne peuvent pas joindre ce serveur</div>
+                <div class="caption">@error</div>
+            </div>
+        }
+        else
+        {
+            <FluentIcon Value="@(new Icons.Regular.Size20.Router())" Color="Color.Custom" CustomColor="currentColor" />
+            <div class="settings-text">
+                <div class="settings-title">Prêt à recevoir les photos</div>
+                <div class="caption">
+                    @(Host.LanAddress is { } address
+                        ? $"Adresse {address} · ports {Host.ApiPort} et {Host.DownloadPort}"
+                        : "Ce serveur n'est connecté à aucun réseau.")
+                </div>
+            </div>
+        }
+    </div>
+    <div class="settings-card">
+        <FluentIcon Value="@(new Icons.Regular.Size20.Globe())" Color="Color.Custom" CustomColor="currentColor" />
+        <div class="settings-text">
+            <div class="settings-title">Interface d'administration</div>
+            <div class="caption">Port @Options.AdminPort (HTTPS) · nom annoncé aux téléphones : @Host.Core.PcName</div>
+        </div>
+    </div>
+    <div class="settings-card">
+        <FluentIcon Value="@(new Icons.Regular.Size20.Folder())" Color="Color.Custom" CustomColor="currentColor" />
+        <div class="settings-text">
+            <div class="settings-title">Dossier des photos</div>
+            <div class="caption">
+                Les albums sont rangés dans <span class="mono">@Options.PhotosRoot</span>. Les photos supprimées vont dans
+                <span class="mono">@Options.TrashDirectory</span>.
+            </div>
+        </div>
+    </div>
+
+    <h2 class="section-title">Application Android</h2>
+    <div class="settings-card">
+        <FluentIcon Value="@(new Icons.Regular.Size20.Phone())" Color="Color.Custom" CustomColor="currentColor" />
+        <div class="settings-text">
+            <div class="settings-title">Mon Album PC pour Android</div>
+            <div class="caption">
+                @(Host.Apk is { } apk ? $"Version fournie avec ce serveur : {apk.VersionName}" : "Aucune version de l'app n'est fournie avec ce serveur.")
+            </div>
+        </div>
+        <FluentButton Disabled="@(DownloadUrl is null)" IconStart="@(new Icons.Regular.Size20.QrCode())" OnClick="ShowDownloadQr">
+            Afficher le QR code de téléchargement
+        </FluentButton>
+    </div>
+
+    <h2 class="section-title">Sécurité</h2>
+    <div class="settings-card column">
+        <div class="settings-row">
+            <FluentIcon Value="@(new Icons.Regular.Size20.LockClosed())" Color="Color.Custom" CustomColor="currentColor" />
+            <div class="settings-text">
+                <div class="settings-title">Mot de passe administrateur</div>
+                <div class="caption">Il protège cette interface. Au moins 8 caractères.</div>
+            </div>
+        </div>
+        <div class="password-form">
+            <div>
+                <FluentTextField TextFieldType="TextFieldType.Password" Label="Mot de passe actuel" @bind-Value="_current" Immediate="true" Style="width:100%"
+                                 AutoComplete="current-password" />
+            </div>
+            <div>
+                <FluentTextField TextFieldType="TextFieldType.Password" Label="Nouveau mot de passe" @bind-Value="_new" Immediate="true" Style="width:100%"
+                                 AutoComplete="new-password" />
+            </div>
+            <div>
+                <FluentTextField TextFieldType="TextFieldType.Password" Label="Confirmez le nouveau mot de passe" @bind-Value="_confirm" Immediate="true" Style="width:100%"
+                                 AutoComplete="new-password" />
+            </div>
+            <FluentButton Appearance="Appearance.Accent" Disabled="@(!CanChangePassword)" OnClick="ChangePassword">Changer le mot de passe</FluentButton>
+        </div>
+        @if (_passwordMessage is not null)
+        {
+            <FluentMessageBar Intent="@(_passwordOk ? MessageIntent.Success : MessageIntent.Error)" AllowDismiss="false">@_passwordMessage</FluentMessageBar>
+        }
+    </div>
+
+    <h2 class="section-title">À propos</h2>
+    <div class="settings-card">
+        <img src="img/app.png" alt="" width="20" height="20" />
+        <div class="settings-text">
+            <div class="settings-title">Mon Album PC @Version</div>
+            <div class="caption">Logiciel libre, sous licence MIT.</div>
+        </div>
+        <a href="https://github.com/lgm42/mon-album-pc" target="_blank" rel="noopener">Code source sur GitHub ↗</a>
+    </div>
+</div>
+
+<FluentDialog @onkeydown="OnDialogKey" Hidden="@(!_qrOpen)" HiddenChanged="h => _qrOpen = !h" Modal="true" TrapFocus="true" AriaLabel="Installer l'app sur un téléphone"
+              Class="app-dialog" Style="--dialog-width: 420px;">
+    @if (_qrOpen && Host.Apk is { } shipped && DownloadUrl is { } url)
+    {
+        <div class="dlg-content" tabindex="-1" @ref="_qrContent">
+            <div class="dlg-header"><h2>Installer l'app sur un téléphone</h2></div>
+            <div class="dlg-body download-qr">
+                <img class="qr small" src="@QrCodes.DataUri(url)" alt="QR code de téléchargement" width="180" height="180" />
+                <p>Scannez ce code avec l'appareil photo du téléphone Android pour télécharger Mon Album PC (version @shipped.VersionName).</p>
+                <span class="mono caption">@url</span>
+            </div>
+            <div class="dlg-footer">
+                <FluentButton OnClick="() => _qrOpen = false">Fermer</FluentButton>
+            </div>
+        </div>
+    }
+</FluentDialog>
+
+@code {
+    private static readonly string Version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "";
+
+    private bool _qrOpen;
+    private bool _focusQr;
+    private ElementReference _qrContent;
+    private string? _current;
+    private string? _new;
+    private string? _confirm;
+    private string? _passwordMessage;
+    private bool _passwordOk;
+
+    private string? DownloadUrl => Host.Apk is not null && Host.ServerError is null && Host.LanAddress is { } address
+        ? $"http://{address}:{Host.DownloadPort}/"
+        : null;
+
+    private bool CanChangePassword => !string.IsNullOrEmpty(_current) && !string.IsNullOrEmpty(_new) && !string.IsNullOrEmpty(_confirm);
+
+    private void OnDialogKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            _qrOpen = false;
+        }
+    }
+
+    private void ShowDownloadQr() => _qrOpen = _focusQr = DownloadUrl is not null;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusQr && _qrOpen)
+        {
+            _focusQr = false;
+            await _qrContent.FocusAsync();
+        }
+    }
+
+    private void ChangePassword()
+    {
+        _passwordOk = false;
+        if (!Password.Verify(_current ?? ""))
+        {
+            _passwordMessage = "Le mot de passe actuel est incorrect.";
+            return;
+        }
+        if (_new != _confirm)
+        {
+            _passwordMessage = "Les deux nouveaux mots de passe ne sont pas identiques.";
+            return;
+        }
+        if (Password.Set(_new ?? "") is { } weak)
+        {
+            _passwordMessage = weak;
+            return;
+        }
+        // Every sign-in, this one included, now needs the new password.
+        Navigation.NavigateTo("login?changed=1", forceLoad: true);
+    }
+}

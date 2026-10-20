@@ -1,0 +1,81 @@
+@* One album: header (avatar, name, counts, edit/delete), folder, phones, "add a phone" link. *@
+@{
+    var id = Card.Album.Id.ToString("N");
+}
+<section class="card album-card">
+    <header class="album-head">
+        <span class="avatar" style="background:@Card.Album.Color">@Card.Initial</span>
+        <div class="album-title">
+            <h2 class="ellipsis">@Card.Album.Name</h2>
+            <span class="caption">@Card.Caption</span>
+        </div>
+        <FluentButton Appearance="Appearance.Stealth" Title="Modifier l'album" IconStart="@(new Icons.Regular.Size20.Edit())"
+                      OnClick="() => OnEdit.InvokeAsync(Card)" />
+        <span id="delete-@id">
+            <FluentButton Appearance="Appearance.Stealth" Disabled="@(!Card.CanDelete)" IconStart="@(new Icons.Regular.Size20.Delete())"
+                          OnClick="() => OnDelete.InvokeAsync(Card)" aria-label="@Card.DeleteTooltip" />
+        </span>
+        <FluentTooltip Anchor="@($"delete-{id}")" MaxWidth="280px">@Card.DeleteTooltip</FluentTooltip>
+    </header>
+
+    <div class="album-folder">
+        <FluentIcon Value="@(new Icons.Regular.Size20.Folder())" Color="Color.Custom" CustomColor="var(--app-text-secondary)" />
+        <span class="mono ellipsis path-end" title="@Card.Album.DestinationRoot"><span>@Card.Album.DestinationRoot</span></span>
+    </div>
+
+    <div class="phones-title">Téléphones</div>
+    @if (Card.Phones.Count == 0)
+    {
+        <div class="caption no-phone">Aucun téléphone n'est relié à cet album.</div>
+    }
+    @foreach (var phone in Card.Phones)
+    {
+        var menuId = $"menu-{phone.Device.Id:N}";
+        <div class="phone-row">
+            <span class="phone-icon"><FluentIcon Value="@(new Icons.Regular.Size20.Phone())" Color="Color.Custom" CustomColor="currentColor" /></span>
+            <div class="phone-name">
+                <span class="ellipsis"><b>@phone.Device.Name</b></span>
+                <span class="caption ellipsis">@phone.Device.Model</span>
+            </div>
+            <div class="phone-stat">
+                <span class="caption">Dernière sauvegarde</span>
+                @if (phone.IsStale)
+                {
+                    <span class="stale icon-inline">
+                        <FluentIcon Value="@(new Icons.Filled.Size16.Warning())" Color="Color.Custom" CustomColor="var(--app-caution)" />
+                        @phone.LastBackup
+                    </span>
+                }
+                else
+                {
+                    <span>@phone.LastBackup</span>
+                }
+            </div>
+            <div class="phone-stat received">
+                <span class="caption">Reçus</span>
+                <span>@phone.Received</span>
+            </div>
+            <FluentButton Id="@menuId" Appearance="Appearance.Stealth" Title="Plus d'actions" IconStart="@(new Icons.Regular.Size20.MoreHorizontal())"
+                          OnClick="() => _openMenu = menuId" />
+            <FluentMenu Anchor="@menuId" Open="@(_openMenu == menuId)" OpenChanged="open => { if (!open) _openMenu = null; }"
+                        VerticalThreshold="170">
+                <FluentMenuItem OnClick="() => OnUnpair.InvokeAsync(phone)">Dissocier…</FluentMenuItem>
+            </FluentMenu>
+        </div>
+    }
+
+    <button type="button" class="link-button add-phone-link" @onclick="() => OnAddPhone.InvokeAsync(Card)">
+        <FluentIcon Value="@(new Icons.Regular.Size16.Add())" Color="Color.Custom" CustomColor="currentColor" />
+        Ajouter un téléphone à cet album
+    </button>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public AlbumCardModel Card { get; set; } = default!;
+    [Parameter] public EventCallback<AlbumCardModel> OnEdit { get; set; }
+    [Parameter] public EventCallback<AlbumCardModel> OnDelete { get; set; }
+    [Parameter] public EventCallback<AlbumCardModel> OnAddPhone { get; set; }
+    [Parameter] public EventCallback<PhoneRowModel> OnUnpair { get; set; }
+
+    private string? _openMenu;
+}

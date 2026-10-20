@@ -1,0 +1,107 @@
+@* Browses the folders of the photos root (server side): navigate, create a folder, choose. *@
+
+<div class="folder-browser">
+    <div class="fb-bar">
+        <FluentButton Appearance="Appearance.Stealth" Title="Dossier parent" Disabled="@Folders.IsRoot(_current)"
+                      IconStart="@(new Icons.Regular.Size20.ArrowUp())" OnClick="Up" />
+        <span class="mono ellipsis path-end fb-path" title="@_current"><span>@_current</span></span>
+    </div>
+    <div class="fb-list" role="listbox" aria-label="Sous-dossiers">
+        @if (_subfolders.Count == 0)
+        {
+            <div class="fb-empty caption">Aucun sous-dossier.</div>
+        }
+        @foreach (var folder in _subfolders)
+        {
+            <button type="button" class="fb-item" @onclick="() => Open(folder)">
+                <FluentIcon Value="@(new Icons.Regular.Size20.Folder())" Color="Color.Custom" CustomColor="var(--app-caution)" />
+                <span class="ellipsis">@Path.GetFileName(folder)</span>
+                <FluentIcon Value="@(new Icons.Regular.Size16.ChevronRight())" Color="Color.Custom" CustomColor="var(--app-text-tertiary)" />
+            </button>
+        }
+    </div>
+    @if (_creating)
+    {
+        <div class="fb-create">
+            <FluentTextField @bind-Value="_newName" Immediate="true" Placeholder="Nom du dossier" AriaLabel="Nom du dossier" Autofocus="true"
+                             @onkeydown="OnCreateKey" Style="flex:1" />
+            <FluentButton Appearance="Appearance.Accent" Disabled="@string.IsNullOrWhiteSpace(_newName)" OnClick="Create">Créer</FluentButton>
+            <FluentButton OnClick="() => _creating = false">Annuler</FluentButton>
+        </div>
+    }
+    @if (_error is not null)
+    {
+        <div class="inline-error">@_error</div>
+    }
+    <div class="fb-actions">
+        @if (!_creating)
+        {
+            <FluentButton Appearance="Appearance.Stealth" IconStart="@(new Icons.Regular.Size20.FolderAdd())" OnClick="StartCreate">Créer un dossier</FluentButton>
+        }
+        <span class="fb-spacer"></span>
+        <FluentButton OnClick="OnCancel">Annuler</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" Disabled="@(!Folders.IsValidAlbumFolder(_current))" OnClick="Choose">Choisir ce dossier</FluentButton>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public PhotoFolders Folders { get; set; } = default!;
+
+    /// <summary>Folder to start from (it may not exist yet).</summary>
+    [Parameter] public string? Start { get; set; }
+
+    [Parameter] public EventCallback<string> OnChosen { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private string _current = "";
+    private List<string> _subfolders = [];
+    private bool _creating;
+    private string _newName = "";
+    private string? _error;
+
+    protected override void OnInitialized() => Show(Folders.ExistingAncestor(Start));
+
+    private void Show(string folder)
+    {
+        _current = folder;
+        _subfolders = Folders.Subfolders(folder);
+        _error = null;
+    }
+
+    private void Open(string folder) => Show(folder);
+
+    private void Up()
+    {
+        if (!Folders.IsRoot(_current) && Path.GetDirectoryName(_current) is { } parent)
+        {
+            Show(parent);
+        }
+    }
+
+    private void StartCreate()
+    {
+        _creating = true;
+        _newName = "";
+        _error = null;
+    }
+
+    private void Create()
+    {
+        _error = Folders.CreateSubfolder(_current, _newName, out var created);
+        if (_error is null)
+        {
+            _creating = false;
+            Show(created);
+        }
+    }
+
+    private void OnCreateKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_newName))
+        {
+            Create();
+        }
+    }
+
+    private Task Choose() => OnChosen.InvokeAsync(_current);
+}

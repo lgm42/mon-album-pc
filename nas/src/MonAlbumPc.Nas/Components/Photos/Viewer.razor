@@ -1,0 +1,77 @@
+@using MonAlbumPc.Core.Media
+
+@* Full-screen viewer over the whole window, on a dark background even in the light theme. *@
+<div class="viewer" role="dialog" aria-label="@Details?.Name">
+    <div class="viewer-bar">
+        <button type="button" class="viewer-button" title="Retour (Échap)" @onclick="OnClose">
+            <FluentIcon Value="@(new Icons.Regular.Size20.ArrowLeft())" Color="Color.Custom" CustomColor="currentColor" />
+        </button>
+        <div class="viewer-title">
+            <span class="ellipsis">@Details?.Name</span>
+            <span class="viewer-caption">@Details?.TakenShort · @(Index + 1) sur @Count</span>
+        </div>
+        <span class="viewer-spacer"></span>
+        <button type="button" class="viewer-button" title="Pivoter à gauche" disabled="@Item.IsVideo" @onclick="OnRotateLeft">
+            <FluentIcon Value="@(new Icons.Regular.Size20.ArrowRotateCounterclockwise())" Color="Color.Custom" CustomColor="currentColor" />
+        </button>
+        <button type="button" class="viewer-button" title="Pivoter à droite" disabled="@Item.IsVideo" @onclick="OnRotateRight">
+            <FluentIcon Value="@(new Icons.Regular.Size20.ArrowRotateClockwise())" Color="Color.Custom" CustomColor="currentColor" />
+        </button>
+        <a class="viewer-button" title="Télécharger" href="@MediaUrls.File(Item.Path, Version)" download="@System.IO.Path.GetFileName(Item.Path)">
+            <FluentIcon Value="@(new Icons.Regular.Size20.ArrowDownload())" Color="Color.Custom" CustomColor="currentColor" />
+        </a>
+        <button type="button" class="viewer-button" title="Supprimer" @onclick="OnDelete">
+            <FluentIcon Value="@(new Icons.Regular.Size20.Delete())" Color="Color.Custom" CustomColor="currentColor" />
+        </button>
+        <span class="viewer-separator"></span>
+        <button type="button" class="viewer-button @(ShowInfo ? "on" : "")" title="Informations" @onclick="OnToggleInfo">
+            <FluentIcon Value="@(new Icons.Regular.Size20.Info())" Color="Color.Custom" CustomColor="currentColor" />
+        </button>
+    </div>
+    <div class="viewer-main">
+        <div class="viewer-stage">
+            <button type="button" class="viewer-nav previous" title="Précédente" disabled="@(Index <= 0)" @onclick="OnPrevious">
+                <FluentIcon Value="@(new Icons.Regular.Size24.ChevronLeft())" Color="Color.Custom" CustomColor="currentColor" />
+            </button>
+            @if (Item.IsVideo)
+            {
+                <video @key="Item.Path" class="viewer-media" controls preload="metadata"
+                       poster="@MediaUrls.Thumbnail(Item.Path, 1600, Version, fit: true)" src="@MediaUrls.File(Item.Path, Version)"></video>
+            }
+            else
+            {
+                <img @key="@($"{Item.Path}|{Version}")" class="viewer-media" src="@ImageUrl" alt="@Details?.Name" />
+            }
+            <button type="button" class="viewer-nav next" title="Suivante" disabled="@(Index >= Count - 1)" @onclick="OnNext">
+                <FluentIcon Value="@(new Icons.Regular.Size24.ChevronRight())" Color="Color.Custom" CustomColor="currentColor" />
+            </button>
+        </div>
+        @if (ShowInfo)
+        {
+            <InfoPane Details="Details" Dark="true" />
+        }
+    </div>
+</div>
+
+@code {
+    private static readonly HashSet<string> BrowserImages = new(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png", ".webp", ".gif" };
+
+    [Parameter, EditorRequired] public LibraryItem Item { get; set; } = default!;
+    [Parameter] public PhotoDetails? Details { get; set; }
+    [Parameter] public int Index { get; set; }
+    [Parameter] public int Count { get; set; }
+    [Parameter] public long Version { get; set; }
+    [Parameter] public bool ShowInfo { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnPrevious { get; set; }
+    [Parameter] public EventCallback OnNext { get; set; }
+    [Parameter] public EventCallback OnRotateLeft { get; set; }
+    [Parameter] public EventCallback OnRotateRight { get; set; }
+    [Parameter] public EventCallback OnDelete { get; set; }
+    [Parameter] public EventCallback OnToggleInfo { get; set; }
+
+    // Browsers cannot show HEIC and other camera formats: the server converts those to a large JPEG.
+    private string ImageUrl => BrowserImages.Contains(System.IO.Path.GetExtension(Item.Path))
+        ? MediaUrls.File(Item.Path, Version)
+        : MediaUrls.Thumbnail(Item.Path, 2048, Version, fit: true);
+}

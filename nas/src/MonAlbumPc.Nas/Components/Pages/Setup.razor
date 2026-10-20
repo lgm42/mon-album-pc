@@ -1,0 +1,43 @@
+@* The catch-all gives this page a lower precedence than the POST /setup endpoint of the same path. *@
+@page "/setup/{*Rest}"
+@layout AuthLayout
+@attribute [ExcludeFromInteractiveRouting]
+
+<PageTitle>Premier accès · Mon Album PC</PageTitle>
+
+<h1>Bienvenue</h1>
+<p class="auth-intro">
+    Choisissez le mot de passe administrateur. Il protège cette interface : il vous sera demandé pour gérer
+    les albums, les téléphones et les photos.
+</p>
+
+@if (ErrorText is { } error)
+{
+    <div class="auth-error" role="alert">@error</div>
+}
+
+<form method="post" action="setup" class="auth-form">
+    <AntiforgeryToken />
+    <label for="password">Mot de passe</label>
+    <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required autofocus />
+    <span class="auth-hint">Au moins 8 caractères.</span>
+    <label for="confirm">Confirmez le mot de passe</label>
+    <input id="confirm" name="confirm" type="password" autocomplete="new-password" minlength="8" required />
+    <button type="submit" class="auth-submit">Enregistrer et continuer</button>
+</form>
+
+@code {
+    [Parameter]
+    public string? Rest { get; set; }
+
+    [SupplyParameterFromQuery(Name = "error")]
+    private string? Error { get; set; }
+
+    private string? ErrorText => Error switch
+    {
+        "mismatch" => "Les deux mots de passe ne sont pas identiques.",
+        "weak" => "Le mot de passe doit faire au moins 8 caractères.",
+        null or "" => null,
+        _ => "Le mot de passe n'a pas pu être enregistré.",
+    };
+}

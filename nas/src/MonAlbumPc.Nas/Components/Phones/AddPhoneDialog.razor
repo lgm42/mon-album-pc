@@ -1,0 +1,356 @@
+@using MonAlbumPc.Core.Pairing
+@using MonAlbumPc.Server
+@using MonAlbumPc.Nas.Components.Albums
+@implements IDisposable
+@inject NasHost Host
+@inject NasOptions Options
+
+@* "Ajouter un téléphone": choose the album, show the QR code and the 6-digit code, wait for the phone. *@
+<FluentDialog @onkeydown="OnDialogKey" Hidden="@(!_open)" HiddenChanged="OnHiddenChanged" Modal="true" TrapFocus="true" PreventScroll="true"
+              AriaLabel="Ajouter un téléphone" Class="app-dialog" Style="--dialog-width: 640px;">
+    @if (_open)
+    {
+        <div class="dlg-content" tabindex="-1" @ref="_content">
+            <div class="dlg-header">
+                <h2>Ajouter un téléphone</h2>
+                <span class="caption">@_stepText</span>
+            </div>
+            <div class="dlg-body wizard-body">
+                @switch (_step)
+                {
+                    case Step.Album:
+                        <p class="wizard-instruction"><b>Pour quel album ?</b> Les photos de ce téléphone seront rangées dans son dossier.</p>
+                        <div class="choice-list" role="radiogroup">
+                            @foreach (var album in _albums)
+                            {
+                                var selected = _selectedAlbum == album.Id;
+                                <button type="button" role="radio" aria-checked="@(selected ? "true" : "false")" class="choice @(selected ? "selected" : "")"
+                                        @onclick="() => _selectedAlbum = album.Id">
+                                    <span class="radio-dot"></span>
+                                    <span class="avatar small" style="background:@album.Color">@Formatting.Initial(album.Name)</span>
+                                    <span class="choice-text">
+                                        <span class="choice-name">@album.Name</span>
+                                        <span class="caption ellipsis">@album.DestinationRoot · @Formatting.Plural(PhoneCount(album), "téléphone", "téléphones")</span>
+                                    </span>
+                                </button>
+                            }
+                            <button type="button" role="radio" aria-checked="@(_selectedAlbum is null ? "true" : "false")"
+                                    class="choice @(_selectedAlbum is null ? "selected" : "")" @onclick="() => _selectedAlbum = null">
+                                <span class="radio-dot"></span>
+                                <span class="avatar small neutral"><FluentIcon Value="@(new Icons.Regular.Size16.Add())" Color="Color.Custom" CustomColor="currentColor" /></span>
+                                <span class="choice-text">
+                                    <span class="choice-name">Créer un nouvel album</span>
+                                    <span class="caption">Pour une nouvelle personne</span>
+                                </span>
+                            </button>
+                            @if (_selectedAlbum is null)
+                            {
+                                <div class="new-album">
+                                    <FluentTextField Label="Nom du nouvel album" @bind-Value="_newAlbumName" Immediate="true" Autofocus="true"
+                                                     Style="width:100%" Maxlength="80" />
+                                    <span class="caption mono ellipsis">Dossier : @_folders.Suggest(_newAlbumName ?? "")</span>
+                                </div>
+                            }
+                        </div>
+                        break;
+
+                    case Step.Qr:
+                        <div class="qr-step">
+                            <img class="qr" src="@_qr" alt="QR code d'association" width="232" height="232" />
+                            <div class="caption">
+                                @_countdown · <button type="button" class="link-button" @onclick="Regenerate">Générer un nouveau code</button>
+                            </div>
+                            <div class="code-line">
+                                <span class="caption">Sans caméra, saisissez ce code dans l'app :</span>
+                                <span class="pair-code">@_code</span>
+                            </div>
+                            <div class="qr-hints">
+                                <div><b>L'app est installée</b><br /><span class="caption">Ouvrez Mon Album PC sur le téléphone et scannez ce code.</span></div>
+                                <div><b>L'app n'est pas installée</b><br /><span class="caption">Scannez avec l'appareil photo du téléphone pour la télécharger.</span></div>
+                            </div>
+                        </div>
+                        break;
+
+                    case Step.Message:
+                        <div class="wizard-message">
+                            <FluentIcon Value="@_messageIcon" Color="Color.Custom" CustomColor="@_messageColor" />
+                            <div class="message-title">@_messageTitle</div>
+                            <div class="muted">@_messageText</div>
+                        </div>
+                        break;
+                }
+                @if (_error is not null)
+                {
+                    <FluentMessageBar Intent="MessageIntent.Error" AllowDismiss="false" Style="margin-top:12px">@_error</FluentMessageBar>
+                }
+            </div>
+            <div class="dlg-footer">
+                @switch (_step)
+                {
+                    case Step.Album:
+                        <FluentButton Appearance="Appearance.Accent" Disabled="@(_selectedAlbum is null && string.IsNullOrWhiteSpace(_newAlbumName))"
+                                      OnClick="OnAlbumChosen">Suivant</FluentButton>
+                        <FluentButton OnClick="Close">Annuler</FluentButton>
+                        break;
+                    case Step.Qr:
+                        <FluentButton Appearance="Appearance.Accent" Disabled="true">En attente du téléphone…</FluentButton>
+                        <FluentButton OnClick="Close">Annuler</FluentButton>
+                        break;
+                    default:
+                        <FluentButton Appearance="Appearance.Accent" OnClick="OnMessageAction">@_messageAction</FluentButton>
+                        @if (_messageCancellable)
+                        {
+                            <FluentButton OnClick="Close">Annuler</FluentButton>
+                        }
+                        break;
+                }
+            </div>
+        </div>
+    }
+</FluentDialog>
+
+@code {
+    private enum Step { Album, Qr, Message }
+
+    /// <summary>Raised with the album of the phone just paired, when the wizard closes after a success.</summary>
+    [Parameter] public EventCallback<Guid> OnPaired { get; set; }
+
+    /// <summary>Raised whenever the wizard closes (it may have created an album).</summary>
+    [Parameter] public EventCallback OnClosed { get; set; }
+
+    private PhotoFolders _folders = default!;
+    private ElementReference _content;
+    private Step? _focusedStep;
+    private Timer? _timer;
+    private bool _open;
+    private Step _step;
+    private string _stepText = "";
+    private List<Album> _albums = [];
+    private Guid? _selectedAlbum;
+    private string? _newAlbumName;
+    private string? _error;
+
+    private PairingSession? _session;
+    private string _qr = "";
+    private string _code = "";
+    private string _countdown = "";
+
+    private bool _paired;
+    private Guid _pairedAlbum;
+    private Icon _messageIcon = new Icons.Filled.Size48.CheckmarkCircle();
+    private string _messageColor = "";
+    private string _messageTitle = "";
+    private string _messageText = "";
+    private string _messageAction = "";
+    private Func<Task>? _messageHandler;
+    private bool _messageCancellable;
+
+    protected override void OnInitialized()
+    {
+        _folders = new PhotoFolders(Options);
+        Host.Core.Pairing.Paired += OnPairedEvent;
+    }
+
+    public void Open(Guid? albumId)
+    {
+        _albums = Host.Core.Albums.List();
+        _selectedAlbum = _albums.FirstOrDefault(a => a.Id == albumId)?.Id ?? _albums.FirstOrDefault()?.Id;
+        _newAlbumName = "";
+        _paired = false;
+        _error = null;
+        _step = Step.Album;
+        _stepText = "Étape 1 sur 3";
+        _open = true;
+        StateHasChanged();
+    }
+
+    // Keep the focus inside the dialog (the opening button is outside, and each step replaces the focused button),
+    // so Escape closes it. The new-album name field focuses itself.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_open)
+        {
+            _focusedStep = null;
+        }
+        else if (_focusedStep != _step)
+        {
+            _focusedStep = _step;
+            if (_step != Step.Album || _selectedAlbum is not null)
+            {
+                await _content.FocusAsync();
+            }
+        }
+    }
+
+    private int PhoneCount(Album album) => Host.Core.Devices.ListByAlbum(album.Id).Count;
+
+    private void OnAlbumChosen()
+    {
+        _error = null;
+        var album = _albums.FirstOrDefault(a => a.Id == _selectedAlbum);
+        if (album is null)
+        {
+            var name = (_newAlbumName ?? "").Trim();
+            _error = _folders.CreateAlbum(Host.Core, name, _folders.Suggest(name), out album);
+            if (album is null)
+            {
+                return;
+            }
+            _albums = Host.Core.Albums.List();
+            _selectedAlbum = album.Id;
+        }
+        StartPairing(album);
+    }
+
+    private void StartPairing(Album album)
+    {
+        _error = null;
+        if (Host.ServerError is { } error)
+        {
+            ShowMessage(new Icons.Filled.Size48.ErrorCircle(), "var(--app-critical)", "Le téléphone ne pourra pas joindre ce serveur", error,
+                "Fermer", Close, cancellable: false);
+            return;
+        }
+        if (Host.LanAddress is not { } address)
+        {
+            ShowMessage(new Icons.Filled.Size48.ErrorCircle(), "var(--app-critical)", "Ce serveur n'est connecté à aucun réseau",
+                "Vérifiez le câble réseau du NAS, puis réessayez.", "Réessayer", () =>
+                {
+                    StartPairing(album);
+                    return Task.CompletedTask;
+                });
+            return;
+        }
+
+        _session = Host.Core.Pairing.Start(album.Id);
+        var link = PairingLink.Build(address, Host.DownloadPort, Host.ApiPort, _session, Host.Core.CertificateFingerprint, Host.Core.PcName);
+        _qr = QrCodes.DataUri(link);
+        _code = $"{_session.Code[..3]} {_session.Code[3..]}";
+        _step = Step.Qr;
+        _stepText = "Étape 2 sur 3";
+        UpdateCountdown();
+        _timer ??= new Timer(_ => InvokeAsync(() =>
+        {
+            UpdateCountdown();
+            StateHasChanged();
+        }), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    private void UpdateCountdown()
+    {
+        if (_session is null || _step != Step.Qr)
+        {
+            return;
+        }
+        var remaining = _session.ExpiresAt - Host.Core.Clock.GetUtcNow();
+        if (remaining <= TimeSpan.Zero || Host.Core.Pairing.Current is null)
+        {
+            var albumId = _session.AlbumId;
+            _session = null;
+            StopTimer();
+            ShowMessage(new Icons.Filled.Size48.Warning(), "var(--app-caution)", "Ce code a expiré",
+                "Pour votre sécurité, un code n'est valable que 5 minutes. Générez-en un nouveau et scannez-le.",
+                "Générer un nouveau code", () =>
+                {
+                    if (Host.Core.Albums.Get(albumId) is { } album)
+                    {
+                        StartPairing(album);
+                    }
+                    return Task.CompletedTask;
+                });
+            return;
+        }
+        _countdown = $"Code valable encore {(int)remaining.TotalMinutes}:{remaining.Seconds:00}";
+    }
+
+    private void Regenerate()
+    {
+        if (_session is { } session && Host.Core.Albums.Get(session.AlbumId) is { } album)
+        {
+            StartPairing(album);
+        }
+    }
+
+    // Raised on a server thread when a phone completes the pairing.
+    private void OnPairedEvent(PairingResult result) => _ = InvokeAsync(() =>
+    {
+        if (_session is null || result.Album.Id != _session.AlbumId)
+        {
+            return;
+        }
+        _session = null;
+        StopTimer();
+        _paired = true;
+        _pairedAlbum = result.Album.Id;
+        ShowMessage(new Icons.Filled.Size48.CheckmarkCircle(), "var(--app-success)",
+            $"{result.Device.Name} est relié à l'album {result.Album.Name}.",
+            "La première sauvegarde va commencer. Vous pouvez fermer cette fenêtre.", "Terminer", Close, cancellable: false);
+        _stepText = "Étape 3 sur 3";
+        StateHasChanged();
+    });
+
+    private void ShowMessage(Icon icon, string color, string title, string text, string action, Func<Task> handler, bool cancellable = true)
+    {
+        _step = Step.Message;
+        _messageIcon = icon;
+        _messageColor = color;
+        _messageTitle = title;
+        _messageText = text;
+        _messageAction = action;
+        _messageHandler = handler;
+        _messageCancellable = cancellable;
+    }
+
+    private Task OnMessageAction() => _messageHandler?.Invoke() ?? Task.CompletedTask;
+
+    private async Task Close()
+    {
+        _open = false;
+        Cleanup();
+        await OnClosed.InvokeAsync();
+        if (_paired)
+        {
+            _paired = false;
+            await OnPaired.InvokeAsync(_pairedAlbum);
+        }
+    }
+
+    // fluent-dialog does not close itself on Escape when used inline.
+    private async Task OnDialogKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            await Close();
+        }
+    }
+
+    private async Task OnHiddenChanged(bool hidden)
+    {
+        if (hidden && _open)
+        {
+            await Close();
+        }
+    }
+
+    private void Cleanup()
+    {
+        StopTimer();
+        if (_session is not null)
+        {
+            Host.Core.Pairing.Cancel();
+            _session = null;
+        }
+    }
+
+    private void StopTimer()
+    {
+        _timer?.Dispose();
+        _timer = null;
+    }
+
+    public void Dispose()
+    {
+        Host.Core.Pairing.Paired -= OnPairedEvent;
+        Cleanup();
+    }
+}

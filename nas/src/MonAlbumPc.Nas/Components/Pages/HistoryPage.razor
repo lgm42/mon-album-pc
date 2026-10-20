@@ -1,0 +1,107 @@
+@page "/history"
+@using MonAlbumPc.Core.Storage
+@using MonAlbumPc.Nas.Components.History
+@implements IDisposable
+@inject CoreServices Core
+
+<PageTitle>Historique · Mon Album PC</PageTitle>
+
+<div class="page history-page">
+    <div class="page-header">
+        <h1>Historique</h1>
+    </div>
+
+    <div class="history-filters">
+        <FluentSelect TOption="FilterOption" Label="Album" Items="_model.Albums" OptionText="o => o.Label" OptionValue="Key"
+                      SelectedOption="_album" SelectedOptionChanged="o => _album = o ?? HistoryModel.AllAlbums" Width="220px" />
+        <FluentSelect TOption="FilterOption" Label="Téléphone" Items="_model.Phones" OptionText="o => o.Label" OptionValue="Key"
+                      SelectedOption="_phone" SelectedOptionChanged="o => _phone = o ?? HistoryModel.AllPhones" Width="220px" />
+        <FluentSwitch @bind-Value="_errorsOnly" Label="Erreurs uniquement" Class="errors-switch" />
+    </div>
+
+    @{
+        var groups = _model.Groups(_album.Id, _phone.Id, _errorsOnly);
+    }
+    @if (groups.Count == 0)
+    {
+        <div class="history-empty muted">
+            @(_model.IsEmpty ? "Aucune sauvegarde pour l'instant. Les sessions des téléphones apparaîtront ici." : "Aucune session ne correspond à ces filtres.")
+        </div>
+    }
+    @foreach (var group in groups)
+    {
+        <h2 class="day-title">@group.Title</h2>
+        <div class="session-list">
+            @foreach (var row in group.Sessions)
+            {
+                <div @key="row.Id" class="session-row @(row.IsError ? "error" : "")">
+                    <span class="session-time">@row.Time</span>
+                    <div class="session-who">
+                        <span class="ellipsis"><b>@row.Phone</b></span>
+                        <span class="caption ellipsis">@row.Album</span>
+                    </div>
+                    <div class="session-what">
+                        <div class="icon-inline session-title">
+                            @if (row.IsError)
+                            {
+                                <FluentIcon Value="@(new Icons.Filled.Size16.ErrorCircle())" Color="Color.Custom" CustomColor="var(--app-critical)" />
+                            }
+                            else
+                            {
+                                <FluentIcon Value="@(new Icons.Filled.Size16.CheckmarkCircle())" Color="Color.Custom" CustomColor="var(--app-success)" />
+                            }
+                            <span>@row.Title</span>
+                        </div>
+                        @if (row.Detail is not null)
+                        {
+                            <div class="session-detail">@row.Detail</div>
+                        }
+                        @if (row.Hint is not null)
+                        {
+                            <div class="caption">@row.Hint</div>
+                        }
+                    </div>
+                    <span class="channel caption icon-inline">
+                        @if (row.IsUsb)
+                        {
+                            <FluentIcon Value="@(new Icons.Regular.Size20.UsbStick())" Color="Color.Custom" CustomColor="currentColor" />
+                            <span>USB</span>
+                        }
+                        else
+                        {
+                            <FluentIcon Value="@(new Icons.Regular.Size20.Wifi1())" Color="Color.Custom" CustomColor="currentColor" />
+                            <span>Wi-Fi</span>
+                        }
+                    </span>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private HistoryModel _model = default!;
+    private FilterOption _album = HistoryModel.AllAlbums;
+    private FilterOption _phone = HistoryModel.AllPhones;
+    private bool _errorsOnly;
+
+    private static string Key(FilterOption option) => option.Id?.ToString("N") ?? "all";
+
+    protected override void OnInitialized()
+    {
+        _model = new HistoryModel(Core);
+        _model.Load();
+        Core.Sessions.Ended += OnSessionEnded;
+    }
+
+    // Raised on a server thread when a backup session ends.
+    private void OnSessionEnded(BackupSession session) => _ = InvokeAsync(() =>
+    {
+        _model.Load();
+        _album = _model.Albums.FirstOrDefault(a => a.Id == _album.Id) ?? HistoryModel.AllAlbums;
+        _phone = _model.Phones.FirstOrDefault(p => p.Id == _phone.Id) ?? HistoryModel.AllPhones;
+        StateHasChanged();
+    });
+
+    public void Dispose() => Core.Sessions.Ended -= OnSessionEnded;
+}

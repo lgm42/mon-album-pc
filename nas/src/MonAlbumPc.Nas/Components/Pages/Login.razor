@@ -1,0 +1,36 @@
+@* The catch-all gives this page a lower precedence than the POST /login endpoint of the same path. *@
+@page "/login/{*Rest}"
+@layout AuthLayout
+@attribute [ExcludeFromInteractiveRouting]
+
+<PageTitle>Connexion · Mon Album PC</PageTitle>
+
+<h1>Connexion</h1>
+<p class="auth-intro">Saisissez le mot de passe administrateur de ce serveur.</p>
+
+@if (Changed is not null)
+{
+    <div class="auth-info" role="status">Le mot de passe a été changé. Connectez-vous avec le nouveau.</div>
+}
+@if (Error is not null)
+{
+    <div class="auth-error" role="alert">Mot de passe incorrect. Réessayez.</div>
+}
+
+<form method="post" action="login" class="auth-form">
+    <AntiforgeryToken />
+    <label for="password">Mot de passe</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required autofocus />
+    <button type="submit" class="auth-submit">Se connecter</button>
+</form>
+
+@code {
+    [Parameter]
+    public string? Rest { get; set; }
+
+    [SupplyParameterFromQuery(Name = "error")]
+    private string? Error { get; set; }
+
+    [SupplyParameterFromQuery(Name = "changed")]
+    private string? Changed { get; set; }
+}

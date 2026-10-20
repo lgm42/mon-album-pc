@@ -1,0 +1,330 @@
+@page "/"
+@using MonAlbumPc.Core.Media
+@using MonAlbumPc.Core.Storage
+@using MonAlbumPc.Nas.Components.Photos
+@using MonAlbumPc.Nas.Components.Phones
+@implements IAsyncDisposable
+@inject CoreServices Core
+@inject NasOptions Options
+@inject IJSRuntime JS
+@inject IDialogService Dialogs
+@inject IToastService Toasts
+@inject NavigationManager Navigation
+
+<PageTitle>Photos · Mon Album PC</PageTitle>
+
+<div class="photos-page @(_browser.IsEmpty && !_loading ? "empty" : "")">
+    @if (!_browser.IsEmpty)
+    {
+        <FilterPane Browser="_browser" OnAlbum="FilterAlbum" OnDate="FilterDate" />
+    }
+    <section class="photos-main">
+        <div class="photos-header">
+            <h1>Photos</h1>
+            @if (!_browser.IsEmpty)
+            {
+                <span class="caption">@_browser.Caption</span>
+            }
+        </div>
+
+        @if (_loading)
+        {
+            <FluentMessageBar Intent="MessageIntent.Info" AllowDismiss="false" Class="photos-loading">
+                <b>Recensement des photos</b> dans les dossiers des albums. Vous pouvez continuer à utiliser l'interface pendant ce temps.
+                <FluentProgress />
+            </FluentMessageBar>
+        }
+        else if (_browser.IsEmpty)
+        {
+            <div class="empty-state">
+                <img src="img/app.png" alt="" />
+                <h2>Aucune photo pour l'instant.</h2>
+                <p>Ajoutez un téléphone pour commencer. Ses photos et vidéos arriveront ici automatiquement, en Wi-Fi.</p>
+                <FluentButton Appearance="Appearance.Accent" OnClick="() => _addPhone.Open(null)">Ajouter un téléphone</FluentButton>
+            </div>
+        }
+
+        @if (!_browser.IsEmpty)
+        {
+            <div class="command-bar">
+                <FluentButton Appearance="Appearance.Stealth" Disabled="@(!IsPhotoSelected)" IconStart="@(new Icons.Regular.Size20.ArrowRotateCounterclockwise())"
+                              Title="Pivoter à gauche" OnClick="() => Rotate(false)" />
+                <FluentButton Appearance="Appearance.Stealth" Disabled="@(!IsPhotoSelected)" IconStart="@(new Icons.Regular.Size20.ArrowRotateClockwise())"
+                              Title="Pivoter à droite" OnClick="() => Rotate(true)" />
+                <span class="command-separator"></span>
+                <FluentButton Appearance="Appearance.Stealth" Disabled="@(_browser.Selected is null)" IconStart="@(new Icons.Regular.Size20.Delete())"
+                              Title="Supprimer" OnClick="Delete"><span class="cmd-label">Supprimer</span></FluentButton>
+                <FluentButton Appearance="Appearance.Stealth" Disabled="@(_browser.Selected is null)" IconStart="@(new Icons.Regular.Size20.FullScreenMaximize())"
+                              Title="Afficher en plein écran" OnClick="OpenViewer"><span class="cmd-label">Plein écran</span></FluentButton>
+                @if (_browser.Selected is { } selected)
+                {
+                    <a class="command-link" title="Télécharger" href="@MediaUrls.File(selected.Path, _browser.Version(selected.Path))" download="@System.IO.Path.GetFileName(selected.Path)">
+                        <FluentIcon Value="@(new Icons.Regular.Size20.ArrowDownload())" Color="Color.Custom" CustomColor="currentColor" />
+                        <span class="cmd-label">Télécharger</span>
+                    </a>
+                }
+                <span class="command-spacer"></span>
+                <span class="size-slider" title="Taille des miniatures">
+                    <FluentIcon Value="@(new Icons.Regular.Size16.Image())" Color="Color.Custom" CustomColor="var(--app-text-secondary)" />
+                    <input type="range" min="96" max="260" step="4" value="@_size" aria-label="Taille des miniatures"
+                           @oninput="OnSizeInput" />
+                </span>
+                <FluentButton Appearance="@(_showInfo ? Appearance.Accent : Appearance.Stealth)" IconStart="@(new Icons.Regular.Size20.Info())"
+                              Title="Informations" OnClick="() => _showInfo = !_showInfo"><span class="cmd-label">Infos</span></FluentButton>
+            </div>
+        }
+
+        <div class="photo-scroll" @ref="_scroll">
+            @if (!_browser.IsEmpty)
+            {
+                <PhotoGrid Items="_browser.Visible" Width="_gridWidth" Size="_size" SelectedPath="@_browser.Selected?.Path"
+                           Version="_browser.Version" OnSelect="Select" OnOpen="Open" />
+            }
+        </div>
+    </section>
+    @if (!_browser.IsEmpty && _showInfo)
+    {
+        <InfoPane Details="_details" />
+    }
+</div>
+
+@if (_viewerOpen && _browser.Selected is { } current)
+{
+    <Viewer Item="current" Details="_details" Index="_browser.SelectedIndex" Count="_browser.Visible.Count" Version="_browser.Version(current.Path)"
+            ShowInfo="_showInfo" OnClose="CloseViewer" OnPrevious="() => Move(-1)" OnNext="() => Move(1)" OnRotateLeft="() => Rotate(false)"
+            OnRotateRight="() => Rotate(true)" OnDelete="Delete" OnToggleInfo="() => _showInfo = !_showInfo" />
+}
+
+<AddPhoneDialog @ref="_addPhone" OnPaired="OnPaired" />
+
+@code {
+    private const int GridPadding = 32;
+
+    private readonly PhotoBrowser _browser = new();
+    private AddPhoneDialog _addPhone = default!;
+    private ElementReference _scroll;
+    private IJSObjectReference? _module;
+    private IJSObjectReference? _interop;
+    private DotNetObjectReference<PhotosPage>? _self;
+    private CancellationTokenSource _detailsLoad = new();
+    private bool _loading = true;
+    private bool _showInfo = true;
+    private bool _viewerOpen;
+    private int _size = 150;
+    private int _gridWidth;
+    private PhotoDetails? _details;
+
+    private bool IsPhotoSelected => _browser.Selected is { IsVideo: false };
+
+    protected override async Task OnInitializedAsync()
+    {
+        Core.Sessions.Ended += OnSessionEnded;
+        await ScanAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _self = DotNetObjectReference.Create(this);
+            _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/photos.js");
+            _interop = await _module.InvokeAsync<IJSObjectReference>("init", _scroll, _self);
+        }
+    }
+
+    // Walking the album folders is slow on big libraries: it runs off the render thread.
+    private async Task ScanAsync()
+    {
+        var albums = Core.Albums.List();
+        var items = await Task.Run(() => PhotoBrowser.Scan(albums));
+        _browser.Load(albums, items);
+        _loading = false;
+    }
+
+    // New photos arrived: scan again (raised on a server thread).
+    private void OnSessionEnded(BackupSession session) => _ = InvokeAsync(async () =>
+    {
+        await ScanAsync();
+        StateHasChanged();
+    });
+
+    [JSInvokable]
+    public void OnGridWidth(int width)
+    {
+        _gridWidth = Math.Max(0, width - GridPadding);
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public async Task OnKey(string key)
+    {
+        switch (key)
+        {
+            case "ArrowLeft": await Move(-1); break;
+            case "ArrowRight": await Move(1); break;
+            case "Enter" when !_viewerOpen: OpenViewer(); break;
+            case "Escape" when _viewerOpen: CloseViewer(); break;
+            case "Delete": await Delete(); break;
+            default: return;
+        }
+        StateHasChanged();
+    }
+
+    private void OnSizeInput(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var size))
+        {
+            _size = size;
+        }
+    }
+
+    private void OnPaired(Guid album) => Navigation.NavigateTo("albums");
+
+    private void FilterAlbum(Guid? album)
+    {
+        _browser.FilterAlbum(album);
+        ShowDetails();
+    }
+
+    private void FilterDate(FilterEntry entry)
+    {
+        if (_browser.IsDateSelected(entry))
+        {
+            _browser.ClearDate();
+        }
+        else
+        {
+            _browser.FilterDate(entry);
+        }
+        ShowDetails();
+    }
+
+    private void Select(LibraryItem item)
+    {
+        _browser.Select(item);
+        ShowDetails();
+    }
+
+    private void Open(LibraryItem item)
+    {
+        Select(item);
+        OpenViewer();
+    }
+
+    private void OpenViewer() => _viewerOpen = _browser.Selected is not null;
+
+    private void CloseViewer() => _viewerOpen = false;
+
+    private async Task Move(int delta)
+    {
+        if (_browser.Selected is null)
+        {
+            if (_browser.Visible.Count > 0 && !_viewerOpen)
+            {
+                Select(_browser.Visible[0]);
+            }
+            return;
+        }
+        if (_browser.Move(delta))
+        {
+            ShowDetails();
+            if (!_viewerOpen && _interop is not null && _module is not null)
+            {
+                await _module.InvokeVoidAsync("reveal", $"tile-{_browser.SelectedIndex}");
+            }
+        }
+    }
+
+    /// <summary>Reads the details of the selection in the background (file header, catalog).</summary>
+    private void ShowDetails()
+    {
+        _detailsLoad.Cancel();
+        _detailsLoad = new CancellationTokenSource();
+        var token = _detailsLoad.Token;
+        if (_browser.Selected is not { } item)
+        {
+            _details = null;
+            return;
+        }
+        var album = _browser.AlbumName(item.AlbumId);
+        _ = Task.Run(() => PhotoDetails.Read(Core, item, album), token).ContinueWith(task => InvokeAsync(() =>
+        {
+            if (!token.IsCancellationRequested && task.IsCompletedSuccessfully)
+            {
+                _details = task.Result;
+                StateHasChanged();
+            }
+        }), TaskScheduler.Default);
+    }
+
+    private async Task Rotate(bool clockwise)
+    {
+        if (_browser.Selected is not { IsVideo: false } item)
+        {
+            return;
+        }
+        try
+        {
+            await Task.Run(() => ExifOrientation.Rotate(item.Path, clockwise));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ImageMagick.MagickException)
+        {
+            Toasts.ShowError($"Impossible de pivoter cette photo. {e.Message}");
+            return;
+        }
+        _browser.Touch(item.Path);
+        ShowDetails();
+    }
+
+    private async Task Delete()
+    {
+        if (_browser.Selected is not { } item)
+        {
+            return;
+        }
+        var name = System.IO.Path.GetFileName(item.Path);
+        var dialog = await Dialogs.ShowConfirmationAsync(
+            $"{name} sera déplacé dans la corbeille du NAS ({Options.TrashDirectory}).",
+            "Supprimer", "Annuler", item.IsVideo ? "Supprimer cette vidéo ?" : "Supprimer cette photo ?");
+        if ((await dialog.Result).Cancelled)
+        {
+            return;
+        }
+        if (PhotoTrash.Move(Options, item.Path) is { } error)
+        {
+            Toasts.ShowError(error);
+            return;
+        }
+        _browser.Remove(item);
+        Toasts.ShowSuccess("Déplacé dans la corbeille du NAS.");
+        if (_browser.Selected is null)
+        {
+            _viewerOpen = false;
+        }
+        ShowDetails();
+        StateHasChanged();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Core.Sessions.Ended -= OnSessionEnded;
+        _detailsLoad.Cancel();
+        try
+        {
+            if (_interop is not null)
+            {
+                await _interop.InvokeVoidAsync("dispose");
+                await _interop.DisposeAsync();
+            }
+            if (_module is not null)
+            {
+                await _module.DisposeAsync();
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // The browser is gone: nothing to clean up on its side.
+        }
+        _self?.Dispose();
+    }
+}

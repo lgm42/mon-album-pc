@@ -1,0 +1,13 @@
+@inherits LayoutComponentBase
+
+@* Sign-in pages: static rendering, styles in app.css (scoped CSS needs authentication). *@
+<FluentDesignTheme Mode="DesignThemeModes.System" CustomColor="#3D4FD1" />
+<div class="auth-page">
+    <div class="auth-card">
+        <div class="auth-brand">
+            <img src="img/app.png" alt="" width="48" height="48" />
+            <span>Mon Album PC</span>
+        </div>
+        @Body
+    </div>
+</div>

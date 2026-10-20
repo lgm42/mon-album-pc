@@ -1,0 +1,110 @@
+@using MonAlbumPc.Core.Media
+
+@* Month-grouped grid of square thumbnails. Rows are virtualized: only the visible ones are in the page. *@
+@if (_rows.Count > 0)
+{
+    <Virtualize Items="_rows" ItemSize="@(_tileSize + Gap)" OverscanCount="3" Context="row">
+        @if (row.Month is { } month)
+        {
+            <div class="month-title" @key="row.Key">
+                <h2>@month</h2>
+                <span class="caption">@row.Count</span>
+            </div>
+        }
+        else
+        {
+            <div class="tile-row" @key="row.Key" style="grid-template-columns: repeat(@_columns, @(_tileSize)px); height: @(_tileSize)px">
+                @for (var i = 0; i < row.Items.Count; i++)
+                {
+                    var index = row.Start + i;
+                    var item = row.Items[i];
+                    var selected = item.Path == SelectedPath;
+                    <div id="tile-@index" class="tile @(selected ? "selected" : "")" @onclick="() => OnSelect.InvokeAsync(item)"
+                         @ondblclick="() => OnOpen.InvokeAsync(item)" title="@System.IO.Path.GetFileName(item.Path)">
+                        <img src="@MediaUrls.Thumbnail(item.Path, ThumbnailPixels, Version(item.Path))" loading="lazy" decoding="async" alt="" draggable="false"
+                             onerror="this.classList.add('broken')" />
+                        @if (item.IsVideo)
+                        {
+                            <span class="video-badge">
+                                <FluentIcon Value="@(new Icons.Filled.Size12.Play())" Color="Color.Custom" CustomColor="#fff" />
+                                Vidéo
+                            </span>
+                        }
+                        @if (selected)
+                        {
+                            <button type="button" class="tile-full" title="Afficher en plein écran" @onclick="() => OnOpen.InvokeAsync(item)"
+                                    @onclick:stopPropagation="true">
+                                <FluentIcon Value="@(new Icons.Regular.Size16.FullScreenMaximize())" Color="Color.Custom" CustomColor="currentColor" />
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </Virtualize>
+}
+
+@code {
+    private const int Gap = 4;
+
+    [Parameter, EditorRequired] public IReadOnlyList<LibraryItem> Items { get; set; } = [];
+
+    /// <summary>Available width in CSS pixels.</summary>
+    [Parameter] public int Width { get; set; }
+
+    /// <summary>Minimum tile size (the slider).</summary>
+    [Parameter] public int Size { get; set; } = 150;
+
+    [Parameter] public string? SelectedPath { get; set; }
+    [Parameter] public Func<string, long> Version { get; set; } = _ => 0;
+    [Parameter] public EventCallback<LibraryItem> OnSelect { get; set; }
+    [Parameter] public EventCallback<LibraryItem> OnOpen { get; set; }
+
+    private List<GridRow> _rows = [];
+    private IReadOnlyList<LibraryItem>? _laidOutItems;
+    private int _laidOutWidth;
+    private int _laidOutSize;
+    private int _columns;
+    private int _tileSize;
+
+    // Square JPEG thumbnails from the server: two sizes keep its cache small, sharp on high-density screens.
+    private int ThumbnailPixels => _tileSize <= 180 ? 320 : 480;
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(Items, _laidOutItems) && Width == _laidOutWidth && Size == _laidOutSize)
+        {
+            return;
+        }
+        _laidOutItems = Items;
+        _laidOutWidth = Width;
+        _laidOutSize = Size;
+        Layout();
+    }
+
+    /// <summary>Splits the items into rows of as many columns as fit, with a title per month.</summary>
+    private void Layout()
+    {
+        _rows = [];
+        if (Width <= 0)
+        {
+            return;
+        }
+        _columns = Math.Max(1, (Width + Gap) / (Size + Gap));
+        _tileSize = (int)Math.Floor((Width + Gap) / (double)_columns - Gap);
+        var start = 0;
+        foreach (var month in Items.GroupBy(i => i.Month))
+        {
+            var items = month.ToList();
+            _rows.Add(new GridRow($"m{month.Key:yyyyMM}", Formatting.Month(month.Key), Formatting.Plural(items.Count, "élément", "éléments"), 0, []));
+            foreach (var chunk in items.Chunk(_columns))
+            {
+                _rows.Add(new GridRow($"r{start}", null, "", start, chunk));
+                start += chunk.Length;
+            }
+        }
+    }
+
+    /// <summary>A month title (Month set) or a line of tiles starting at the item number Start.</summary>
+    private sealed record GridRow(string Key, string? Month, string Count, int Start, IReadOnlyList<LibraryItem> Items);
+}

@@ -1,9 +1,54 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 
-@Body
+<FluentDesignTheme Mode="DesignThemeModes.System" CustomColor="@_accent" OnLuminanceChanged="OnLuminanceChanged" />
+
+<div class="shell">
+    <aside class="nav-pane">
+        <div class="brand">
+            <img src="img/app.png" alt="" width="20" height="20" />
+            <span>Mon Album PC</span>
+        </div>
+        <nav class="nav-items" aria-label="Navigation">
+            <NavItem Href="" Match="NavLinkMatch.All" Icon="@(new Icons.Regular.Size20.ImageMultiple())" Label="Photos" />
+            <NavItem Href="albums" Icon="@(new Icons.Regular.Size20.Phone())" Label="Albums et téléphones" />
+            <NavItem Href="history" Icon="@(new Icons.Regular.Size20.History())" Label="Historique" />
+        </nav>
+        <div class="nav-spacer"></div>
+        <StatusCard />
+        <nav class="nav-items" aria-label="Réglages">
+            <NavItem Href="settings" Icon="@(new Icons.Regular.Size20.Settings())" Label="Réglages" />
+        </nav>
+        <form method="post" action="logout" class="logout">
+            <AntiforgeryToken />
+            <button type="submit" class="nav-item">
+                <FluentIcon Value="@(new Icons.Regular.Size20.SignOut())" Color="Color.Custom" CustomColor="currentColor" />
+                <span>Se déconnecter</span>
+            </button>
+        </form>
+    </aside>
+    <main class="content">
+        @Body
+    </main>
+</div>
+
+<FluentToastProvider Position="ToastPosition.BottomCenter" />
+<FluentDialogProvider />
+<FluentTooltipProvider />
+<FluentMessageBarProvider />
+<FluentMenuProvider />
 
 <div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
+    Une erreur inattendue s'est produite.
+    <a href="." class="reload">Recharger</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    private const string LightAccent = "#3D4FD1";
+    private const string DarkAccent = "#9AA8FF";
+
+    private string _accent = LightAccent;
+
+    // The brand indigo has a lighter variant for the dark theme (docs/design/palette.md).
+    private void OnLuminanceChanged(LuminanceChangedEventArgs e) => _accent = e.IsDark ? DarkAccent : LightAccent;
+}

@@ -1,0 +1,11 @@
+<NavLink class="nav-item" ActiveClass="active" href="@Href" Match="Match">
+    <FluentIcon Value="Icon" Color="Color.Custom" CustomColor="currentColor" />
+    <span>@Label</span>
+</NavLink>
+
+@code {
+    [Parameter, EditorRequired] public string Href { get; set; } = "";
+    [Parameter, EditorRequired] public Icon Icon { get; set; } = default!;
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter] public NavLinkMatch Match { get; set; } = NavLinkMatch.Prefix;
+}

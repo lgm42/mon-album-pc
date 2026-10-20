@@ -1,0 +1,39 @@
+@* Left pane of the viewer: albums with their counts, then years and months. *@
+<aside class="filter-pane">
+    <div class="filter-section">Albums</div>
+    @foreach (var entry in Browser.AlbumEntries)
+    {
+        <button type="button" class="filter-item @(Browser.AlbumFilter == entry.AlbumId ? "active" : "")"
+                @onclick="() => OnAlbum.InvokeAsync(entry.AlbumId)">
+            @if (entry.Color is not null)
+            {
+                <span class="dot" style="background:@entry.Color"></span>
+            }
+            <span class="ellipsis">@entry.Label</span>
+            <span class="count">@Formatting.Count(entry.Count)</span>
+        </button>
+    }
+
+    @if (Browser.DateEntries.Count > 0)
+    {
+        <div class="filter-section">Dates</div>
+        @foreach (var entry in Browser.DateEntries)
+        {
+            <button type="button" class="filter-item @(entry.IsYear ? "year" : "month") @(Browser.IsDateSelected(entry) ? "active" : "")"
+                    @onclick="() => OnDate.InvokeAsync(entry)">
+                @if (entry.IsYear)
+                {
+                    <FluentIcon Value="@(new Icons.Regular.Size16.ChevronDown())" Color="Color.Custom" CustomColor="currentColor" />
+                }
+                <span class="ellipsis">@entry.Label</span>
+                <span class="count">@Formatting.Count(entry.Count)</span>
+            </button>
+        }
+    }
+</aside>
+
+@code {
+    [Parameter, EditorRequired] public PhotoBrowser Browser { get; set; } = default!;
+    [Parameter] public EventCallback<Guid?> OnAlbum { get; set; }
+    [Parameter] public EventCallback<FilterEntry> OnDate { get; set; }
+}

@@ -1,0 +1,23 @@
+@* Information about the selected photo: date taken, phone of origin, dimensions and size, album and folder. *@
+<aside class="info-pane @(Dark ? "dark" : "")">
+    <div class="info-heading">Informations</div>
+    @if (Details is null)
+    {
+        <p class="caption">Sélectionnez une photo pour voir sa date, son téléphone d'origine et ses dimensions.</p>
+    }
+    else
+    {
+        <div class="info-name ellipsis" title="@Details.Name">@Details.Name</div>
+        <InfoLine Icon="@(new Icons.Regular.Size16.Calendar())" Label="Prise de vue" Value="@Details.Taken" />
+        <InfoLine Icon="@(new Icons.Regular.Size16.Phone())" Label="Téléphone d'origine" Value="@Details.Phone" />
+        <InfoLine Icon="@(new Icons.Regular.Size16.Ruler())" Label="Dimensions · taille" Value="@Details.DimensionsAndSize" />
+        <InfoLine Icon="@(new Icons.Regular.Size16.Folder())" Label="Album · dossier" Value="@Details.Album" Path="@Details.Folder" />
+    }
+</aside>
+
+@code {
+    [Parameter] public PhotoDetails? Details { get; set; }
+
+    /// <summary>Inside the full-screen viewer (dark background).</summary>
+    [Parameter] public bool Dark { get; set; }
+}

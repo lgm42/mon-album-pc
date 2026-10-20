@@ -1,0 +1,149 @@
+@using MonAlbumPc.Core.Import
+@inject CoreServices Core
+@inject NasOptions Options
+
+@* "Nouvel album" / "Modifier l'album": a name and the folder (under the photos root) the photos go to. *@
+<FluentDialog @onkeydown="OnDialogKey" Hidden="@(!_open)" HiddenChanged="OnHiddenChanged" Modal="true" TrapFocus="true" PreventScroll="true"
+              AriaLabel="@Title" Class="app-dialog" Style="--dialog-width: 560px;">
+    @if (_open)
+    {
+        <div class="dlg-content">
+            <div class="dlg-header">
+                <h2>@Title</h2>
+            </div>
+            <div class="dlg-body">
+                <FluentTextField Label="Nom de l'album" Value="@_name" ValueChanged="OnNameChanged" Immediate="true" Autofocus="true"
+                                 Style="width:100%" Maxlength="80" />
+
+                <div class="field-label">Dossier de destination</div>
+                @if (_browsing)
+                {
+                    <FolderBrowser Folders="_folders" Start="@(_folder.Length > 0 ? _folder : _folders.Suggest(_name))" OnChosen="OnFolderChosen"
+                                   OnCancel="() => _browsing = false" />
+                }
+                else
+                {
+                    <div class="folder-field">
+                        <FluentIcon Value="@(new Icons.Regular.Size20.Folder())" Color="Color.Custom" CustomColor="var(--app-text-secondary)" />
+                        <span class="mono ellipsis path-end" title="@_folder"><span>@(_folder.Length > 0 ? _folder : "—")</span></span>
+                        <FluentButton OnClick="() => _browsing = true">Parcourir…</FluentButton>
+                    </div>
+                }
+
+                @if (_folder.Length > 0)
+                {
+                    <div class="caption" style="margin-top:12px">Les photos seront rangées ainsi :</div>
+                    <div class="mono preview-path">@Preview</div>
+                }
+
+                @if (Moved)
+                {
+                    <FluentMessageBar Intent="MessageIntent.Warning" AllowDismiss="false" Style="margin-top:12px">
+                        Les photos déjà importées restent dans <b>@_album!.DestinationRoot</b>. Seules les prochaines photos iront dans le nouveau dossier.
+                    </FluentMessageBar>
+                }
+                @if (_error is not null)
+                {
+                    <FluentMessageBar Intent="MessageIntent.Error" AllowDismiss="false" Style="margin-top:12px">@_error</FluentMessageBar>
+                }
+            </div>
+            <div class="dlg-footer">
+                <FluentButton Appearance="Appearance.Accent" Disabled="@(!CanSave)" OnClick="Save">@(_album is null ? "Créer l'album" : "Enregistrer")</FluentButton>
+                <FluentButton OnClick="Close">Annuler</FluentButton>
+            </div>
+        </div>
+    }
+</FluentDialog>
+
+@code {
+    [Parameter] public EventCallback<Album> OnSaved { get; set; }
+
+    private PhotoFolders _folders = default!;
+    private bool _open;
+    private Album? _album;
+    private string _name = "";
+    private string _folder = "";
+    private bool _folderChosen;
+    private bool _browsing;
+    private string? _error;
+
+    private string Title => _album is null ? "Nouvel album" : "Modifier l'album";
+
+    private bool Moved => _album is not null && _folder.Length > 0 && !PhotoFolders.SameFolder(_album.DestinationRoot, _folder);
+
+    private bool CanSave => _name.Trim().Length > 0 && _folder.Length > 0 && !_browsing;
+
+    private string Preview => DestinationLayout.TargetDirectory(_folder, DateTime.Today) + Path.DirectorySeparatorChar;
+
+    protected override void OnInitialized() => _folders = new PhotoFolders(Options);
+
+    public void Open(Album? album)
+    {
+        _album = album;
+        _name = album?.Name ?? "";
+        _folder = album?.DestinationRoot ?? "";
+        _folderChosen = album is not null;
+        _browsing = false;
+        _error = null;
+        _open = true;
+        StateHasChanged();
+    }
+
+    private void OnNameChanged(string? value)
+    {
+        _name = value ?? "";
+        if (!_folderChosen)
+        {
+            _folder = _folders.Suggest(_name);
+        }
+    }
+
+    private void OnFolderChosen(string folder)
+    {
+        _folder = folder;
+        _folderChosen = true;
+        _browsing = false;
+        _error = null;
+    }
+
+    private async Task Save()
+    {
+        var name = _name.Trim();
+        if (_album is null)
+        {
+            _error = _folders.CreateAlbum(Core, name, _folder, out var created);
+            if (created is null)
+            {
+                return;
+            }
+            Close();
+            await OnSaved.InvokeAsync(created);
+            return;
+        }
+        if (!PhotoFolders.SameFolder(_album.DestinationRoot, _folder) || Directory.Exists(_folder) is false)
+        {
+            if (_folders.EnsureFolder(_folder) is { } error)
+            {
+                _error = error;
+                return;
+            }
+        }
+        var updated = _album with { Name = name, DestinationRoot = _folder };
+        Core.Albums.Update(updated);
+        Close();
+        await OnSaved.InvokeAsync(updated);
+    }
+
+    private void Close() => _open = false;
+
+    // fluent-dialog does not close itself on Escape when used inline.
+    private void OnDialogKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            Close();
+        }
+    }
+
+    private void OnHiddenChanged(bool hidden) => _open = !hidden;
+}

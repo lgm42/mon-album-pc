@@ -1,0 +1,22 @@
+<div class="info-line">
+    <FluentIcon Value="Icon" Color="Color.Custom" CustomColor="currentColor" />
+    <div class="info-text">
+        <span class="caption">@Label</span>
+        @if (Value.Length > 0)
+        {
+            <span>@Value</span>
+        }
+        @if (Path is not null)
+        {
+            @* Long folders are cut with an ellipsis on the left; the full path is in the tooltip. *@
+            <span class="ellipsis path-end mono" title="@Path"><span>@Path</span></span>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Icon Icon { get; set; } = default!;
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter] public string Value { get; set; } = "";
+    [Parameter] public string? Path { get; set; }
+}

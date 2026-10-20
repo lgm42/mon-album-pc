@@ -1,0 +1,74 @@
+@implements IDisposable
+@inject NasHost Host
+
+@* Same three states as the status card of the Windows app. *@
+<div class="status-card @_state">
+    <div class="status-head">
+        @switch (_state)
+        {
+            case "receiving":
+                <FluentIcon Value="@(new Icons.Regular.Size20.ArrowSync())" Color="Color.Accent" />
+                break;
+            case "error":
+                <FluentIcon Value="@(new Icons.Filled.Size20.Warning())" Color="Color.Custom" CustomColor="var(--app-caution)" />
+                break;
+            default:
+                <FluentIcon Value="@(new Icons.Filled.Size20.CheckmarkCircle())" Color="Color.Custom" CustomColor="var(--app-success)" />
+                break;
+        }
+        <span class="status-title">@_title</span>
+    </div>
+    <div class="status-detail" title="@_detail">@_detail</div>
+    @if (_state == "receiving")
+    {
+        <FluentProgress Class="status-progress" />
+    }
+</div>
+
+@code {
+    private string _state = "ready";
+    private string _title = "";
+    private string _detail = "";
+
+    protected override void OnInitialized()
+    {
+        Update();
+        Host.Core.Sessions.Changed += OnChanged;
+    }
+
+    // Raised on server threads.
+    private void OnChanged() => _ = InvokeAsync(() =>
+    {
+        Update();
+        StateHasChanged();
+    });
+
+    private void Update()
+    {
+        var core = Host.Core;
+        if (core.Sessions.Active.FirstOrDefault() is { } active)
+        {
+            _state = "receiving";
+            _title = "Réception en cours";
+            var phone = core.Devices.Get(active.DeviceId)?.Name ?? "Téléphone";
+            var received = active.Photos + active.Videos;
+            _detail = received == 0 ? phone : $"{phone} · {Formatting.Plural(received, "élément reçu", "éléments reçus")}";
+        }
+        else if (Host.ServerError is { } error)
+        {
+            _state = "error";
+            _title = "Sauvegardes impossibles";
+            _detail = error;
+        }
+        else
+        {
+            _state = "ready";
+            _title = "Prêt à recevoir les photos";
+            _detail = Host.LanAddress is { } address
+                ? $"Adresse sur le réseau : {address}"
+                : "Ce serveur n'est connecté à aucun réseau.";
+        }
+    }
+
+    public void Dispose() => Host.Core.Sessions.Changed -= OnChanged;
+}

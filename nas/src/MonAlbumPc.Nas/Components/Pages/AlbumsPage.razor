@@ -1,0 +1,110 @@
+@page "/albums"
+@using MonAlbumPc.Core.Storage
+@using MonAlbumPc.Nas.Components.Albums
+@using MonAlbumPc.Nas.Components.Phones
+@implements IDisposable
+@inject CoreServices Core
+@inject IDialogService Dialogs
+@inject IToastService Toasts
+
+<PageTitle>Albums et téléphones · Mon Album PC</PageTitle>
+
+<div class="page">
+    <div class="page-header">
+        <h1>Albums et téléphones</h1>
+        <FluentButton IconStart="@(new Icons.Regular.Size20.Add())" OnClick="() => _albumDialog.Open(null)">Nouvel album</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" IconStart="@(new Icons.Regular.Size20.Phone())" OnClick="() => _addPhone.Open(null)">
+            Ajouter un téléphone
+        </FluentButton>
+    </div>
+
+    @if (_cards is null)
+    {
+        <FluentProgressRing />
+    }
+    else if (_cards.Count == 0)
+    {
+        <div class="empty-state">
+            <img src="img/app.png" alt="" />
+            <h2>Aucun album pour l'instant.</h2>
+            <p>Un album, c'est une personne et le dossier où ses photos seront rangées. Créez-en un, puis reliez-lui un téléphone.</p>
+            <FluentButton Appearance="Appearance.Accent" OnClick="() => _albumDialog.Open(null)">Créer un album</FluentButton>
+        </div>
+    }
+    else
+    {
+        <div class="album-grid">
+            @foreach (var card in _cards)
+            {
+                <AlbumCard @key="card.Album.Id" Card="card" OnEdit="c => _albumDialog.Open(c.Album)" OnDelete="DeleteAlbum"
+                           OnAddPhone="c => _addPhone.Open(c.Album.Id)" OnUnpair="Unpair" />
+            }
+        </div>
+    }
+</div>
+
+<AlbumDialog @ref="_albumDialog" OnSaved="_ => Refresh()" />
+<AddPhoneDialog @ref="_addPhone" OnClosed="Refresh" />
+
+@code {
+    private AlbumDialog _albumDialog = default!;
+    private AddPhoneDialog _addPhone = default!;
+    private List<AlbumCardModel>? _cards;
+
+    protected override void OnInitialized()
+    {
+        Refresh();
+        Core.Sessions.Ended += OnSessionEnded;
+        Core.Pairing.Paired += OnPairedAnywhere;
+    }
+
+    private void Refresh() => _cards = AlbumsModel.Load(Core);
+
+    // A finished backup or a new phone changes the cards. Both events are raised on server threads.
+    private void OnSessionEnded(BackupSession session) => RefreshFromServer();
+
+    private void OnPairedAnywhere(MonAlbumPc.Core.Pairing.PairingResult result) => RefreshFromServer();
+
+    private void RefreshFromServer() => _ = InvokeAsync(() =>
+    {
+        Refresh();
+        StateHasChanged();
+    });
+
+    private async Task DeleteAlbum(AlbumCardModel card)
+    {
+        if (!card.CanDelete)
+        {
+            return;
+        }
+        var album = card.Album;
+        var dialog = await Dialogs.ShowConfirmationAsync(
+            $"Le dossier {album.DestinationRoot} et ses photos sont conservés.", "Supprimer", "Annuler", $"Supprimer l'album {album.Name} ?");
+        if ((await dialog.Result).Cancelled)
+        {
+            return;
+        }
+        Core.Albums.Delete(album.Id);
+        Toasts.ShowSuccess($"Album {album.Name} supprimé. Le dossier et ses photos sont conservés.");
+        Refresh();
+    }
+
+    private async Task Unpair(PhoneRowModel phone)
+    {
+        var dialog = await Dialogs.ShowConfirmationAsync(
+            "Ce téléphone ne sera plus sauvegardé sur ce NAS. Les photos déjà reçues restent dans le dossier de l'album. " +
+            "Pour le relier à nouveau, il faudra rescanner un QR code.", "Dissocier", "Annuler", $"Dissocier {phone.Device.Name} ?");
+        if ((await dialog.Result).Cancelled)
+        {
+            return;
+        }
+        Core.Devices.Revoke(phone.Device.Id, Core.Clock.GetLocalNow());
+        Refresh();
+    }
+
+    public void Dispose()
+    {
+        Core.Sessions.Ended -= OnSessionEnded;
+        Core.Pairing.Paired -= OnPairedAnywhere;
+    }
+}
