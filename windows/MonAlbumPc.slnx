@@ -8,4 +8,5 @@
     <Project Path="tests/MonAlbumPc.Core.Tests/MonAlbumPc.Core.Tests.csproj" />
     <Project Path="tests/MonAlbumPc.Server.Tests/MonAlbumPc.Server.Tests.csproj" />
   </Folder>
+  <Project Path="../nas/src/MonAlbumPc.Nas/MonAlbumPc.Nas.csproj" />
 </Solution>

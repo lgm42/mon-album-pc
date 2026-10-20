@@ -1,0 +1,4 @@
+<Project>
+  <!-- Same build settings as the Windows solution (shared Core and Server libraries). -->
+  <Import Project="..\windows\Directory.Build.props" />
+</Project>
