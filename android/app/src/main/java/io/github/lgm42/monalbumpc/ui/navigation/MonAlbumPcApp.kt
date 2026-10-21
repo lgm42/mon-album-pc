@@ -19,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -35,6 +36,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import io.github.lgm42.monalbumpc.data.PairedPc
 import io.github.lgm42.monalbumpc.ui.MainViewModel
+import io.github.lgm42.monalbumpc.ui.UpdateViewModel
+import io.github.lgm42.monalbumpc.ui.components.openUnknownSourcesSettings
 import io.github.lgm42.monalbumpc.ui.folders.FoldersScreen
 import io.github.lgm42.monalbumpc.ui.photos.PhotosScreen
 import io.github.lgm42.monalbumpc.ui.settings.SettingsScreen
@@ -47,7 +50,19 @@ fun MonAlbumPcApp(pc: PairedPc, onUnpair: () -> Unit) {
     val mainViewModel: MainViewModel = viewModel()
     val state by mainViewModel.state.collectAsStateWithLifecycle()
 
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { mainViewModel.refresh() }
+    val updateViewModel: UpdateViewModel = viewModel()
+    val update by updateViewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val onAllowInstall: () -> Unit = { context.openUnknownSourcesSettings() }
+    val onUpdate: () -> Unit = {
+        if (update.canInstallPackages) updateViewModel.update() else context.openUnknownSourcesSettings()
+    }
+
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        mainViewModel.refresh()
+        updateViewModel.onResume(pc)
+    }
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { updateViewModel.onPause() }
     LaunchedEffect(pc.deviceId) { mainViewModel.ensureScheduled() }
 
     Scaffold(
@@ -68,6 +83,10 @@ fun MonAlbumPcApp(pc: PairedPc, onUnpair: () -> Unit) {
                     onRetry = mainViewModel::retry,
                     onTrackFolder = { key -> mainViewModel.setFolderTracked(key, true) },
                     onOpenFolders = { navController.navigateToTab(TopLevelDestination.Folders) },
+                    update = update,
+                    onUpdate = onUpdate,
+                    onAllowInstall = onAllowInstall,
+                    onUpdateLater = updateViewModel::later,
                 )
             }
             composable(TopLevelDestination.Folders.route) {
@@ -86,6 +105,8 @@ fun MonAlbumPcApp(pc: PairedPc, onUnpair: () -> Unit) {
                     mobileData = state.backup.mobileData,
                     onMobileDataChange = mainViewModel::setMobileData,
                     lastBackupMs = state.backup.lastBackupMs,
+                    update = update,
+                    onUpdate = onUpdate,
                 )
             }
         }

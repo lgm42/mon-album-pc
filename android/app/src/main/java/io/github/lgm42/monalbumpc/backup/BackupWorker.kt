@@ -28,6 +28,7 @@ import io.github.lgm42.monalbumpc.net.PcApi
 import io.github.lgm42.monalbumpc.net.PcDiscovery
 import io.github.lgm42.monalbumpc.net.StatusResponse
 import io.github.lgm42.monalbumpc.net.UploadRequest
+import io.github.lgm42.monalbumpc.update.UpdateManager
 import java.io.IOException
 import java.io.InputStream
 import java.util.concurrent.atomic.AtomicLong
@@ -36,6 +37,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.isActive
@@ -67,6 +71,10 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
     private val currentBytes = AtomicLong(0)
 
     private var uploadedPhotos = 0
+
+    // Last `GET /status` of this run, for the self-update.
+    @Volatile private var lastStatus: StatusResponse? = null
+    @Volatile private var statusTried = false
     private var uploadedVideos = 0
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
@@ -77,6 +85,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
     override suspend fun doWork(): Result {
         // Periodic, content-triggered and manual runs never upload at the same time.
         val result = runLock.withLock {
+            _running.value = true
             try {
                 runBackup()
             } catch (e: CancellationException) {
@@ -84,11 +93,34 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
             } catch (e: Exception) {
                 dao.resetUploading()
                 Result.retry()
+            } finally {
+                _running.value = false
             }
         }
+        // Self-update, once no transfer is going on; it never changes the outcome of the backup.
+        updateStep()
         // A retried run comes back by itself and re-arms the trigger then.
         if (result != Result.retry()) rearmContentTrigger()
         return result
+    }
+
+    /** Passes the status of this run to the self-update (or asks for one), then lets it install. */
+    private suspend fun updateStep() {
+        try {
+            withTimeoutOrNull(UPDATE_STEP_TIMEOUT_MS) {
+                val status = lastStatus ?: if (statusTried) {
+                    null
+                } else {
+                    pairingStore.paired.first()?.let { pc -> (status(pc) as? Connection.Connected)?.status }
+                }
+                if (status != null) UpdateManager.onStatus(applicationContext, status.apk)
+                UpdateManager.afterBackgroundRun(applicationContext, backupRunning = runLock.isLocked)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // The update is optional.
+        }
     }
 
     private suspend fun rearmContentTrigger() {
@@ -496,8 +528,9 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
     }
 
     private suspend fun status(pc: PairedPc): Connection = try {
+        statusTried = true
         val api = PcApi(pc.host, pc.apiPort, pc.certSha256)
-        Connection.Connected(pc, api, api.status(pc.authorization))
+        Connection.Connected(pc, api, api.status(pc.authorization)).also { lastStatus = it.status }
     } catch (e: ApiException) {
         when (BackupErrors.actionFor(e.error)) {
             FailureAction.UNPAIR -> Connection.Unpaired
@@ -566,6 +599,13 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
         private const val PROGRESS_INTERVAL_MS = 1_000L
         private const val DISCOVERY_TIMEOUT_MS = 10_000L
 
+        private const val UPDATE_STEP_TIMEOUT_MS = 30_000L
+
         private val runLock = Mutex()
+
+        private val _running = MutableStateFlow(false)
+
+        /** A backup run is in progress in this process (the update never installs during a transfer). */
+        val running: StateFlow<Boolean> = _running.asStateFlow()
     }
 }

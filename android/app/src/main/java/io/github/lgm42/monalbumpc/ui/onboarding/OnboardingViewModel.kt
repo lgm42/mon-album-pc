@@ -16,6 +16,7 @@ import io.github.lgm42.monalbumpc.pairing.Fingerprints
 import io.github.lgm42.monalbumpc.pairing.PairingCode
 import io.github.lgm42.monalbumpc.pairing.PairingLink
 import io.github.lgm42.monalbumpc.pairing.PairingOffer
+import io.github.lgm42.monalbumpc.update.UpdateManager
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -187,18 +188,19 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
         val response = api.pair(request)
         if (!Fingerprints.matches(api.seenFingerprint, response.certSha256)) return OnboardingStep.Failed
 
-        store.save(
-            PairedPc(
-                pcId = response.pcId,
-                pcName = response.pcName,
-                albumName = response.albumName,
-                host = host,
-                apiPort = port,
-                certSha256 = response.certSha256,
-                deviceId = response.deviceId,
-                secret = response.secret,
-            ),
+        val paired = PairedPc(
+            pcId = response.pcId,
+            pcName = response.pcName,
+            albumName = response.albumName,
+            host = host,
+            apiPort = port,
+            certSha256 = response.certSha256,
+            deviceId = response.deviceId,
+            secret = response.secret,
         )
+        store.save(paired)
+        // Does the PC offer a newer app? One status call with the new credentials, in the background.
+        UpdateManager.checkAsync(getApplication<Application>(), paired, force = true)
         return OnboardingStep.Success(response.pcName, response.albumName)
     }
 

@@ -50,6 +50,8 @@ import io.github.lgm42.monalbumpc.ui.components.rememberBackgroundUnrestricted
 import io.github.lgm42.monalbumpc.data.PairedPc
 import io.github.lgm42.monalbumpc.ui.components.ScreenHeader
 import io.github.lgm42.monalbumpc.ui.theme.MonAlbumPcTheme
+import io.github.lgm42.monalbumpc.ui.UpdateUiState
+import io.github.lgm42.monalbumpc.ui.components.updateDetail
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -65,6 +67,8 @@ fun SettingsScreen(
     mobileData: Boolean,
     onMobileDataChange: (Boolean) -> Unit,
     lastBackupMs: Long?,
+    update: UpdateUiState,
+    onUpdate: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var confirmUnpair by rememberSaveable { mutableStateOf(false) }
@@ -123,6 +127,13 @@ fun SettingsScreen(
         } else {
             BackgroundAccessCard(modifier = Modifier.padding(horizontal = 16.dp))
         }
+        Text(
+            text = stringResource(R.string.settings_about),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 8.dp),
+        )
+        VersionRow(update = update, onUpdate = onUpdate, modifier = Modifier.padding(horizontal = 16.dp))
         Spacer(Modifier.height(24.dp))
     }
 
@@ -186,6 +197,50 @@ private fun MyPcCard(pc: PairedPc, lastBackupMs: Long?, onUnpairClick: () -> Uni
                     contentDescription = stringResource(R.string.settings_unpair),
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
+            }
+        }
+    }
+}
+
+/** "Version 1.4.0 · à jour", or "· la 1.5.0 est disponible" with a Mettre à jour button (design README §4). */
+@Composable
+private fun VersionRow(update: UpdateUiState, onUpdate: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        color = MaterialTheme.colorScheme.surface,
+    ) {
+        Column(
+            modifier = Modifier
+                .heightIn(min = 64.dp)
+                .padding(horizontal = 18.dp, vertical = 12.dp),
+        ) {
+            Text(
+                text = if (update.available) {
+                    stringResource(R.string.settings_version_available, update.installedName, update.availableName)
+                } else {
+                    stringResource(R.string.settings_version_up_to_date, update.installedName)
+                },
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (update.available) {
+                updateDetail(update)?.let { detail ->
+                    Text(
+                        text = detail,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+                Button(
+                    onClick = onUpdate,
+                    enabled = !update.busy,
+                    shape = CircleShape,
+                    modifier = Modifier.padding(top = 8.dp),
+                ) {
+                    Text(stringResource(R.string.update_action), style = MaterialTheme.typography.labelLarge)
+                }
             }
         }
     }
@@ -330,6 +385,8 @@ private fun SettingsScreenPreview() {
             mobileData = false,
             onMobileDataChange = {},
             lastBackupMs = null,
+            update = UpdateUiState(installedName = "1.4.0"),
+            onUpdate = {},
         )
     }
 }

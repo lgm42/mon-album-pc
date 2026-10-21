@@ -1,8 +1,10 @@
 package io.github.lgm42.monalbumpc.net
 
+import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerializationException
@@ -23,6 +25,7 @@ class PcApi(host: String, port: Int, expectedFingerprint: String?) {
     private val client: OkHttpClient = trust.newClient()
 
     // Uploads stream large files, and the PC checks the hash and stores the file before answering.
+    // The APK download reuses it: same pinned certificate, long reads.
     private val uploadClient: OkHttpClient by lazy {
         client.newBuilder()
             .readTimeout(10, TimeUnit.MINUTES)
@@ -117,6 +120,47 @@ class PcApi(host: String, port: Int, expectedFingerprint: String?) {
         return raw.uploadOffset ?: throw ApiException(ApiError.InvalidResponse)
     }
 
+    /**
+     * Streams the APK served by the PC (protocol §5.5) into [target], at most [maxSize] bytes,
+     * reporting the bytes received. The caller checks its size and SHA-256.
+     */
+    suspend fun downloadApk(authorization: String, target: File, maxSize: Long, onProgress: (Long) -> Unit) {
+        val httpRequest = newRequest("apk")
+            .header("Authorization", authorization)
+            .get()
+            .build()
+        withContext(Dispatchers.IO) {
+            try {
+                uploadClient.newCall(httpRequest).execute().use { response ->
+                    if (response.code !in 200..299) {
+                        throw ApiException(parseError(response.code, response.body?.string().orEmpty()))
+                    }
+                    val body = response.body ?: throw ApiException(ApiError.InvalidResponse)
+                    body.byteStream().use { input ->
+                        target.outputStream().use { output ->
+                            val buffer = ByteArray(DOWNLOAD_BUFFER)
+                            var total = 0L
+                            while (true) {
+                                ensureActive()
+                                val read = input.read(buffer)
+                                if (read < 0) break
+                                total += read
+                                if (total > maxSize) throw ApiException(ApiError.InvalidResponse)
+                                output.write(buffer, 0, read)
+                                onProgress(total)
+                            }
+                            output.flush()
+                            output.fd.sync()
+                        }
+                    }
+                }
+            } catch (e: IOException) {
+                val error = if (trust.mismatchDetected) ApiError.CertificateMismatch else ApiError.Network(e.message)
+                throw ApiException(error)
+            }
+        }
+    }
+
     private fun newRequest(path: String): Request.Builder = try {
         Request.Builder().url(baseUrl + path)
     } catch (e: IllegalArgumentException) {
@@ -174,6 +218,7 @@ class PcApi(host: String, port: Int, expectedFingerprint: String?) {
 
     companion object {
         private val JSON_TYPE = "application/json; charset=utf-8".toMediaType()
+        private const val DOWNLOAD_BUFFER = 64 * 1024
 
         val json = Json {
             ignoreUnknownKeys = true

@@ -18,6 +18,8 @@ import io.github.lgm42.monalbumpc.ui.AppViewModel
 import io.github.lgm42.monalbumpc.ui.navigation.MonAlbumPcApp
 import io.github.lgm42.monalbumpc.ui.onboarding.OnboardingScreen
 import io.github.lgm42.monalbumpc.ui.theme.MonAlbumPcTheme
+import io.github.lgm42.monalbumpc.update.UpdateManager
+import io.github.lgm42.monalbumpc.update.UpdateNotifications
 
 class MainActivity : ComponentActivity() {
 
@@ -27,7 +29,10 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         // On recreation the intent is the same one, already handled.
-        if (savedInstanceState == null) appViewModel.onDeepLink(intent?.data?.toString())
+        if (savedInstanceState == null) {
+            appViewModel.onDeepLink(intent?.data?.toString())
+            handleUpdateIntent(intent)
+        }
 
         setContent {
             MonAlbumPcTheme {
@@ -58,5 +63,14 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         appViewModel.onDeepLink(intent.data?.toString())
+        handleUpdateIntent(intent)
+    }
+
+    /** Opened from the "Mise à jour disponible" notification: install the downloaded update. */
+    private fun handleUpdateIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(UpdateNotifications.EXTRA_INSTALL_UPDATE, false) == true) {
+            intent.removeExtra(UpdateNotifications.EXTRA_INSTALL_UPDATE)
+            UpdateManager.requestInstall()
+        }
     }
 }

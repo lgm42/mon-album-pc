@@ -72,6 +72,8 @@ import io.github.lgm42.monalbumpc.backup.BannerState
 import io.github.lgm42.monalbumpc.backup.Elapsed
 import io.github.lgm42.monalbumpc.ui.BackupProgress
 import io.github.lgm42.monalbumpc.ui.MainUiState
+import io.github.lgm42.monalbumpc.ui.UpdateUiState
+import io.github.lgm42.monalbumpc.ui.components.UpdateCard
 import io.github.lgm42.monalbumpc.ui.components.AppDialog
 import io.github.lgm42.monalbumpc.ui.components.MediaThumbnail
 import io.github.lgm42.monalbumpc.ui.components.ScreenHeader
@@ -91,6 +93,10 @@ fun PhotosScreen(
     onRetry: (Long) -> Unit,
     onTrackFolder: (String) -> Unit,
     onOpenFolders: () -> Unit,
+    update: UpdateUiState,
+    onUpdate: () -> Unit,
+    onAllowInstall: () -> Unit,
+    onUpdateLater: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -126,6 +132,17 @@ fun PhotosScreen(
                         stringResource(R.string.photos_greeting_name, albumName)
                     },
                 )
+            }
+            if (update.showCard) {
+                item(key = "update", span = { GridItemSpan(maxLineSpan) }, contentType = "update") {
+                    UpdateCard(
+                        state = update,
+                        onUpdate = onUpdate,
+                        onAllowInstall = onAllowInstall,
+                        onLater = onUpdateLater,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+                    )
+                }
             }
             item(key = "banner", span = { GridItemSpan(maxLineSpan) }, contentType = "banner") {
                 StatusBanner(

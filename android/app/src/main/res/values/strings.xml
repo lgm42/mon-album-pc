@@ -262,4 +262,21 @@
     <string name="unpair_body">Les photos de ce téléphone ne seront plus sauvegardées sur %1$s.</string>
     <string name="unpair_note">Rien n\'est supprimé : ni sur le téléphone, ni sur le PC.</string>
     <string name="unpair_confirm">Dissocier</string>
+    <!-- Self-update from the PC -->
+    <string name="update_card_text">Une nouvelle version de Mon Album PC est disponible (%1$s).</string>
+    <string name="update_action">Mettre à jour</string>
+    <string name="update_later">Plus tard</string>
+    <string name="update_downloading">Téléchargement… %1$d %%</string>
+    <string name="update_waiting_download">La mise à jour sera téléchargée dès que le PC sera joignable.</string>
+    <string name="update_installing">Installation…</string>
+    <string name="update_install_failed">La mise à jour n\'a pas pu être installée. Réessayez.</string>
+    <string name="update_download_failed">Le téléchargement de la mise à jour a échoué. Réessayez.</string>
+    <string name="update_permission_text">Pour installer la mise à jour, autorisez Mon Album PC à installer des applications (« Installer des applis inconnues »), puis revenez ici.</string>
+    <string name="update_permission_action">Autoriser</string>
+    <string name="settings_about">À propos</string>
+    <string name="settings_version_up_to_date">Version %1$s · à jour</string>
+    <string name="settings_version_available">Version %1$s · la %2$s est disponible</string>
+    <string name="notif_channel_updates">Mises à jour</string>
+    <string name="notif_update_title">Mise à jour disponible</string>
+    <string name="notif_update_text">Touchez pour installer Mon Album PC %1$s.</string>
 </resources>
