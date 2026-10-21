@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <title>Carte des photos</title>
+    <link rel="stylesheet" href="leaflet/leaflet.css">
+    <link rel="stylesheet" href="markercluster/MarkerCluster.css">
+    <link rel="stylesheet" href="map.css">
+</head>
+<body>
+    <div id="map"></div>
+    <div id="empty" hidden>
+        <div class="card">
+            <div class="title">Aucune photo localisée pour l'instant.</div>
+            <div class="text">Les photos prises avec la localisation activée apparaîtront ici.</div>
+        </div>
+    </div>
+    <script src="leaflet/leaflet.js"></script>
+    <script src="markercluster/leaflet.markercluster.js"></script>
+    <script src="map.js"></script>
+</body>
+</html>

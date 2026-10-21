@@ -1,0 +1,196 @@
+<UserControl x:Class="MonAlbumPc.App.Map.MapPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:photos="clr-namespace:MonAlbumPc.App.Photos"
+             xmlns:local="clr-namespace:MonAlbumPc.App.Map"
+             xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+             Focusable="True" PreviewKeyDown="OnKeyDown">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="Visible" />
+
+        <Style x:Key="CommandButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="32" />
+        </Style>
+
+        <DataTemplate DataType="{x:Type photos:MonthRow}">
+            <StackPanel Orientation="Horizontal" Margin="0,16,0,8">
+                <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding Count}" Style="{StaticResource Caption}" Margin="8,0,0,0" VerticalAlignment="Bottom" />
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type photos:TilesRow}">
+            <ItemsControl ItemsSource="{Binding Tiles}" Margin="0,0,0,4">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type photos:PhotoTile}">
+                        <Grid Width="{Binding DataContext.Size, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                              Height="{Binding DataContext.Size, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                              Margin="0,0,4,0" Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                              MouseLeftButtonDown="OnTileClick" Cursor="Hand" ToolTip="{Binding Name}">
+                            <Grid.Clip>
+                                <RectangleGeometry RadiusX="4" RadiusY="4" Rect="0,0,2000,2000" />
+                            </Grid.Clip>
+                            <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                            <Border Background="#9E000000" CornerRadius="4" Padding="5,2" Margin="4"
+                                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                    Visibility="{Binding IsVideo, Converter={StaticResource Visible}}">
+                                <TextBlock Style="{StaticResource Icon}" FontSize="10" Foreground="White" Text="&#xE768;" />
+                            </Border>
+                            <Border BorderThickness="2" CornerRadius="4" BorderBrush="{DynamicResource AccentFillColorDefaultBrush}"
+                                    Visibility="{Binding IsSelected, Converter={StaticResource Visible}}">
+                                <Border BorderThickness="2" CornerRadius="2" BorderBrush="White" />
+                            </Border>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </DataTemplate>
+
+        <DataTemplate x:Key="AlbumChoiceTemplate" DataType="{x:Type local:AlbumChoice}">
+            <StackPanel Orientation="Horizontal">
+                <Ellipse Width="8" Height="8" Fill="{Binding Dot}" Margin="0,0,10,0" VerticalAlignment="Center"
+                         Visibility="{Binding HasDot, Converter={StaticResource Visible}}" />
+                <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
+            </StackPanel>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid x:Name="Library">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="320" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="440" MinWidth="300" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Map -->
+            <Grid Grid.Column="0" ClipToBounds="True">
+                <Border CornerRadius="8,0,0,0" Background="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                <wv2:WebView2 x:Name="MapView" Visibility="Hidden" />
+                <StackPanel x:Name="MapLoading" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <ProgressBar IsIndeterminate="True" Width="160" />
+                    <TextBlock Style="{StaticResource Secondary}" Margin="0,8,0,0" HorizontalAlignment="Center" Text="Chargement de la carte…" />
+                </StackPanel>
+                <StackPanel x:Name="MapUnavailable" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="380"
+                            Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource Icon}" FontSize="40" HorizontalAlignment="Center" Text="&#xE707;"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Style="{StaticResource Subtitle}" Margin="0,16,0,8" HorizontalAlignment="Center" TextAlignment="Center"
+                               Text="La carte ne peut pas s'afficher" />
+                    <TextBlock x:Name="MapUnavailableText" Style="{StaticResource Secondary}" TextAlignment="Center"
+                               Text="Elle a besoin du composant Microsoft Edge WebView2, qui n'est pas installé sur ce PC." />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,20,0,0">
+                        <Button Style="{StaticResource AccentButtonStyle}" Padding="16,6" Content="Installer WebView2" Click="OnInstallWebView2" />
+                        <Button Margin="8,0,0,0" Padding="16,6" Content="Réessayer" Click="OnRetryMap" />
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+
+            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Center" VerticalAlignment="Stretch" ResizeBehavior="PreviousAndNext"
+                          Background="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="2,0" BorderBrush="Transparent" />
+
+            <!-- Photos in the visible area -->
+            <DockPanel Grid.Column="2" Margin="20,20,4,0">
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource PageTitle}" Text="Carte" />
+                <TextBlock x:Name="Caption" DockPanel.Dock="Top" Style="{StaticResource Secondary}" Margin="0,2,0,12" />
+
+                <ComboBox x:Name="AlbumFilter" DockPanel.Dock="Top" HorizontalAlignment="Stretch" Margin="0,0,16,8"
+                          ItemTemplate="{StaticResource AlbumChoiceTemplate}" SelectionChanged="OnAlbumFilter" />
+
+                <StackPanel x:Name="Indexing" DockPanel.Dock="Top" Margin="0,0,16,8" Visibility="Collapsed">
+                    <TextBlock x:Name="IndexingText" Style="{StaticResource Caption}" TextWrapping="Wrap" />
+                    <ProgressBar x:Name="IndexingProgress" Height="3" Margin="0,6,0,0" IsIndeterminate="True" />
+                </StackPanel>
+
+                <!-- Selected photo -->
+                <Border x:Name="Details" DockPanel.Dock="Bottom" Style="{StaticResource Card}" Margin="0,8,16,16" Padding="12"
+                        Visibility="Collapsed">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
+                            <Button Style="{StaticResource CommandButton}" ToolTip="Ouvrir dans l'Explorateur" Content="&#xE838;" Click="OnOpenInExplorer" />
+                            <Button Style="{StaticResource CommandButton}" ToolTip="Afficher en plein écran" Content="&#xE740;" Click="OnFullScreen" />
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock x:Name="DetailsName" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="DetailsDate" Style="{StaticResource Caption}" Margin="0,2,0,0" />
+                            <TextBlock x:Name="DetailsPlace" Style="{StaticResource Caption}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <Grid>
+                    <ListBox x:Name="Rows" BorderThickness="0" Background="Transparent" Padding="0"
+                             VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                             VirtualizingPanel.ScrollUnit="Pixel" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             SizeChanged="OnRowsSizeChanged">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Focusable" Value="False" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <ContentPresenter />
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
+
+                    <StackPanel x:Name="EmptyArea" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="300" Margin="0,0,16,0"
+                                Visibility="Collapsed">
+                        <TextBlock Style="{StaticResource Icon}" FontSize="32" HorizontalAlignment="Center" Text="&#xE707;"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <TextBlock x:Name="EmptyAreaText" Style="{StaticResource Secondary}" TextAlignment="Center" Margin="0,12,0,0" />
+                    </StackPanel>
+                </Grid>
+            </DockPanel>
+        </Grid>
+
+        <!-- Full-screen viewer (the map is hidden meanwhile: WebView2 always draws above WPF content). -->
+        <Grid x:Name="Viewer" Background="#1C1C1C" Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="48" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <DockPanel Margin="8,0" TextElement.Foreground="White">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Style="{StaticResource CommandButton}" Foreground="White" ToolTip="Ouvrir dans l'Explorateur" Content="&#xE838;" Click="OnOpenInExplorer" />
+                </StackPanel>
+                <Button DockPanel.Dock="Left" Style="{StaticResource CommandButton}" Foreground="White" ToolTip="Retour (Échap)"
+                        Content="&#xE72B;" Click="OnCloseViewer" VerticalAlignment="Center" />
+                <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                    <TextBlock x:Name="ViewerName" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                    <TextBlock x:Name="ViewerPosition" FontSize="12" Opacity="0.7" />
+                </StackPanel>
+            </DockPanel>
+
+            <Grid Grid.Row="1" Margin="16,8,16,24">
+                <Image x:Name="ViewerImage" Stretch="Uniform" Margin="56,0" />
+                <MediaElement x:Name="ViewerVideo" LoadedBehavior="Manual" UnloadedBehavior="Stop" Stretch="Uniform" Margin="56,0"
+                              Visibility="Collapsed" MediaEnded="OnVideoEnded" />
+                <Button x:Name="PlayButton" Width="64" Height="64" Visibility="Collapsed" Click="OnPlay"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border CornerRadius="32" Background="#B0000000">
+                                <TextBlock Style="{StaticResource Icon}" FontSize="24" Foreground="White" Text="&#xE768;"
+                                           HorizontalAlignment="Center" Margin="4,0,0,0" />
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+                <Button x:Name="PreviousButton" Style="{StaticResource CommandButton}" Width="40" Height="40" Foreground="White"
+                        HorizontalAlignment="Left" Content="&#xE76B;" ToolTip="Précédente" Click="OnPrevious" />
+                <Button x:Name="NextButton" Style="{StaticResource CommandButton}" Width="40" Height="40" Foreground="White"
+                        HorizontalAlignment="Right" Content="&#xE76C;" ToolTip="Suivante" Click="OnNext" />
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

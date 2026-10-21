@@ -30,6 +30,9 @@ public sealed class AppHost : IAsyncDisposable
 
     public async Task StartAsync()
     {
+        // Shooting dates and places (map): indexed in the background at startup and after each backup.
+        Core.Sessions.Ended += _ => Core.MediaIndexer.RequestRefresh();
+        Core.MediaIndexer.RequestRefresh();
         try
         {
             _server = new MonAlbumServer(Core, new ServerOptions { Apk = Apk });

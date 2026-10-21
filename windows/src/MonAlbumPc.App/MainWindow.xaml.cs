@@ -61,6 +61,7 @@ public partial class MainWindow : Window
         {
             page = tag switch
             {
+                "map" => new Map.MapPage(_host.Core),
                 "albums" => new AlbumsPage(_host, this),
                 "history" => new HistoryPage(_host.Core),
                 "settings" => new SettingsPage(_host),
