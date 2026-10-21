@@ -20,11 +20,18 @@ internal sealed class SingleInstance : IDisposable
         _registration = ThreadPool.RegisterWaitForSingleObject(showEvent, (_, _) => onShowRequested(), null, Timeout.Infinite, false);
     }
 
-    /// <summary>Returns null when another instance already runs (after asking it to show itself).</summary>
-    public static SingleInstance? TryAcquire(Action onShowRequested)
+    /// <summary>
+    /// Returns null when another instance already runs (after asking it to show itself). A <paramref name="dataDirectory"/>
+    /// other than the default one (development, tests) gets its own lock, so it never wakes up the real app.
+    /// </summary>
+    public static SingleInstance? TryAcquire(Action onShowRequested, string? dataDirectory = null)
     {
-        var mutex = new Mutex(true, MutexName, out var createdNew);
-        var showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);
+        var suffix = dataDirectory is null
+            ? ""
+            : "." + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(Path.GetFullPath(dataDirectory).ToUpperInvariant())))[..16];
+        var mutex = new Mutex(true, MutexName + suffix, out var createdNew);
+        var showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName + suffix);
         if (!createdNew)
         {
             showEvent.Set();

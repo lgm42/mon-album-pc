@@ -17,16 +17,17 @@ public partial class App : Application
     {
         base.OnStartup(e);
         Themes.BrandTheme.Apply(this);
-        _instance = SingleInstance.TryAcquire(() => Dispatcher.BeginInvoke(ShowMainWindow));
+        // --data <folder>: separate catalog, for development and tests (one instance per catalog).
+        var dataIndex = Array.IndexOf(e.Args, "--data");
+        var customData = dataIndex >= 0 && dataIndex + 1 < e.Args.Length ? e.Args[dataIndex + 1] : null;
+        var dataDirectory = customData ?? CoreServices.DefaultDataDirectory;
+
+        _instance = SingleInstance.TryAcquire(() => Dispatcher.BeginInvoke(ShowMainWindow), customData);
         if (_instance is null)
         {
             Shutdown();
             return;
         }
-
-        // --data <folder>: separate catalog, for development and tests.
-        var dataIndex = Array.IndexOf(e.Args, "--data");
-        var dataDirectory = dataIndex >= 0 && dataIndex + 1 < e.Args.Length ? e.Args[dataIndex + 1] : CoreServices.DefaultDataDirectory;
         _host = new AppHost(dataDirectory);
         await _host.StartAsync();
 
