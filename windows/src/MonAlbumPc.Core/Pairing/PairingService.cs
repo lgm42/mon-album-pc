@@ -6,7 +6,8 @@ using MonAlbumPc.Core.Storage;
 namespace MonAlbumPc.Core.Pairing;
 
 /// <summary>What the phone tells about itself when pairing.</summary>
-public sealed record DeviceInfo(string Name, string Model, string? AndroidVersion, string? AppVersion, int? AppVersionCode);
+public sealed record DeviceInfo(string Name, string Model, string? AndroidVersion, string? AppVersion, int? AppVersionCode,
+    string? HardwareId = null);
 
 /// <summary>A pairing offer shown on the PC: QR code token and 6-digit code, valid for a few minutes.</summary>
 public sealed record PairingSession(Guid AlbumId, string Token, string Code, DateTimeOffset ExpiresAt);
@@ -110,10 +111,26 @@ public sealed class PairingService(AlbumStore albums, DeviceStore devices, TimeP
 
         var album = albums.Get(session.AlbumId) ?? throw new PairingException(PairingError.Invalid, "L'album n'existe plus.");
         var secret = Base64Url(RandomNumberGenerator.GetBytes(32));
-        var device = new Device(
-            Guid.NewGuid(), album.Id, Truncate(info.Name, 60), Truncate(info.Model, 80), HashSecret(secret),
-            info.AppVersion, clock.GetLocalNow(), clock.GetLocalNow(), null);
-        devices.Add(device);
+        var hardwareId = string.IsNullOrWhiteSpace(info.HardwareId) ? null : Truncate(info.HardwareId, 64);
+        var known = hardwareId is null ? null : devices.FindByHardwareId(album.Id, hardwareId);
+        Device device;
+        if (known is not null)
+        {
+            // Same phone paired again (reinstalled app…): keep its name and history.
+            device = known with
+            {
+                Model = Truncate(info.Model, 80), SecretHash = HashSecret(secret), AppVersion = info.AppVersion,
+                PairedAt = clock.GetLocalNow(), LastSeenAt = clock.GetLocalNow(), RevokedAt = null, HardwareId = hardwareId,
+            };
+            devices.Repair(device);
+        }
+        else
+        {
+            device = new Device(
+                Guid.NewGuid(), album.Id, Truncate(info.Name, 60), Truncate(info.Model, 80), HashSecret(secret),
+                info.AppVersion, clock.GetLocalNow(), clock.GetLocalNow(), null, hardwareId);
+            devices.Add(device);
+        }
 
         var result = new PairingResult(device, secret, album);
         Paired?.Invoke(result);

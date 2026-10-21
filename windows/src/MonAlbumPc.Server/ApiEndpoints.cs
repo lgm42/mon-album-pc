@@ -58,7 +58,7 @@ internal static class ApiEndpoints
     private static IResult Pair(CoreServices core, PairRequest request)
     {
         var info = new DeviceInfo(request.Device.Name, request.Device.Model, request.Device.AndroidVersion,
-            request.Device.AppVersion, request.Device.AppVersionCode);
+            request.Device.AppVersion, request.Device.AppVersionCode, request.Device.HardwareId);
         try
         {
             var result = request.Token is { Length: > 0 } token

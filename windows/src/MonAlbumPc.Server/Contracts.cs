@@ -4,7 +4,8 @@ namespace MonAlbumPc.Server;
 
 public sealed record PairRequest(string? Token, string? Code, PairDevice Device);
 
-public sealed record PairDevice(string Name, string Model, string? AndroidVersion, string? AppVersion, int? AppVersionCode);
+public sealed record PairDevice(string Name, string Model, string? AndroidVersion, string? AppVersion, int? AppVersionCode,
+    string? HardwareId = null);
 
 public sealed record PairResponse(Guid DeviceId, string Secret, Guid PcId, string PcName, string AlbumName, string CertSha256);
 

@@ -115,6 +115,34 @@ public sealed class PairingServiceTests : IDisposable
     }
 
     [Fact]
+    public void Same_phone_pairing_again_reuses_its_device_and_history()
+    {
+        var phone = Phone with { HardwareId = "a1b2c3" };
+        var first = _pairing.PairWithToken(_pairing.Start(_album.Id).Token, phone);
+        _devices.Rename(first.Device.Id, "Le téléphone de Marie");
+        _devices.Revoke(first.Device.Id, _clock.GetUtcNow()); // e.g. the app was uninstalled and the phone unpaired
+
+        var again = _pairing.PairWithToken(_pairing.Start(_album.Id).Token, phone with { AppVersion = "2.0.0" });
+
+        Assert.Equal(first.Device.Id, again.Device.Id);
+        var device = Assert.Single(_devices.ListByAlbum(_album.Id));
+        Assert.Equal("Le téléphone de Marie", device.Name);
+        Assert.Equal("2.0.0", device.AppVersion);
+        Assert.Null(_authenticator.Authenticate($"Bearer {first.Device.Id}.{first.Secret}"));
+        Assert.NotNull(_authenticator.Authenticate($"Bearer {again.Device.Id}.{again.Secret}"));
+    }
+
+    [Fact]
+    public void Different_phones_get_their_own_device()
+    {
+        _pairing.PairWithToken(_pairing.Start(_album.Id).Token, Phone with { HardwareId = "a" });
+        _pairing.PairWithToken(_pairing.Start(_album.Id).Token, Phone with { HardwareId = "b" });
+        _pairing.PairWithToken(_pairing.Start(_album.Id).Token, Phone);
+
+        Assert.Equal(3, _devices.ListByAlbum(_album.Id).Count);
+    }
+
+    [Fact]
     public void Certificate_is_created_once_and_keeps_its_fingerprint()
     {
         var path = _temp.Combine("server.pfx.dat");

@@ -93,6 +93,28 @@ public sealed class StoresTests : IDisposable
     }
 
     [Fact]
+    public void Merging_a_duplicate_moves_its_history_to_the_kept_phone()
+    {
+        var album = NewAlbum("Marie");
+        _albums.Add(album);
+        var old = NewDevice(album.Id) with { HardwareId = "old-id" };
+        var kept = NewDevice(album.Id);
+        _devices.Add(old);
+        _devices.Add(kept);
+        _history.Record(NewImport(album.Id, old.Id, "aa"));
+        var sessions = new SessionStore(_database);
+        sessions.Add(new BackupSession(0, old.Id, album.Id, ImportChannel.Wifi, Now, Now, 1, 0, null, null));
+
+        _devices.Merge(old.Id, kept.Id);
+
+        Assert.Equal(kept.Id, Assert.Single(_devices.ListByAlbum(album.Id)).Id);
+        Assert.Null(_devices.Get(old.Id));
+        Assert.Equal(1, _history.CountByDevice(kept.Id));
+        Assert.Equal(kept.Id, Assert.Single(sessions.List()).DeviceId);
+        Assert.Equal("old-id", _devices.Get(kept.Id)!.HardwareId);
+    }
+
+    [Fact]
     public void History_matches_by_hash_within_the_album_only()
     {
         var marie = NewAlbum("Marie");

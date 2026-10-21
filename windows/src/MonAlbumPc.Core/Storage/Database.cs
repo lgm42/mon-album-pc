@@ -69,6 +69,10 @@ public sealed class Database
         );
         CREATE INDEX ix_sessions_started ON sessions(started_at);
         """,
+        """
+        ALTER TABLE devices ADD COLUMN hardware_id TEXT;
+        CREATE INDEX ix_devices_hardware ON devices(album_id, hardware_id);
+        """,
     ];
 
     private readonly string _connectionString;
