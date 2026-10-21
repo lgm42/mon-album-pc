@@ -53,6 +53,8 @@ public sealed class MonAlbumServer(CoreServices core, ServerOptions options, ILo
         {
             _mdns = new MdnsAdvertiser(core, ApiPort);
         }
+        // Albums imported before journals existed: write their journal next to the photos (may be a slow network folder).
+        _ = Task.Run(() => core.Journals.ExportMissing(core.History), cancellationToken);
         _idleSessions = new Timer(_ => core.Sessions.CloseIdle(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
     }
 

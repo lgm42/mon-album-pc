@@ -310,6 +310,20 @@ de plus, avec le même protocole.
   s'en charge), pas d'import USB.
 - Pas de notification système : l'état et l'historique se consultent dans l'interface web.
 
+### 18.3 bis Un même dossier pour le NAS et le PC
+
+Le NAS et l'app Windows peuvent écrire dans **le même dossier d'album** (le PC y accède par le réseau). Pour ne
+jamais importer deux fois la même photo, chaque serveur tient un **journal des imports** dans le dossier de
+l'album : `.monalbumpc/journal/<identifiant du serveur>.jsonl` (une ligne JSON par fichier : empreinte de
+l'original, nom, taille, chemin relatif, date de prise de vue, téléphone, date d'import).
+
+- Chaque serveur n'écrit **que dans son propre fichier** (aucune écriture concurrente à travers le réseau) et lit
+  ceux des autres pour son dédoublonnage.
+- Le catalogue SQLite reste **local** à chaque serveur : SQLite n'est pas fiable écrit par deux machines sur un
+  partage réseau.
+- Au démarrage, un serveur exporte dans le journal les imports faits avant l'existence des journaux.
+- À venir : l'import USB par l'app Windows d'un téléphone associé au NAS (reconnu grâce au journal de l'album).
+
 ### 18.4 Réseau, VPN et données mobiles
 
 - Le téléphone sauvegarde dès que le serveur répond, y compris à travers un VPN (WireGuard vers la maison).

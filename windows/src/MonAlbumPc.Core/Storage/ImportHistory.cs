@@ -23,6 +23,9 @@ public sealed record IndexEntry(Guid AlbumId, string Path, string Sha256, long S
 /// <summary>What has already been imported or found in each album: the source of truth for duplicates.</summary>
 public sealed class ImportHistory(Database database)
 {
+    /// <summary>Imports of the other servers sharing the album folders (set by <see cref="CoreServices"/>).</summary>
+    public AlbumJournals? Journals { get; set; }
+
     private const string WallClock = "yyyy-MM-dd'T'HH:mm:ss";
 
     public void Record(ImportRecord record)
@@ -37,6 +40,23 @@ public sealed class ImportHistory(Database database)
             ("$size", record.Size), ("$name", record.OriginalName), ("$source", record.SourcePath), ("$dest", record.DestPath),
             ("$taken", ToWallClock(record.TakenAt)), ("$channel", record.Channel.ToString().ToLowerInvariant()),
             ("$imported", record.ImportedAt.ToDb()));
+        Journals?.Append(record);
+    }
+
+    public List<ImportRecord> ListByAlbum(Guid albumId)
+    {
+        using var connection = database.Open();
+        return connection.Query(
+            """
+            SELECT sha256, album_id, device_id, size, original_name, source_path, dest_path, taken_at, channel, imported_at
+            FROM imports WHERE album_id = $album ORDER BY id
+            """,
+            r => new ImportRecord(
+                r.GetString(0), Guid.Parse(r.GetString(1)), r.IsDBNull(2) ? null : Guid.Parse(r.GetString(2)), r.GetInt64(3),
+                r.GetString(4), r.GetNullableString(5), r.GetString(6),
+                r.IsDBNull(7) ? null : DateTime.ParseExact(r.GetString(7), WallClock, CultureInfo.InvariantCulture),
+                Enum.Parse<ImportChannel>(r.GetString(8), ignoreCase: true), SqliteExtensions.ParseDate(r.GetString(9))),
+            ("$album", albumId.ToString()));
     }
 
     /// <summary>True when these bytes are already in the album, imported by the app or found by the indexer.</summary>
@@ -48,7 +68,8 @@ public sealed class ImportHistory(Database database)
             SELECT 1 WHERE EXISTS (SELECT 1 FROM imports WHERE album_id = $album AND sha256 = $sha)
                         OR EXISTS (SELECT 1 FROM index_entries WHERE album_id = $album AND sha256 = $sha)
             """,
-            ("$album", albumId.ToString()), ("$sha", sha256)) is not null;
+            ("$album", albumId.ToString()), ("$sha", sha256)) is not null
+            || Journals?.ContainsSha(albumId, sha256) == true;
     }
 
     /// <summary>Hashes of <paramref name="sha256s"/> already in the album.</summary>
@@ -67,7 +88,8 @@ public sealed class ImportHistory(Database database)
             SELECT 1 WHERE EXISTS (SELECT 1 FROM imports WHERE album_id = $album AND original_name = $name COLLATE NOCASE AND size = $size)
                         OR EXISTS (SELECT 1 FROM index_entries WHERE album_id = $album AND name = $name COLLATE NOCASE AND size = $size)
             """,
-            ("$album", albumId.ToString()), ("$name", name), ("$size", size)) is not null;
+            ("$album", albumId.ToString()), ("$name", name), ("$size", size)) is not null
+            || Journals?.ContainsNameAndSize(albumId, name, size) == true;
     }
 
     /// <summary>
@@ -79,7 +101,8 @@ public sealed class ImportHistory(Database database)
         using var connection = database.Open();
         return connection.Scalar(
             "SELECT 1 FROM index_entries WHERE album_id = $album AND name = $name COLLATE NOCASE AND taken_at = $taken LIMIT 1",
-            ("$album", albumId.ToString()), ("$name", name), ("$taken", ToWallClock(takenAt))) is not null;
+            ("$album", albumId.ToString()), ("$name", name), ("$taken", ToWallClock(takenAt))) is not null
+            || Journals?.ContainsNameAndDate(albumId, name, takenAt) == true;
     }
 
     /// <summary>USB fallback when the phone manifest is stale: same phone, same path, same size.</summary>

@@ -22,6 +22,8 @@ public sealed class CoreServices : IDisposable
         Albums = new AlbumStore(Database);
         Devices = new DeviceStore(Database);
         History = new ImportHistory(Database);
+        Journals = new AlbumJournals(Albums, Devices, Identity.PcId, clock);
+        History.Journals = Journals;
         Import = new ImportService(Albums, History, clock);
         Pairing = new PairingService(Albums, Devices, clock);
         Authenticator = new DeviceAuthenticator(Devices);
@@ -43,6 +45,7 @@ public sealed class CoreServices : IDisposable
     public AlbumStore Albums { get; }
     public DeviceStore Devices { get; }
     public ImportHistory History { get; }
+    public AlbumJournals Journals { get; }
     public ImportService Import { get; }
     public PairingService Pairing { get; }
     public DeviceAuthenticator Authenticator { get; }
