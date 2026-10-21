@@ -76,6 +76,20 @@ public sealed class Database
         """
         CREATE INDEX ix_imports_album_name ON imports(album_id, original_name COLLATE NOCASE);
         """,
+        """
+        CREATE TABLE media (
+            album_id TEXT NOT NULL,
+            path TEXT NOT NULL,
+            size INTEGER NOT NULL,
+            modified_at TEXT NOT NULL,
+            taken_at TEXT,
+            latitude REAL,
+            longitude REAL,
+            is_video INTEGER NOT NULL,
+            PRIMARY KEY (album_id, path)
+        );
+        CREATE INDEX ix_media_location ON media(album_id, latitude, longitude);
+        """,
     ];
 
     private readonly string _connectionString;

@@ -26,6 +26,9 @@ public sealed class NasHost(NasOptions options, ILogger<NasHost> logger) : IHost
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         Directory.CreateDirectory(options.PhotosRoot);
+        // Shooting places for a future map: indexed in the background, and again after each backup.
+        Core.Sessions.Ended += _ => Core.MediaIndexer.RequestRefresh();
+        Core.MediaIndexer.RequestRefresh();
         try
         {
             _server = new MonAlbumServer(Core, new ServerOptions { Apk = Apk });

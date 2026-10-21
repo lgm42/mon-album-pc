@@ -1,11 +1,15 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using MonAlbumPc.Core.Import;
 
 namespace MonAlbumPc.Core.Storage;
 
-/// <summary>One import, as written in an album journal (one JSON object per line).</summary>
+/// <summary>
+/// One import, as written in an album journal (one JSON object per line). The shooting place was added later: older
+/// lines have none, and it is left out when unknown.
+/// </summary>
 public sealed record JournalEntry(
     string Sha256,
     string Name,
@@ -13,7 +17,9 @@ public sealed record JournalEntry(
     string Path,
     string? TakenAt,
     string? Device,
-    DateTimeOffset ImportedAt);
+    DateTimeOffset ImportedAt,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] double? Latitude = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] double? Longitude = null);
 
 /// <summary>
 /// Import journals kept next to the photos, in <c>{album}\.monalbumpc\journal\{serverId}.jsonl</c>, so that several
@@ -180,7 +186,9 @@ public sealed class AlbumJournals(AlbumStore albums, DeviceStore devices, Guid s
         Path.GetRelativePath(root, record.DestPath).Replace('\\', '/'),
         record.TakenAt?.ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture),
         device,
-        record.ImportedAt);
+        record.ImportedAt,
+        record.Location?.Latitude,
+        record.Location?.Longitude);
 
     private static string NameSize(string name, long size) => $"{name.ToLowerInvariant()}|{size}";
 

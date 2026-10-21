@@ -1,5 +1,6 @@
 ﻿using ImageMagick;
 using MonAlbumPc.Core.Import;
+using MonAlbumPc.Core.Media;
 using MonAlbumPc.Core.Model;
 using MonAlbumPc.Core.Storage;
 
@@ -12,6 +13,7 @@ public sealed class ImportServiceTests : IDisposable
     private readonly AlbumStore _albums;
     private readonly ImportHistory _history;
     private readonly ImportService _service;
+    private readonly MediaIndex _media;
     private readonly Album _album;
     private readonly Guid _device = Guid.NewGuid();
 
@@ -20,7 +22,8 @@ public sealed class ImportServiceTests : IDisposable
         var database = new Database(_temp.Combine("catalog.db"));
         _albums = new AlbumStore(database);
         _history = new ImportHistory(database);
-        _service = new ImportService(_albums, _history, new FixedClock(Now));
+        _media = new MediaIndex(database);
+        _service = new ImportService(_albums, _history, new FixedClock(Now), _media);
         _album = new Album(Guid.NewGuid(), "Marie", _temp.Combine("Photos", "Marie"), "#3D4FD1", Now);
         _albums.Add(_album);
         Directory.CreateDirectory(_album.DestinationRoot);
@@ -128,6 +131,28 @@ public sealed class ImportServiceTests : IDisposable
         Assert.Equal(MagickFormat.Jpeg, image.Format);
         Assert.Equal(new DateTime(2024, 5, 12, 10, 30, 15), MonAlbumPc.Core.Media.TakenDateResolver.ReadMetadataDate(result.DestinationPath!));
         Assert.True(_history.Contains(_album.Id, incoming.Sha256));
+    }
+
+    [Fact]
+    public void Records_the_shooting_place_so_the_index_does_not_read_the_file_again()
+    {
+        var result = _service.Import(Incoming(TestImages.GeotaggedJpeg(43.2965, 5.3698, "2024:05:12 10:30:15"), "IMG_1.jpg"));
+
+        var located = Assert.Single(_media.ListLocated());
+        Assert.Equal(result.DestinationPath, located.Path);
+        Assert.Equal(new DateTime(2024, 5, 12, 10, 30, 15), located.TakenAt);
+        Assert.Equal(43.2965, located.Latitude, 4);
+        Assert.Equal(5.3698, located.Longitude, 4);
+        Assert.Equal(0, _media.Refresh(_album).Read);
+    }
+
+    [Fact]
+    public void Photo_without_position_is_recorded_without_one()
+    {
+        _service.Import(Incoming(TestImages.Jpeg("2024:05:12 10:30:15"), "IMG_1.jpg"));
+
+        Assert.Empty(_media.ListLocated());
+        Assert.Equal(0, _media.Refresh(_album).Read);
     }
 
     private IncomingFile Incoming(byte[] content, string name)

@@ -4,7 +4,10 @@ namespace MonAlbumPc.Core.Storage;
 
 public enum ImportChannel { Wifi, Usb }
 
-/// <summary>A file imported into an album. <see cref="Sha256"/> is the hash of the original bytes, before any conversion.</summary>
+/// <summary>
+/// A file imported into an album. <see cref="Sha256"/> is the hash of the original bytes, before any conversion.
+/// <see cref="Location"/> is only known right after the import (it is kept in the <c>media</c> table, not here).
+/// </summary>
 public sealed record ImportRecord(
     string Sha256,
     Guid AlbumId,
@@ -15,7 +18,8 @@ public sealed record ImportRecord(
     string DestPath,
     DateTime? TakenAt,
     ImportChannel Channel,
-    DateTimeOffset ImportedAt);
+    DateTimeOffset ImportedAt,
+    MonAlbumPc.Core.Media.GeoPoint? Location = null);
 
 /// <summary>A media file found in an album folder by the indexer (imported manually, before the app).</summary>
 public sealed record IndexEntry(Guid AlbumId, string Path, string Sha256, long Size, string Name, DateTime? TakenAt, DateTimeOffset ModifiedAt);

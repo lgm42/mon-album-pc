@@ -36,6 +36,7 @@ public sealed class AlbumStore(Database database)
         using var transaction = connection.BeginTransaction();
         connection.Execute("DELETE FROM devices WHERE album_id = $id", ("$id", id.ToString()));
         connection.Execute("DELETE FROM index_entries WHERE album_id = $id", ("$id", id.ToString()));
+        connection.Execute("DELETE FROM media WHERE album_id = $id", ("$id", id.ToString()));
         connection.Execute("DELETE FROM albums WHERE id = $id", ("$id", id.ToString()));
         transaction.Commit();
     }

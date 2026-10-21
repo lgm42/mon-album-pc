@@ -69,6 +69,29 @@ public sealed class AlbumJournalsTests : IDisposable
         Assert.Single(File.ReadAllLines(journal));
     }
 
+    [Fact]
+    public void Journal_lines_carry_the_shooting_place_when_known()
+    {
+        Import(_nas, _nasAlbum, TestImages.GeotaggedJpeg(48.8584, 2.2945, seed: 4), "Paris.jpg");
+        Import(_nas, _nasAlbum, TestImages.Jpeg(seed: 5), "Nowhere.jpg");
+
+        var lines = File.ReadAllLines(Path.Combine(AlbumJournals.Folder(_nasAlbum.DestinationRoot), $"{_nas.Identity.PcId}.jsonl"));
+        Assert.Contains("\"latitude\":48.858", lines[0]);
+        Assert.Contains("\"longitude\":2.294", lines[0]);
+        Assert.DoesNotContain("latitude", lines[1]);
+    }
+
+    [Fact]
+    public void Lines_written_before_the_shooting_place_existed_are_still_read()
+    {
+        var folder = AlbumJournals.Folder(_pcAlbum.DestinationRoot);
+        Directory.CreateDirectory(folder);
+        File.WriteAllText(Path.Combine(folder, $"{Guid.NewGuid()}.jsonl"),
+            """{"sha256":"abc","name":"IMG_1.jpg","size":10,"path":"2024/2024-05/IMG_1.jpg","takenAt":"2024-05-12T10:30:15","device":null,"importedAt":"2026-10-20T08:00:00+02:00"}""" + "\n");
+
+        Assert.True(_pc.History.Contains(_pcAlbum.Id, "abc"));
+    }
+
     private static ImportResult Import(CoreServices core, Album album, byte[] bytes, string name)
     {
         var temp = Path.Combine(Path.GetTempPath(), "monalbumpc-tests", Guid.NewGuid().ToString("N"));

@@ -1,6 +1,7 @@
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using MonAlbumPc.Core.Import;
+using MonAlbumPc.Core.Media;
 using MonAlbumPc.Core.Pairing;
 using MonAlbumPc.Core.Storage;
 
@@ -25,7 +26,9 @@ public sealed class CoreServices : IDisposable
         History = new ImportHistory(Database);
         Journals = new AlbumJournals(Albums, Devices, Identity.PcId, clock);
         History.Journals = Journals;
-        Import = new ImportService(Albums, History, clock);
+        Media = new MediaIndex(Database);
+        MediaIndexer = new MediaIndexer(Albums, Media);
+        Import = new ImportService(Albums, History, clock, Media);
         Pairing = new PairingService(Albums, Devices, clock);
         Authenticator = new DeviceAuthenticator(Devices);
         Uploads = new UploadStore(clock);
@@ -48,6 +51,12 @@ public sealed class CoreServices : IDisposable
     public ImportHistory History { get; }
     public AlbumJournals Journals { get; }
     public ImportService Import { get; }
+
+    /// <summary>Shooting date and place of every file of the album folders.</summary>
+    public MediaIndex Media { get; }
+
+    /// <summary>Background refresh of <see cref="Media"/>, started by the hosts (app, NAS).</summary>
+    public MediaIndexer MediaIndexer { get; }
     public PairingService Pairing { get; }
     public DeviceAuthenticator Authenticator { get; }
     public UploadStore Uploads { get; }
@@ -60,7 +69,11 @@ public sealed class CoreServices : IDisposable
     public static CoreServices Create(string dataDirectory, TimeProvider? clock = null) =>
         new(dataDirectory, clock ?? TimeProvider.System);
 
-    public void Dispose() => Certificate.Dispose();
+    public void Dispose()
+    {
+        MediaIndexer.Dispose();
+        Certificate.Dispose();
+    }
 
     private static PcIdentity LoadIdentity(string path)
     {

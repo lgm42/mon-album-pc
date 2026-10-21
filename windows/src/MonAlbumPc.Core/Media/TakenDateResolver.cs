@@ -47,7 +47,12 @@ public static partial class TakenDateResolver
         {
             return null;
         }
+        return ReadMetadataDate(directories);
+    }
 
+    /// <summary>Shooting date from metadata already read (see <see cref="MediaMetadata"/>).</summary>
+    public static DateTime? ReadMetadataDate(IReadOnlyList<MetadataExtractor.Directory> directories)
+    {
         foreach (var exif in directories.OfType<ExifSubIfdDirectory>())
         {
             if (exif.TryGetDateTime(ExifDirectoryBase.TagDateTimeOriginal, out var original) && IsPlausible(original))

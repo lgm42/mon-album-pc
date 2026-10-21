@@ -20,8 +20,11 @@ public enum ImportOutcome { Saved, AlreadyPresent }
 
 public sealed record ImportResult(ImportOutcome Outcome, string? DestinationPath);
 
-/// <summary>Places received files in their album folder, without duplicates, and records them.</summary>
-public sealed class ImportService(AlbumStore albums, ImportHistory history, TimeProvider clock)
+/// <summary>
+/// Places received files in their album folder, without duplicates, and records them (in the import history and, when
+/// given, in the <see cref="MediaIndex"/> with their shooting place).
+/// </summary>
+public sealed class ImportService(AlbumStore albums, ImportHistory history, TimeProvider clock, MediaIndex? media = null)
 {
     private const int ErrorDiskFull = unchecked((int)0x80070070);
     private const int ErrorHandleDiskFull = unchecked((int)0x80070027);
@@ -87,9 +90,12 @@ public sealed class ImportService(AlbumStore albums, ImportHistory history, Time
             File.SetLastWriteTimeUtc(destination, modified.UtcDateTime);
         }
 
+        // Read from the final file: the JPEG converted from a HEIC keeps the EXIF of the original.
+        var location = MediaMetadata.Read(destination).Location;
         history.Record(new ImportRecord(
             actual, album.Id, file.DeviceId, new FileInfo(destination).Length, file.OriginalName, file.SourcePath,
-            destination, taken.Value, file.Channel, clock.GetLocalNow()));
+            destination, taken.Value, file.Channel, clock.GetLocalNow(), location));
+        media?.Record(album, destination, taken.Value, location);
         return new ImportResult(ImportOutcome.Saved, destination);
     }
 
