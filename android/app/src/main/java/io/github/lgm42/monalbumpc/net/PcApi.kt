@@ -66,6 +66,15 @@ class PcApi(host: String, port: Int, expectedFingerprint: String?) {
         return execute(httpRequest, CheckResponse.serializer())
     }
 
+    suspend fun checkNames(authorization: String, request: NameCheckRequest): NameCheckResponse {
+        val body = json.encodeToString(NameCheckRequest.serializer(), request).toRequestBody(JSON_TYPE)
+        val httpRequest = newRequest("check-names")
+            .header("Authorization", authorization)
+            .post(body)
+            .build()
+        return execute(httpRequest, NameCheckResponse.serializer())
+    }
+
     suspend fun createUpload(authorization: String, request: UploadRequest): UploadResponse {
         val body = json.encodeToString(UploadRequest.serializer(), request).toRequestBody(JSON_TYPE)
         val httpRequest = newRequest("uploads")

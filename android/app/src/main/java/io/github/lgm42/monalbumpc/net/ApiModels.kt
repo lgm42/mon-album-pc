@@ -11,6 +11,8 @@ data class DeviceInfo(
     val androidVersion: String,
     val appVersion: String,
     val appVersionCode: Int,
+    /** Android ID of the app: lets the PC recognize this phone when it pairs again. */
+    val hardwareId: String? = null,
 )
 
 @Serializable
@@ -65,6 +67,16 @@ data class CheckRequest(val items: List<CheckItem>)
 
 @Serializable
 data class CheckResponse(val have: List<String> = emptyList())
+
+@Serializable
+data class NameCheckItem(val name: String, val size: Long)
+
+@Serializable
+data class NameCheckRequest(val items: List<NameCheckItem>)
+
+/** Positions, in the request, of the files the PC already has (protocol §5.2 bis). */
+@Serializable
+data class NameCheckResponse(val have: List<Int> = emptyList())
 
 @Serializable
 data class UploadRequest(

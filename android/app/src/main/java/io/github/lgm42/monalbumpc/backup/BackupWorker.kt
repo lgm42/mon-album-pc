@@ -22,6 +22,8 @@ import io.github.lgm42.monalbumpc.net.ApiError
 import io.github.lgm42.monalbumpc.net.ApiException
 import io.github.lgm42.monalbumpc.net.CheckItem
 import io.github.lgm42.monalbumpc.net.CheckRequest
+import io.github.lgm42.monalbumpc.net.NameCheckItem
+import io.github.lgm42.monalbumpc.net.NameCheckRequest
 import io.github.lgm42.monalbumpc.net.PcApi
 import io.github.lgm42.monalbumpc.net.PcDiscovery
 import io.github.lgm42.monalbumpc.net.StatusResponse
@@ -107,8 +109,8 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
 
         // 1. Local index of the tracked folders.
         syncIndex()
-        val queue = dao.unsavedNewestFirst()
-        if (queue.isEmpty()) {
+        val pending = dao.unsavedNewestFirst()
+        if (pending.isEmpty()) {
             prefs.setIssue(BackupIssue.NONE, System.currentTimeMillis())
             return Result.success()
         }
@@ -130,6 +132,14 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
         if (connection.status.busy == "usb") return Result.success()
         val pc = connection.pc
         val api = connection.api
+
+        // 2 bis. Files never hashed here (e.g. the app was reinstalled): ask by name and size what the PC
+        // already has, so thousands of saved photos are recognized at once instead of being hashed one by one.
+        val queue = recognizeSaved(api, pc.authorization, pending)
+        if (queue.isEmpty()) {
+            prefs.setIssue(BackupIssue.NONE, System.currentTimeMillis())
+            return Result.success()
+        }
 
         total = queue.size
         done = 0
@@ -154,6 +164,26 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
                 ticker.cancel()
             }
         }
+    }
+
+    private suspend fun recognizeSaved(api: PcApi, authorization: String, pending: List<MediaEntity>): List<MediaEntity> {
+        val unhashed = pending.filter { it.sha256 == null }
+        if (unhashed.isEmpty()) return pending
+        var recognized = 0
+        for (chunk in unhashed.chunked(NAME_CHECK_SIZE)) {
+            if (isStopped) break
+            val have = try {
+                api.checkNames(authorization, NameCheckRequest(chunk.map { NameCheckItem(it.displayName, it.size) })).have
+            } catch (e: ApiException) {
+                break // older PC without this request, or network trouble: the regular path still works
+            }
+            val ids = have.mapNotNull { chunk.getOrNull(it)?.mediaStoreId }
+            if (ids.isNotEmpty()) {
+                dao.markSaved(ids, System.currentTimeMillis())
+                recognized += ids.size
+            }
+        }
+        return if (recognized == 0) pending else dao.unsavedNewestFirst()
     }
 
     /** Hashes, checks and uploads the queue in chunks, newest first. */
@@ -528,6 +558,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
         private const val STATUS_UPLOAD = "upload"
 
         private const val CHUNK_SIZE = 500
+        private const val NAME_CHECK_SIZE = 1000
         private const val SQL_CHUNK = 500
         private const val MAX_HASH_FAILURES = 3
         private const val MAX_STALLS = 5
