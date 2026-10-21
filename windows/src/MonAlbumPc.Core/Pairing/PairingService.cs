@@ -112,7 +112,9 @@ public sealed class PairingService(AlbumStore albums, DeviceStore devices, TimeP
         var album = albums.Get(session.AlbumId) ?? throw new PairingException(PairingError.Invalid, "L'album n'existe plus.");
         var secret = Base64Url(RandomNumberGenerator.GetBytes(32));
         var hardwareId = string.IsNullOrWhiteSpace(info.HardwareId) ? null : Truncate(info.HardwareId, 64);
-        var known = hardwareId is null ? null : devices.FindByHardwareId(album.Id, hardwareId);
+        // Same phone paired again: recognized by its Android ID, or by its name within the album.
+        var known = (hardwareId is null ? null : devices.FindByHardwareId(album.Id, hardwareId))
+                    ?? devices.FindByName(album.Id, info.Name);
         Device device;
         if (known is not null)
         {

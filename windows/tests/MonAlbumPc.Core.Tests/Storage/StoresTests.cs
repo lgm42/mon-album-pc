@@ -115,6 +115,29 @@ public sealed class StoresTests : IDisposable
     }
 
     [Fact]
+    public void Phones_bearing_the_same_name_are_merged_into_the_active_one()
+    {
+        var album = NewAlbum("Marie");
+        _albums.Add(album);
+        var old = NewDevice(album.Id) with { Name = "POCO X7 Pro", PairedAt = Now.AddDays(-2) };
+        var current = NewDevice(album.Id) with { Name = "POCO X7 Pro", PairedAt = Now };
+        var revoked = NewDevice(album.Id) with { Name = "poco x7 pro", PairedAt = Now.AddDays(1), RevokedAt = Now.AddDays(1) };
+        var other = NewDevice(album.Id) with { Name = "A35 de Paul" };
+        foreach (var device in new[] { old, current, revoked, other })
+        {
+            _devices.Add(device);
+        }
+        _history.Record(NewImport(album.Id, old.Id, "aa"));
+
+        _devices.MergeSameNames();
+
+        Assert.Equal(new[] { current.Id, other.Id }.Order(), _devices.ListByAlbum(album.Id).Select(d => d.Id).Order());
+        Assert.Null(_devices.Get(old.Id));
+        Assert.Null(_devices.Get(revoked.Id));
+        Assert.Equal(1, _history.CountByDevice(current.Id));
+    }
+
+    [Fact]
     public void History_matches_by_hash_within_the_album_only()
     {
         var marie = NewAlbum("Marie");

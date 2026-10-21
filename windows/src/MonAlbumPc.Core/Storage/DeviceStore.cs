@@ -42,6 +42,33 @@ public sealed class DeviceStore(Database database)
             Map, ("$album", albumId.ToString()), ("$hardware", hardwareId)).SingleOrDefault();
     }
 
+    /// <summary>The phone of that name in the album, revoked or not, most recently paired first.</summary>
+    public Device? FindByName(Guid albumId, string name)
+    {
+        using var connection = database.Open();
+        return connection.Query(
+            $"SELECT {Columns} FROM devices WHERE album_id = $album AND name = $name COLLATE NOCASE ORDER BY paired_at DESC LIMIT 1",
+            Map, ("$album", albumId.ToString()), ("$name", name.Trim())).SingleOrDefault();
+    }
+
+    /// <summary>
+    /// Phones of an album bearing the same name are one phone paired several times: they are folded into the most
+    /// recently paired active one (or the most recent one), which keeps working as it is.
+    /// </summary>
+    public void MergeSameNames()
+    {
+        using var connection = database.Open();
+        var all = connection.Query($"SELECT {Columns} FROM devices", Map);
+        foreach (var group in all.GroupBy(d => (d.AlbumId, Name: d.Name.Trim().ToLowerInvariant())).Where(g => g.Count() > 1))
+        {
+            var kept = group.OrderByDescending(d => d.IsActive).ThenByDescending(d => d.PairedAt).First();
+            foreach (var duplicate in group.Where(d => d.Id != kept.Id))
+            {
+                Merge(duplicate.Id, kept.Id);
+            }
+        }
+    }
+
     /// <summary>A known phone paired again: new secret and app details, active again, same id and history.</summary>
     public void Repair(Device device)
     {

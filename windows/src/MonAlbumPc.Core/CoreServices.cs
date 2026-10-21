@@ -21,6 +21,7 @@ public sealed class CoreServices : IDisposable
         Database = new Database(Path.Combine(dataDirectory, "catalog.db"));
         Albums = new AlbumStore(Database);
         Devices = new DeviceStore(Database);
+        Devices.MergeSameNames();
         History = new ImportHistory(Database);
         Journals = new AlbumJournals(Albums, Devices, Identity.PcId, clock);
         History.Journals = Journals;

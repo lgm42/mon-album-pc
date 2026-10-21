@@ -133,13 +133,22 @@ public sealed class PairingServiceTests : IDisposable
     }
 
     [Fact]
-    public void Different_phones_get_their_own_device()
+    public void A_phone_with_the_same_name_is_the_same_phone()
     {
-        _pairing.PairWithToken(_pairing.Start(_album.Id).Token, Phone with { HardwareId = "a" });
-        _pairing.PairWithToken(_pairing.Start(_album.Id).Token, Phone with { HardwareId = "b" });
-        _pairing.PairWithToken(_pairing.Start(_album.Id).Token, Phone);
+        var first = _pairing.PairWithToken(_pairing.Start(_album.Id).Token, Phone);
+        var again = _pairing.PairWithToken(_pairing.Start(_album.Id).Token, Phone with { Name = "a35 de marie " });
 
-        Assert.Equal(3, _devices.ListByAlbum(_album.Id).Count);
+        Assert.Equal(first.Device.Id, again.Device.Id);
+        Assert.Single(_devices.ListByAlbum(_album.Id));
+    }
+
+    [Fact]
+    public void Phones_with_other_names_get_their_own_device()
+    {
+        _pairing.PairWithToken(_pairing.Start(_album.Id).Token, Phone with { Name = "A35 de Marie" });
+        _pairing.PairWithToken(_pairing.Start(_album.Id).Token, Phone with { Name = "A35 de Paul" });
+
+        Assert.Equal(2, _devices.ListByAlbum(_album.Id).Count);
     }
 
     [Fact]
