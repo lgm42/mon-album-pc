@@ -40,6 +40,7 @@ internal static class ApiEndpoints
 
         device.MapGet("/status", (HttpContext http) => Status(core, options, Current(http)));
         device.MapPost("/check", (HttpContext http, CheckRequest request) => Check(core, Current(http), request));
+        device.MapPost("/check-names", (HttpContext http, NameCheckRequest request) => CheckNames(core, Current(http), request));
         device.MapPost("/uploads", (HttpContext http, UploadRequest request) => BeginUpload(core, Current(http), request));
         device.MapMethods("/uploads/{id}", ["HEAD"], (HttpContext http, string id) => UploadOffset(core, http, Current(http), id));
         device.MapPatch("/uploads/{id}", (HttpContext http, string id) => AppendUpload(core, http, Current(http), id));
@@ -98,6 +99,20 @@ internal static class ApiEndpoints
         }
         var have = core.History.ContainsMany(device.AlbumId, request.Items.Select(i => i.Sha256.ToLowerInvariant()));
         return Results.Ok(new CheckResponse([.. have]));
+    }
+
+    private static IResult CheckNames(CoreServices core, Device device, NameCheckRequest request)
+    {
+        if (request.Items.Count > MaxCheckItems)
+        {
+            return Error(StatusCodes.Status400BadRequest, "too_many_items", $"{MaxCheckItems} éléments au maximum.");
+        }
+        var have = request.Items
+            .Select((item, index) => (item, index))
+            .Where(x => core.History.ContainsNameAndSize(device.AlbumId, x.item.Name, x.item.Size))
+            .Select(x => x.index)
+            .ToList();
+        return Results.Ok(new NameCheckResponse(have));
     }
 
     private static IResult BeginUpload(CoreServices core, Device device, UploadRequest request)

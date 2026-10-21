@@ -159,6 +159,16 @@ Réponse :
 - « Possède » veut dire : présent dans l'historique d'import de ce téléphone, ou reconnu dans l'index du
   dossier de destination (§9 du cahier des charges).
 
+### 5.2 bis `POST /check-names`
+
+Vérification rapide, sans empreinte, pour un téléphone qui a perdu son index local (app réinstallée) : il
+retrouve en une fois ce que le PC a déjà, au lieu de recalculer l'empreinte de milliers de fichiers.
+
+Requête : `{ "items": [ { "name": "IMG_20261017_131705.jpg", "size": 2621440 } ] }` (1 000 éléments au maximum).
+
+Réponse : `{ "have": [0, 3] }` : positions, dans la requête, des fichiers que le PC a déjà dans cet album
+(même nom d'origine et même taille). Le téléphone les marque comme sauvegardés sans les envoyer.
+
 ### 5.3 Envoi reprenable
 
 **1. Déclarer le fichier** : `POST /uploads`

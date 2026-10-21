@@ -55,6 +55,21 @@ public sealed class ApiTests
     }
 
     [Fact]
+    public async Task Reinstalled_phone_finds_its_saved_files_by_name_and_size()
+    {
+        await using var fixture = await ServerFixture.StartAsync();
+        var (api, _) = await fixture.PairAsync();
+        var photo = TestImages.Jpeg("2024:05:12 10:30:15");
+        var declared = await Declare(api, Hashing.Sha256(photo), photo.Length, "IMG_1.jpg");
+        await Patch(api, declared.UploadId!, 0, photo);
+
+        var response = await api.PostAsJsonAsync("check-names", new NameCheckRequest(
+            [new NameCheckItem("IMG_2.jpg", photo.Length), new NameCheckItem("img_1.JPG", photo.Length), new NameCheckItem("IMG_1.jpg", 1)]));
+
+        Assert.Equal([1], (await response.Content.ReadFromJsonAsync<NameCheckResponse>())!.Have);
+    }
+
+    [Fact]
     public async Task Unknown_or_unpaired_phones_are_rejected()
     {
         await using var fixture = await ServerFixture.StartAsync();

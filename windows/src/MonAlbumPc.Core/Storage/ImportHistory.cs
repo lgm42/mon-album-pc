@@ -56,6 +56,21 @@ public sealed class ImportHistory(Database database)
         sha256s.Where(sha => Contains(albumId, sha)).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
+    /// Quick match without hashing, for a phone that lost its local index (app reinstalled): a file of this album
+    /// with the same original name and size was already imported or found in the album folder.
+    /// </summary>
+    public bool ContainsNameAndSize(Guid albumId, string name, long size)
+    {
+        using var connection = database.Open();
+        return connection.Scalar(
+            """
+            SELECT 1 WHERE EXISTS (SELECT 1 FROM imports WHERE album_id = $album AND original_name = $name COLLATE NOCASE AND size = $size)
+                        OR EXISTS (SELECT 1 FROM index_entries WHERE album_id = $album AND name = $name COLLATE NOCASE AND size = $size)
+            """,
+            ("$album", albumId.ToString()), ("$name", name), ("$size", size)) is not null;
+    }
+
+    /// <summary>
     /// Loose match for files copied by hand before the app existed: same file name and same shooting time
     /// (to the second) already found in the album folder.
     /// </summary>

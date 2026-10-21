@@ -73,6 +73,9 @@ public sealed class Database
         ALTER TABLE devices ADD COLUMN hardware_id TEXT;
         CREATE INDEX ix_devices_hardware ON devices(album_id, hardware_id);
         """,
+        """
+        CREATE INDEX ix_imports_album_name ON imports(album_id, original_name COLLATE NOCASE);
+        """,
     ];
 
     private readonly string _connectionString;

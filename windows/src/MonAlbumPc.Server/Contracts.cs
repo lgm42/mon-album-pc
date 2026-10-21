@@ -26,6 +26,13 @@ public sealed record CheckRequest(IReadOnlyList<CheckItem> Items);
 
 public sealed record CheckResponse(IReadOnlyList<string> Have);
 
+public sealed record NameCheckItem(string Name, long Size);
+
+public sealed record NameCheckRequest(IReadOnlyList<NameCheckItem> Items);
+
+/// <summary>Positions, in the request, of the files the PC already has.</summary>
+public sealed record NameCheckResponse(IReadOnlyList<int> Have);
+
 public sealed record UploadRequest(
     string Sha256,
     long Size,
