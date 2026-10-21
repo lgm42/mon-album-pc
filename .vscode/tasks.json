@@ -1,0 +1,30 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Relancer Mon Album PC",
+            "detail": "Ferme l'app Windows, la recompile et la relance",
+            "type": "shell",
+            "command": "powershell",
+            "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/tools/restart-windows-app.ps1"],
+            "presentation": { "reveal": "silent", "panel": "dedicated", "clear": true },
+            "problemMatcher": []
+        },
+        {
+            "label": "Redémarrer Mon Album PC (sans recompiler)",
+            "type": "shell",
+            "command": "powershell",
+            "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/tools/restart-windows-app.ps1", "-NoBuild"],
+            "presentation": { "reveal": "silent", "panel": "dedicated", "clear": true },
+            "problemMatcher": []
+        },
+        {
+            "label": "Récupérer le dernier APK",
+            "detail": "Télécharge l'APK publié par la CI (develop) pour l'app Windows",
+            "type": "shell",
+            "command": "powershell",
+            "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/tools/fetch-apk.ps1"],
+            "problemMatcher": []
+        }
+    ]
+}

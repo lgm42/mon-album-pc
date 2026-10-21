@@ -1,0 +1,7 @@
+{
+    // Status bar buttons of the "Task Buttons" extension (see extensions.json).
+    "VsCodeTaskButtons.tasks": [
+        { "label": "$(debug-restart) Mon Album PC", "task": "Relancer Mon Album PC", "tooltip": "Fermer, recompiler et relancer l'app Windows" },
+        { "label": "$(cloud-download) APK", "task": "Récupérer le dernier APK", "tooltip": "Récupérer le dernier APK publié par la CI" }
+    ]
+}
