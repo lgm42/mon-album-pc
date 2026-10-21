@@ -19,10 +19,8 @@ public sealed partial class AlbumsViewModel(CoreServices core) : ObservableObjec
         var now = core.Clock.GetLocalNow();
         foreach (var album in core.Albums.List())
         {
-            var devices = core.Devices.ListByAlbum(album.Id);
-            var phones = devices
-                .Select(d => new PhoneRow(d, core.History.LastImportByDevice(d.Id), core.History.CountByDevice(d.Id), now,
-                    devices.Count(o => o.Model == d.Model) > 1))
+            var phones = core.Devices.ListByAlbum(album.Id)
+                .Select(d => new PhoneRow(d, core.History.LastImportByDevice(d.Id), core.History.CountByDevice(d.Id), now))
                 .ToList();
             Albums.Add(new AlbumCard(album, core.History.CountByAlbum(album.Id), phones));
         }
@@ -48,7 +46,7 @@ public sealed class AlbumCard(Album album, long photoCount, IReadOnlyList<PhoneR
         : "Impossible de supprimer un album qui a encore des téléphones. Dissociez-les d'abord.";
 }
 
-public sealed class PhoneRow(Device device, DateTimeOffset? lastBackup, long received, DateTimeOffset now, bool likelyDuplicate)
+public sealed class PhoneRow(Device device, DateTimeOffset? lastBackup, long received, DateTimeOffset now)
 {
     public static readonly TimeSpan StaleAfter = TimeSpan.FromDays(7);
 
@@ -58,7 +56,4 @@ public sealed class PhoneRow(Device device, DateTimeOffset? lastBackup, long rec
     public string LastBackup { get; } = Formatting.Ago(lastBackup, now);
     public bool IsStale { get; } = lastBackup is null ? now - device.PairedAt > StaleAfter : now - lastBackup > StaleAfter;
     public string Received { get; } = Formatting.Count(received);
-
-    /// <summary>Another phone of the album has the same model: probably the same phone paired twice.</summary>
-    public bool IsLikelyDuplicate { get; } = likelyDuplicate;
 }
