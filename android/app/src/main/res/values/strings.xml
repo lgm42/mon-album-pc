@@ -232,6 +232,9 @@
     <string name="background_allow">Autoriser</string>
     <string name="background_autostart">Réglages de l\'app</string>
     <string name="background_ok">La sauvegarde peut fonctionner en arrière-plan.</string>
+    <string name="media_location_title">Autoriser l\'accès à la position des photos</string>
+    <string name="media_location_text">Sans cette autorisation, Android retire le lieu de prise de vue des photos avant de les confier à l\'app : elles arrivent sur votre PC sans leur position. Autorisez-la pour que vos photos gardent leur lieu.</string>
+    <string name="media_location_allow">Autoriser</string>
     <string name="settings_mobile_data_hint">Pour sauvegarder hors de la maison à travers un VPN. Sans cette option, la sauvegarde se fait uniquement en Wi-Fi.</string>
     <string name="settings_last_backup">Dernière sauvegarde : %1$s</string>
     <string name="settings_last_backup_never">Dernière sauvegarde : pas encore</string>

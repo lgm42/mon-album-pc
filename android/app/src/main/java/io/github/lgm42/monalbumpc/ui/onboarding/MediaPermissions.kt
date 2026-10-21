@@ -11,8 +11,13 @@ enum class PhotoAccess { Full, Partial, Denied }
 /** Runtime permissions of the onboarding, depending on the Android version. */
 object MediaPermissions {
 
-    /** Permissions to request for the photos step. */
-    fun photoPermissions(): Array<String> = when {
+    /**
+     * Permissions to request for the photos step. ACCESS_MEDIA_LOCATION comes with them (same dialog):
+     * without it Android removes the GPS position from the photos the app reads.
+     */
+    fun photoPermissions(): Array<String> = mediaPermissions() + Manifest.permission.ACCESS_MEDIA_LOCATION
+
+    private fun mediaPermissions(): Array<String> = when {
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> arrayOf(
             Manifest.permission.READ_MEDIA_IMAGES,
             Manifest.permission.READ_MEDIA_VIDEO,

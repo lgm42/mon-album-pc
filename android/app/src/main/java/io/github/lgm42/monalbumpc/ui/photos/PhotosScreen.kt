@@ -67,6 +67,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import io.github.lgm42.monalbumpc.R
 import io.github.lgm42.monalbumpc.ui.components.BackgroundAccessCard
+import io.github.lgm42.monalbumpc.ui.components.MediaLocationCard
+import io.github.lgm42.monalbumpc.ui.components.rememberMediaLocationMissing
 import io.github.lgm42.monalbumpc.ui.components.rememberBackgroundUnrestricted
 import io.github.lgm42.monalbumpc.backup.BannerState
 import io.github.lgm42.monalbumpc.backup.Elapsed
@@ -113,6 +115,7 @@ fun PhotosScreen(
     }
     val galleryEmpty = state.loaded && state.items.none { it.state != BadgeState.UNTRACKED }
     val backgroundUnrestricted = rememberBackgroundUnrestricted()
+    val mediaLocationMissing = rememberMediaLocationMissing()
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyVerticalGrid(
@@ -158,6 +161,11 @@ fun PhotosScreen(
                     },
                     modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
                 )
+            }
+            if (mediaLocationMissing) {
+                item(key = "mediaLocation", span = { GridItemSpan(maxLineSpan) }, contentType = "mediaLocation") {
+                    MediaLocationCard(modifier = Modifier.padding(bottom = 8.dp))
+                }
             }
             if (!backgroundUnrestricted) {
                 item(key = "background", span = { GridItemSpan(maxLineSpan) }, contentType = "background") {

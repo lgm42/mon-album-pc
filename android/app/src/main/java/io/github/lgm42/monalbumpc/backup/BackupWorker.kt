@@ -18,6 +18,7 @@ import io.github.lgm42.monalbumpc.media.DeviceFolders
 import io.github.lgm42.monalbumpc.media.FolderRules
 import io.github.lgm42.monalbumpc.media.FolderStore
 import io.github.lgm42.monalbumpc.media.MediaStoreReader
+import io.github.lgm42.monalbumpc.media.OriginalMedia
 import io.github.lgm42.monalbumpc.net.ApiError
 import io.github.lgm42.monalbumpc.net.ApiException
 import io.github.lgm42.monalbumpc.net.CheckItem
@@ -61,7 +62,6 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
     private val folderStore = FolderStore(appContext)
     private val dao = AppDatabase.get(appContext).mediaDao()
     private val reader = MediaStoreReader(appContext)
-    private val resolver = appContext.contentResolver
 
     // Progress shared with the ticker that publishes it.
     @Volatile private var done = 0
@@ -356,8 +356,8 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
         return item.copy(sha256 = sha)
     }
 
-    private fun open(item: MediaEntity): InputStream =
-        resolver.openInputStream(Uri.parse(item.uri)) ?: throw IOException("Cannot open ${item.uri}")
+    /** Original bytes (with their location) whenever Android allows it, see [OriginalMedia]. */
+    private fun open(item: MediaEntity): InputStream = OriginalMedia.open(applicationContext, Uri.parse(item.uri))
 
     // endregion
 
