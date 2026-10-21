@@ -21,6 +21,9 @@
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock FontWeight="SemiBold" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Style="{StaticResource Caption}" Text="{Binding Model}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Style="{StaticResource Caption}" Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                               Text="Doublon probable : même modèle qu'un autre téléphone de l'album (menu … › Fusionner)"
+                               TextWrapping="Wrap" Visibility="{Binding IsLikelyDuplicate, Converter={StaticResource Visible}}" />
                 </StackPanel>
                 <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="16,0">
                     <TextBlock Style="{StaticResource Caption}" Text="Dernière sauvegarde" HorizontalAlignment="Right" />
@@ -51,6 +54,7 @@
                     <Button.ContextMenu>
                         <!-- Own font: a context menu inherits the icon font of the button that opens it. -->
                         <ContextMenu FontFamily="{x:Static SystemFonts.MessageFontFamily}" FontSize="14">
+                            <MenuItem Header="Fusionner avec" />
                             <MenuItem Header="Dissocier…" Click="OnUnpair" />
                         </ContextMenu>
                     </Button.ContextMenu>
