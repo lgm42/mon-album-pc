@@ -313,7 +313,7 @@ n'a donc plus de visionneuse web : regarder les photos est le rôle de l'app Win
 ### 18.3 Bibliothèque partagée
 
 La bibliothèque est un dossier, avec un sous-dossier par personne (un album) : le NAS le voit en `/photos`, un PC le voit
-par exemple en `\<nas>\donnees\Photos\Telephones`. **Chaque machine ne connaît que son propre chemin vers la
+par exemple en `\\<nas>\donnees\Photos\Telephones`. **Chaque machine ne connaît que son propre chemin vers la
 bibliothèque** : tout ce qui est partagé est rangé dans `<bibliothèque>/.monalbumpc/`, avec des chemins **relatifs**.
 
 | Fichier | Rôle | Écrit par |
