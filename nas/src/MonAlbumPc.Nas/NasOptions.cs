@@ -8,7 +8,7 @@ public sealed class NasOptions
     /// <summary>Catalog, certificate and identity (<c>MONALBUMPC_CONFIG</c>, default <c>/config</c>).</summary>
     public string ConfigDirectory { get; init; } = "/config";
 
-    /// <summary>Parent of every album folder (<c>MONALBUMPC_PHOTOS</c>, default <c>/photos</c>).</summary>
+    /// <summary>The shared library, parent of every album folder (<c>MONALBUMPC_PHOTOS</c>, default <c>/photos</c>).</summary>
     public string PhotosRoot { get; init; } = "/photos";
 
     /// <summary>HTTPS port of the web administration (<c>MONALBUMPC_ADMIN_PORT</c>).</summary>
@@ -22,9 +22,6 @@ public sealed class NasOptions
 
     /// <summary>Folder holding <c>monalbumpc.apk</c> and its <c>.json</c> (<c>MONALBUMPC_APK_DIR</c>).</summary>
     public string ApkDirectory { get; init; } = Path.Combine(AppContext.BaseDirectory, "android");
-
-    /// <summary>Deleted photos go here rather than being erased.</summary>
-    public string TrashDirectory => Path.Combine(PhotosRoot, ".corbeille");
 
     public static NasOptions FromEnvironment()
     {

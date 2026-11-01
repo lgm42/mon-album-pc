@@ -121,8 +121,6 @@ app.MapPost("/logout", async (HttpContext http, IAntiforgery antiforgery) =>
     return Results.Redirect("/login");
 });
 
-MediaEndpoints.Map(app, options);
-
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 
 app.Run();

@@ -1,4 +1,5 @@
 using MonAlbumPc.Core;
+using MonAlbumPc.Core.Library;
 using MonAlbumPc.Core.Model;
 
 namespace MonAlbumPc.Nas.Components.Albums;
@@ -21,15 +22,16 @@ public sealed class PhotoFolders(NasOptions options)
 
     public bool IsRoot(string path) => string.Equals(Normalize(path), Normalize(Root), Comparison);
 
-    public bool IsTrash(string path) => IsUnder(path, options.TrashDirectory);
+    /// <summary>True for the working folder of the library, which viewers read and no album may use.</summary>
+    public bool IsShared(string path) => IsUnder(path, LibraryManifest.SharedFolder(Root));
 
-    /// <summary>True when the folder can hold an album: under the root, not the root itself nor the trash.</summary>
+    /// <summary>True when the folder can hold an album: under the root, not the root itself nor its working folder.</summary>
     public bool IsValidAlbumFolder(string path) =>
-        path.Length > 0 && Path.IsPathRooted(path) && options.IsUnderPhotos(path) && !IsRoot(path) && !IsTrash(path);
+        path.Length > 0 && Path.IsPathRooted(path) && options.IsUnderPhotos(path) && !IsRoot(path) && !IsShared(path);
 
     public static bool SameFolder(string a, string b) => string.Equals(Normalize(a), Normalize(b), Comparison);
 
-    /// <summary>Visible subfolders (hidden ones such as the trash are left out), sorted by name.</summary>
+    /// <summary>Visible subfolders (hidden ones such as the working folder are left out), sorted by name.</summary>
     public List<string> Subfolders(string path)
     {
         try

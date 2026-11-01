@@ -13,7 +13,7 @@ RUN dotnet publish nas/src/MonAlbumPc.Nas -c Release -r linux-x64 --self-contain
     && if [ -f nas/android/monalbumpc.apk ]; then cp nas/android/monalbumpc.apk nas/android/monalbumpc.apk.json /app/android/; fi
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
-# ffmpeg: video thumbnails in the web viewer. libgomp1: ImageMagick's OpenMP runtime.
+# ffmpeg: video thumbnails (coming next). libgomp1: ImageMagick's OpenMP runtime.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg libgomp1 \
     && rm -rf /var/lib/apt/lists/*
