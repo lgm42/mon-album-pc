@@ -6,6 +6,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using Microsoft.VisualBasic.FileIO;
 using MonAlbumPc.Core;
+using MonAlbumPc.Core.Import;
 using MonAlbumPc.Core.Media;
 using MonAlbumPc.Core.Model;
 
@@ -306,8 +307,13 @@ public partial class PhotosPage : UserControl, IRefreshable
             return;
         }
         var what = tile.IsVideo ? "cette vidéo" : "cette photo";
+        var album = _albums.FirstOrDefault(a => a.Id == tile.Item.AlbumId);
+        // No Recycle Bin on network shares: such files go to the trash folder of their album.
+        var inAlbumTrash = album is not null && AlbumTrash.IsNetworkPath(tile.Item.Path);
         var answer = MessageBox.Show(_window,
-            $"{tile.Name} sera placé dans la Corbeille de Windows. Vous pourrez le restaurer depuis la Corbeille.",
+            inAlbumTrash
+                ? $"{tile.Name} sera déplacé dans la corbeille de l'album :\n{AlbumTrash.Folder(album!.DestinationRoot)}\n\nVous pourrez l'y récupérer."
+                : $"{tile.Name} sera placé dans la Corbeille de Windows. Vous pourrez le restaurer depuis la Corbeille.",
             $"Supprimer {what} ?", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
         if (answer != MessageBoxResult.Yes)
         {
@@ -319,10 +325,18 @@ public partial class PhotosPage : UserControl, IRefreshable
         ViewerImage.Source = null;
         try
         {
-            FileSystem.DeleteFile(tile.Item.Path, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
+            if (inAlbumTrash)
+            {
+                AlbumTrash.Move(album!.DestinationRoot, tile.Item.Path);
+            }
+            else
+            {
+                FileSystem.DeleteFile(tile.Item.Path, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
+            }
         }
         catch (Exception ex) when (ex is IOException or OperationCanceledException or UnauthorizedAccessException)
         {
+            MessageBox.Show(_window, $"Impossible de supprimer {tile.Name}.\n\n{ex.Message}", "Supprimer", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
         _all.RemoveAll(i => i.Path == tile.Item.Path);
