@@ -22,6 +22,7 @@ public sealed record AppSettings(AppMode Mode = AppMode.Autonomous, string? Libr
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
     };
 
+    [JsonIgnore]
     public bool IsViewer => Mode == AppMode.Viewer;
 
     public static string FilePath(string dataRoot) => Path.Combine(dataRoot, "settings.json");

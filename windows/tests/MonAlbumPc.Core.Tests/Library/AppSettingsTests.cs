@@ -22,6 +22,7 @@ public sealed class AppSettingsTests : IDisposable
         var json = File.ReadAllText(AppSettings.FilePath(_temp.Path));
         Assert.Contains("\"mode\": \"viewer\"", json);
         Assert.Contains("\"libraryRoot\"", json);
+        Assert.DoesNotContain("isViewer", json);
     }
 
     [Theory]
