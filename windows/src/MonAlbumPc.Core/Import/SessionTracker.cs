@@ -74,6 +74,30 @@ public sealed class SessionTracker(SessionStore store, TimeProvider clock)
         Publish(ended);
     }
 
+    /// <summary>
+    /// The phone finished its run: the session closes at once instead of waiting for <see cref="IdleTimeout"/>. A phone with
+    /// nothing left to send (<paramref name="complete"/>) always gets a session, even with nothing new, so that it can be
+    /// announced.
+    /// </summary>
+    public void RecordFinished(Guid deviceId, Guid albumId, ImportChannel channel, bool complete)
+    {
+        BackupSession ended;
+        lock (_lock)
+        {
+            if (!_open.TryGetValue(deviceId, out var session))
+            {
+                if (!complete)
+                {
+                    return;
+                }
+                session = OpenFor(deviceId, albumId, channel);
+            }
+            session.Complete = complete;
+            ended = Close(session);
+        }
+        Publish(ended);
+    }
+
     /// <summary>Closes the sessions that have been idle long enough. Called periodically.</summary>
     public void CloseIdle()
     {
@@ -105,9 +129,9 @@ public sealed class SessionTracker(SessionStore store, TimeProvider clock)
     {
         _open.Remove(session.DeviceId);
         var record = new BackupSession(0, session.DeviceId, session.AlbumId, session.Channel, session.StartedAt,
-            session.LastActivity, session.Photos, session.Videos, session.ErrorCode, session.ErrorMessage);
-        // A connection that brought nothing and failed nothing is not worth a line in the history.
-        return record.Photos + record.Videos == 0 && !record.HasError ? record : record with { Id = store.Add(record) };
+            session.LastActivity, session.Photos, session.Videos, session.ErrorCode, session.ErrorMessage, session.Complete);
+        // A connection that brought nothing, failed nothing and finished nothing is not worth a line in the history.
+        return record.Photos + record.Videos == 0 && !record.HasError && !record.Complete ? record : record with { Id = store.Add(record) };
     }
 
     private void Publish(BackupSession session)
@@ -130,5 +154,6 @@ public sealed class SessionTracker(SessionStore store, TimeProvider clock)
         public int Videos { get; set; }
         public string? ErrorCode { get; set; }
         public string? ErrorMessage { get; set; }
+        public bool Complete { get; set; }
     }
 }

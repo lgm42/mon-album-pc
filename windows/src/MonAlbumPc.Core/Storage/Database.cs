@@ -90,6 +90,9 @@ public sealed class Database
         );
         CREATE INDEX ix_media_location ON media(album_id, latitude, longitude);
         """,
+        """
+        ALTER TABLE sessions ADD COLUMN complete INTEGER NOT NULL DEFAULT 0;
+        """,
     ];
 
     private readonly string _connectionString;

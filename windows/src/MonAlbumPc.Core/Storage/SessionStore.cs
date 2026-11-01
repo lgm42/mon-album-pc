@@ -2,7 +2,10 @@ using Microsoft.Data.Sqlite;
 
 namespace MonAlbumPc.Core.Storage;
 
-/// <summary>One backup of a phone: what arrived over a continuous stretch of time, and how it ended.</summary>
+/// <summary>
+/// One backup of a phone: what arrived over a continuous stretch of time, and how it ended. <see cref="Complete"/> means
+/// the phone said it has nothing left to send.
+/// </summary>
 public sealed record BackupSession(
     long Id,
     Guid DeviceId,
@@ -13,27 +16,28 @@ public sealed record BackupSession(
     int Photos,
     int Videos,
     string? ErrorCode,
-    string? ErrorMessage)
+    string? ErrorMessage,
+    bool Complete = false)
 {
     public bool HasError => ErrorCode is not null;
 }
 
 public sealed class SessionStore(Database database)
 {
-    private const string Columns = "id, device_id, album_id, channel, started_at, ended_at, photos, videos, error_code, error_message";
+    private const string Columns = "id, device_id, album_id, channel, started_at, ended_at, photos, videos, error_code, error_message, complete";
 
     public long Add(BackupSession session)
     {
         using var connection = database.Open();
         connection.Execute(
             """
-            INSERT INTO sessions (device_id, album_id, channel, started_at, ended_at, photos, videos, error_code, error_message)
-            VALUES ($device, $album, $channel, $started, $ended, $photos, $videos, $code, $message)
+            INSERT INTO sessions (device_id, album_id, channel, started_at, ended_at, photos, videos, error_code, error_message, complete)
+            VALUES ($device, $album, $channel, $started, $ended, $photos, $videos, $code, $message, $complete)
             """,
             ("$device", session.DeviceId.ToString()), ("$album", session.AlbumId.ToString()),
             ("$channel", session.Channel.ToString().ToLowerInvariant()), ("$started", session.StartedAt.ToDb()),
             ("$ended", session.EndedAt.ToDb()), ("$photos", session.Photos), ("$videos", session.Videos),
-            ("$code", session.ErrorCode), ("$message", session.ErrorMessage));
+            ("$code", session.ErrorCode), ("$message", session.ErrorMessage), ("$complete", session.Complete ? 1 : 0));
         return Convert.ToInt64(connection.Scalar("SELECT last_insert_rowid()"));
     }
 
@@ -54,5 +58,6 @@ public sealed class SessionStore(Database database)
         r.GetInt32(6),
         r.GetInt32(7),
         r.GetNullableString(8),
-        r.GetNullableString(9));
+        r.GetNullableString(9),
+        r.GetInt64(10) != 0);
 }
