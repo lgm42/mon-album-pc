@@ -275,54 +275,121 @@ Nom retenu le 2026-10-17 : **Mon Album PC**, même nom pour les deux apps (Andro
 - La clé de signature de l'APK et les secrets de compilation sont dans les secrets GitHub Actions, jamais
   dans le repo.
 
-## 18. Version NAS (TrueNAS SCALE) — ajoutée le 2026-10-20
+## 18. Version NAS (TrueNAS SCALE) et bibliothèque partagée — ajoutée le 2026-10-20, revue le 2026-11-01
 
-Une troisième application, **serveur seul**, pour remplacer le PC par un NAS toujours allumé. Le téléphone
-reste associé à **un seul serveur** : soit un PC Windows, soit le NAS. Pour lui, le NAS n'est qu'un « PC »
-de plus, avec le même protocole.
+Une troisième application, **serveur seul**, pour qu'un NAS toujours allumé reçoive les photos à la place du PC. Le
+téléphone reste associé à **un seul serveur** : soit un PC Windows, soit le NAS. Pour lui, le NAS n'est qu'un « PC » de
+plus, avec le même protocole.
+
+Les photos reçues forment une **bibliothèque partagée** : les PC la consultent directement dans le partage réseau. Le NAS
+n'a donc plus de visionneuse web : regarder les photos est le rôle de l'app Windows, en mode Visionneuse (§18.3 bis).
 
 ### 18.1 Forme
 
-- Conteneur Docker publié par la CI (`ghcr.io/lgm42/mon-album-pc`), installé sur **TrueNAS SCALE 24.10+**
-  en Custom App (« Install via YAML », docker compose). Un exemple de YAML est fourni dans `nas/`.
+- Conteneur Docker publié par la CI (`ghcr.io/lgm42/mon-album-pc`), installé sur **TrueNAS SCALE 24.10+**. Un exemple de
+  YAML est fourni dans `nas/`.
 - **Réseau de l'hôte** (`network_mode: host`) : indispensable pour l'annonce mDNS sur le réseau local.
 - Volumes :
   - `/config` : catalogue, certificat et identité du serveur ;
-  - `/photos` : dataset parent des albums. Les dossiers des albums sont choisis **sous `/photos`**.
-- Utilisateur du conteneur : `568:568` par défaut (utilisateur `apps` de TrueNAS), modifiable. Le dataset
-  doit lui donner le droit d'écrire.
+  - `/photos` : la bibliothèque. Les dossiers des albums sont choisis **sous `/photos`**.
+- Utilisateur du conteneur : `568:568` par défaut (utilisateur `apps` de TrueNAS), modifiable. Il doit pouvoir écrire dans
+  les deux volumes, et les fichiers qu'il crée doivent rester lisibles à travers le partage SMB (ACL héritée, voir
+  `nas/README.md`).
 - L'APK Android est embarqué dans l'image, comme dans l'app Windows.
+- **Déploiement** : d'abord en **Custom App** (« Install via YAML », docker compose). Une fois l'app éprouvée, proposition
+  au catalogue communautaire officiel [`truenas/apps`](https://github.com/truenas/apps).
 
 ### 18.2 Interface web d'administration
 
-- Même périmètre que l'app Windows, visionneuse comprise : albums et téléphones, ajout d'un téléphone
-  (QR code + code à 6 chiffres), historique, réglages, diagnostic, visionneuse (grille par mois, plein écran,
-  rotation sans perte, suppression).
+- Albums et téléphones (page d'accueil), ajout d'un téléphone (QR code + code à 6 chiffres), historique, réglages,
+  diagnostic. **Pas de visionneuse** : elle a été retirée au profit de l'app Windows.
 - Même style Fluent et même accent indigo, en français.
 - Port **48622**, en HTTPS avec le certificat du serveur.
 - **Protégée par un mot de passe administrateur**, demandé au premier accès (ou fourni par la variable
   `MONALBUMPC_ADMIN_PASSWORD`).
-- La suppression d'une photo depuis le web la déplace dans `/photos/.corbeille` (pas de Corbeille Windows).
+- Pas d'icône de zone de notification, pas de lancement avec Windows (c'est le redémarrage du conteneur qui s'en charge),
+  pas d'import USB, pas de notification système sur le NAS lui-même.
 
-### 18.3 Différences avec l'app Windows
+### 18.3 Bibliothèque partagée
 
-- Pas d'icône de zone de notification, pas de lancement avec Windows (c'est le redémarrage du conteneur qui
-  s'en charge), pas d'import USB.
-- Pas de notification système : l'état et l'historique se consultent dans l'interface web.
+La bibliothèque est un dossier, avec un sous-dossier par personne (un album) : le NAS le voit en `/photos`, un PC le voit
+par exemple en `\<nas>\donnees\Photos\Telephones`. **Chaque machine ne connaît que son propre chemin vers la
+bibliothèque** : tout ce qui est partagé est rangé dans `<bibliothèque>/.monalbumpc/`, avec des chemins **relatifs**.
 
-### 18.3 bis Un même dossier pour le NAS et le PC
+| Fichier | Rôle | Écrit par |
+| --- | --- | --- |
+| `.monalbumpc/library.json` | Nom du serveur et liste des albums : `id`, nom, couleur, dossier relatif | Le NAS seul |
+| `.monalbumpc/activity/<serveur>.jsonl` | Fil d'activité : une ligne JSON par sauvegarde terminée | Le NAS seul, un fichier par serveur |
+| `<album>/.monalbumpc/journal/<serveur>.jsonl` | Journal des imports de l'album | Chaque serveur, dans son propre fichier |
+| `<album>/.monalbumpc/corbeille/` | Photos supprimées depuis Windows, récupérables | L'app Windows |
 
-Le NAS et l'app Windows peuvent écrire dans **le même dossier d'album** (le PC y accède par le réseau). Pour ne
-jamais importer deux fois la même photo, chaque serveur tient un **journal des imports** dans le dossier de
-l'album : `.monalbumpc/journal/<identifiant du serveur>.jsonl` (une ligne JSON par fichier : empreinte de
-l'original, nom, taille, chemin relatif, date de prise de vue, téléphone, date d'import).
+- `library.json` est réécrit en une fois (fichier temporaire puis remplacement) au démarrage du NAS et à chaque
+  changement d'album : une visionneuse ne lit jamais un fichier à moitié écrit. Un fichier absent ou abîmé se lit comme
+  « bibliothèque indisponible ».
+- Le catalogue SQLite reste **local** à chaque machine : SQLite n'est pas fiable écrit par deux machines sur un partage
+  réseau.
 
-- Chaque serveur n'écrit **que dans son propre fichier** (aucune écriture concurrente à travers le réseau) et lit
-  ceux des autres pour son dédoublonnage.
-- Le catalogue SQLite reste **local** à chaque serveur : SQLite n'est pas fiable écrit par deux machines sur un
-  partage réseau.
-- Au démarrage, un serveur exporte dans le journal les imports faits avant l'existence des journaux.
-- À venir : l'import USB par l'app Windows d'un téléphone associé au NAS (reconnu grâce au journal de l'album).
+**Journaux d'album.** Le NAS et une app Windows autonome peuvent écrire dans le même dossier d'album. Pour ne jamais
+importer deux fois la même photo, chaque serveur tient son journal (une ligne JSON par fichier : empreinte de l'original,
+nom, taille, chemin relatif, date de prise de vue, position, téléphone, date d'import). Il n'écrit **que dans son propre
+fichier** (aucune écriture concurrente à travers le réseau) et lit ceux des autres. Au démarrage, un serveur exporte dans le
+journal les imports faits avant l'existence des journaux.
+
+Les journaux servent aussi à la visionneuse : pour un nouveau fichier de même chemin et de même taille, la date et la
+position viennent du journal **sans ouvrir le fichier** (ouvrir des milliers de fichiers en SMB est lent), et le téléphone
+d'origine s'affiche dans le panneau d'informations.
+
+À venir : les miniatures produites par le NAS (ffmpeg reste dans l'image pour cela), et l'import USB par l'app Windows d'un
+téléphone associé au NAS (reconnu grâce au journal de l'album).
+
+### 18.3 bis Deux modes pour l'app Windows
+
+Le mode est enregistré dans `settings.json`, à la racine du dossier de données :
+`{ "mode": "autonomous" | "viewer", "libraryRoot": "…" }`. Sans ce fichier, l'app est autonome.
+
+- **Autonome** (par défaut, pour qui n'a pas de NAS) : le comportement des sections précédentes, inchangé.
+- **Visionneuse** : ni serveur, ni port, ni association, ni import. L'app a son propre catalogue dans
+  `<données>\viewer` : le catalogue autonome reste intact, et l'on peut revenir en arrière à tout moment.
+
+En mode Visionneuse :
+
+- Toutes les 60 secondes, et au démarrage, sans bloquer l'interface, l'app lit `library.json`, aligne ses albums locaux
+  **par identifiant** (ajout, mise à jour, suppression ; dossier = chemin de la bibliothèque + dossier relatif), lit les
+  nouvelles lignes du fil d'activité, puis indexe et rafraîchit ce qui est affiché si quelque chose est arrivé.
+- **Bibliothèque injoignable** : les données déjà chargées restent affichées, la carte d'état indique « Bibliothèque
+  indisponible » avec le chemin, et tout reprend seul.
+- Navigation réduite à Photos, Carte et Réglages. Pivoter fonctionne sur le partage ; supprimer passe par la corbeille de
+  l'album. L'état de la page Photos vide ne propose pas d'ajouter un téléphone.
+- L'app reste dans la zone de notification, comme en mode autonome : fermer la fenêtre la masque, le menu n'a pas
+  « Ajouter un téléphone », « Lancer avec Windows » reste disponible.
+
+Dans Réglages, la carte **Bibliothèque** propose en mode autonome « Utiliser une bibliothèque sur le NAS… » (choix du
+dossier, vérification de `library.json`, confirmation, redémarrage de l'app), et en mode Visionneuse le chemin, « Changer de
+dossier… » et « Revenir au mode autonome ». Les cartes Réseau et Application Android sont masquées en mode Visionneuse.
+
+### 18.3 ter Fil d'activité et notifications
+
+Le NAS ajoute une ligne au fil à chaque sauvegarde terminée : `id`, `at`, `albumId`, `albumName`, `device`, `photos`,
+`videos`, `complete`, `errorCode`, `errorMessage`. Le fil est en ajout seul, avec un écrivain par fichier. La visionneuse
+garde localement sa position dans chaque fichier ; elle ignore une ligne abîmée et attend la fin d'une ligne en cours
+d'écriture.
+
+Une sauvegarde est **complète** quand le téléphone annonce qu'il ne lui reste rien à envoyer et aucune erreur
+(`POST /backup-finished`, protocole §5.3 bis). Un téléphone plus ancien ne l'annonce jamais : ses sessions se closent au bout
+de deux minutes de silence, sans être complètes. L'app Windows autonome en profite aussi.
+
+Notifications Windows en mode Visionneuse :
+
+| Situation | Titre | Texte |
+| --- | --- | --- |
+| Sauvegarde complète | « {Téléphone} a été entièrement synchronisé » | « 52 photos et 3 vidéos dans l'album Nicolas » |
+| Sauvegarde incomplète | « Nouvelles photos disponibles » | idem |
+| Erreur | « Sauvegarde de {Téléphone} interrompue » | Le message d'erreur |
+| PC éteint entre-temps, ou bibliothèque injoignable | « Pendant votre absence » | Une seule notification : « 120 nouvelles photos ; POCO X7 Pro entièrement synchronisé » |
+
+Plusieurs lignes trouvées d'un coup sont aussi résumées en une seule notification, Windows n'en gardant qu'une à la fois. La
+**toute première connexion** à une bibliothèque démarre à la fin du fil : pas de notification pour le passé. Cliquer sur la
+notification ouvre la fenêtre principale.
 
 ### 18.4 Réseau, VPN et données mobiles
 
