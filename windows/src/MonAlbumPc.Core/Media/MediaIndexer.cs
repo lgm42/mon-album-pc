@@ -81,6 +81,10 @@ public sealed class MediaIndexer(AlbumStore albums, MediaIndex index) : IDisposa
                 }
                 return;
             }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or SqliteException)
+            {
+                // The catalog is out of reach for now: on this thread, letting it through would close the whole app.
+            }
             Completed?.Invoke(changed);
         }
     }
