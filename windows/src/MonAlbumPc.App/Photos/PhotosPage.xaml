@@ -162,10 +162,11 @@
 
                     <StackPanel x:Name="EmptyState" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="420" Visibility="Collapsed">
                         <Image Source="pack://application:,,,/Assets/app.png" Width="96" Height="96" />
-                        <TextBlock Style="{StaticResource Subtitle}" Margin="0,20,0,8" HorizontalAlignment="Center" Text="Aucune photo pour l'instant." />
-                        <TextBlock Style="{StaticResource Secondary}" TextAlignment="Center"
+                        <TextBlock x:Name="EmptyTitle" Style="{StaticResource Subtitle}" Margin="0,20,0,8" HorizontalAlignment="Center" TextAlignment="Center"
+                                   TextWrapping="Wrap" Text="Aucune photo pour l'instant." />
+                        <TextBlock x:Name="EmptyHint" Style="{StaticResource Secondary}" TextAlignment="Center" TextWrapping="Wrap"
                                    Text="Ajoutez un téléphone pour commencer. Ses photos et vidéos arriveront ici automatiquement, en Wi-Fi." />
-                        <Button Style="{StaticResource AccentButtonStyle}" Margin="0,20,0,0" HorizontalAlignment="Center"
+                        <Button x:Name="EmptyAddPhone" Style="{StaticResource AccentButtonStyle}" Margin="0,20,0,0" HorizontalAlignment="Center"
                                 Padding="16,6" Content="Ajouter un téléphone" Click="OnAddPhone" />
                     </StackPanel>
                 </Grid>

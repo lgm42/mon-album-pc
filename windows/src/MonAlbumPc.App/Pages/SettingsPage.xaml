@@ -13,34 +13,52 @@
                     <TextBlock Style="{StaticResource Icon}" FontSize="20" Text="&#xE7E8;" Margin="0,0,16,0" />
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="Lancer avec Windows" />
-                        <TextBlock Style="{StaticResource Caption}" Text="L'app démarre réduite dans la zone de notification pour recevoir les photos." />
+                        <TextBlock x:Name="AutostartHint" Style="{StaticResource Caption}" Text="L'app démarre réduite dans la zone de notification pour recevoir les photos." />
                     </StackPanel>
                 </DockPanel>
             </Border>
 
-            <TextBlock Style="{StaticResource SectionTitle}" Text="Réseau" Margin="0,24,0,8" />
+            <TextBlock Style="{StaticResource SectionTitle}" Text="Bibliothèque" Margin="0,24,0,8" />
             <Border Style="{StaticResource Card}" MinHeight="68">
                 <DockPanel>
-                    <TextBlock Style="{StaticResource Icon}" FontSize="20" Text="&#xE968;" Margin="0,0,16,0" />
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
+                        <Button x:Name="UseLibraryButton" Content="Utiliser une bibliothèque sur le NAS…" Click="OnChooseLibrary" />
+                        <Button x:Name="ChangeLibraryButton" Content="Changer de dossier…" Click="OnChooseLibrary" />
+                        <Button x:Name="LeaveLibraryButton" Content="Revenir au mode autonome" Margin="8,0,0,0" Click="OnLeaveLibrary" />
+                    </StackPanel>
+                    <TextBlock Style="{StaticResource Icon}" FontSize="20" Text="&#xE8B7;" Margin="0,0,16,0" />
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock x:Name="NetworkTitle" />
-                        <TextBlock x:Name="NetworkDetail" Style="{StaticResource Caption}" TextWrapping="Wrap" />
+                        <TextBlock x:Name="LibraryTitle" />
+                        <TextBlock x:Name="LibraryDetail" Style="{StaticResource Caption}" TextWrapping="Wrap" />
                     </StackPanel>
                 </DockPanel>
             </Border>
 
-            <TextBlock Style="{StaticResource SectionTitle}" Text="Application Android" Margin="0,24,0,8" />
-            <Border Style="{StaticResource Card}" MinHeight="68">
-                <DockPanel>
-                    <Button x:Name="ApkQrButton" DockPanel.Dock="Right" VerticalAlignment="Center"
-                            Content="Afficher le QR code de téléchargement" Click="OnShowApkQr" />
-                    <TextBlock Style="{StaticResource Icon}" FontSize="20" Text="&#xE8EA;" Margin="0,0,16,0" />
-                    <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="Mon Album PC pour Android" />
-                        <TextBlock x:Name="ApkVersion" Style="{StaticResource Caption}" TextWrapping="Wrap" />
-                    </StackPanel>
-                </DockPanel>
-            </Border>
+            <StackPanel x:Name="ServerSections">
+                <TextBlock Style="{StaticResource SectionTitle}" Text="Réseau" Margin="0,24,0,8" />
+                <Border Style="{StaticResource Card}" MinHeight="68">
+                    <DockPanel>
+                        <TextBlock Style="{StaticResource Icon}" FontSize="20" Text="&#xE968;" Margin="0,0,16,0" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock x:Name="NetworkTitle" />
+                            <TextBlock x:Name="NetworkDetail" Style="{StaticResource Caption}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <TextBlock Style="{StaticResource SectionTitle}" Text="Application Android" Margin="0,24,0,8" />
+                <Border Style="{StaticResource Card}" MinHeight="68">
+                    <DockPanel>
+                        <Button x:Name="ApkQrButton" DockPanel.Dock="Right" VerticalAlignment="Center"
+                                Content="Afficher le QR code de téléchargement" Click="OnShowApkQr" />
+                        <TextBlock Style="{StaticResource Icon}" FontSize="20" Text="&#xE8EA;" Margin="0,0,16,0" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Mon Album PC pour Android" />
+                            <TextBlock x:Name="ApkVersion" Style="{StaticResource Caption}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+            </StackPanel>
 
             <TextBlock Style="{StaticResource SectionTitle}" Text="À propos" Margin="0,24,0,8" />
             <Border Style="{StaticResource Card}" MinHeight="68">

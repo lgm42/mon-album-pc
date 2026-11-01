@@ -5,6 +5,7 @@ using MonAlbumPc.App.Albums;
 using MonAlbumPc.App.History;
 using MonAlbumPc.App.Pages;
 using MonAlbumPc.App.Phones;
+using MonAlbumPc.Core.Library;
 
 namespace MonAlbumPc.App;
 
@@ -13,16 +14,37 @@ public partial class MainWindow : Window
     private readonly AppHost _host;
     private readonly Dictionary<string, FrameworkElement> _pages = [];
     private bool _syncingSelection;
+    private bool _pageOutdated;
 
     public MainWindow(AppHost host)
     {
         _host = host;
         InitializeComponent();
+        if (_host.Library is { } library)
+        {
+            // A viewer does not manage phones: only what shows the library stays.
+            foreach (var item in MainNav.Items.Cast<ListBoxItem>().Where(i => (string)i.Tag is "albums" or "history").ToList())
+            {
+                MainNav.Items.Remove(item);
+            }
+            library.StateChanged += OnLibraryStateChanged;
+            library.ContentChanged += OnLibraryContentChanged;
+        }
         UpdateStatus();
         MainNav.SelectedIndex = 0;
         _host.Core.Sessions.Changed += OnSessionsChanged;
         _host.Core.Sessions.Ended += OnSessionEnded;
+        IsVisibleChanged += (_, _) =>
+        {
+            if (IsVisible && _pageOutdated)
+            {
+                RefreshPage();
+            }
+        };
     }
+
+    /// <summary>The shared library in viewer mode, null otherwise.</summary>
+    public LibraryViewer? Library => _host.Library;
 
     /// <summary>Opens the add-phone wizard, optionally for a given album.</summary>
     public void ShowAddPhone(Guid? albumId)
@@ -80,17 +102,34 @@ public partial class MainWindow : Window
     private void OnSessionsChanged() => Dispatcher.BeginInvoke(UpdateStatus);
 
     // A finished backup changes counts and history: reload the visible page.
-    private void OnSessionEnded(Core.Storage.BackupSession session) => Dispatcher.BeginInvoke(() =>
+    private void OnSessionEnded(Core.Storage.BackupSession session) => Dispatcher.BeginInvoke(RefreshPage);
+
+    private void OnLibraryStateChanged() => Dispatcher.BeginInvoke(() =>
     {
-        if (Page.Content is IRefreshable page && IsVisible)
+        UpdateStatus();
+        RefreshPage();
+    });
+
+    private void OnLibraryContentChanged() => Dispatcher.BeginInvoke(RefreshPage);
+
+    // Hidden in the notification area, the app waits to be shown again rather than reading the share for nobody.
+    private void RefreshPage()
+    {
+        _pageOutdated = !IsVisible;
+        if (IsVisible && Page.Content is IRefreshable page)
         {
             page.Refresh();
         }
-    });
+    }
 
     private void UpdateStatus()
     {
         StatusProgress.Visibility = Visibility.Collapsed;
+        if (_host.Library is { } library)
+        {
+            ShowLibraryStatus(library);
+            return;
+        }
         if (_host.Core.Sessions.Active.FirstOrDefault() is { } active)
         {
             StatusIcon.Text = "";
@@ -116,6 +155,21 @@ public partial class MainWindow : Window
         StatusDetail.Text = _host.LanAddress is { } address
             ? $"Adresse sur le réseau : {address}"
             : "Ce PC n'est connecté à aucun réseau.";
+    }
+
+    private void ShowLibraryStatus(LibraryViewer library)
+    {
+        var (icon, brush, title) = library.State switch
+        {
+            LibraryState.Available => ("\uE73E", "SystemFillColorSuccessBrush", "Bibliothèque connectée"),
+            LibraryState.Unavailable => ("\uE7BA", "SystemFillColorCautionBrush", "Bibliothèque indisponible"),
+            _ => ("\uE895", "AccentTextFillColorPrimaryBrush", "Connexion à la bibliothèque…"),
+        };
+        StatusIcon.Text = icon;
+        StatusIcon.SetResourceReference(ForegroundProperty, brush);
+        StatusTitle.Text = title;
+        StatusDetail.Text = library.Root;
+        StatusDetail.ToolTip = library.Root;
     }
 
     // Closing the window keeps the app running in the notification area.

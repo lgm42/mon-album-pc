@@ -7,6 +7,7 @@ using System.Windows.Media;
 using Microsoft.VisualBasic.FileIO;
 using MonAlbumPc.Core;
 using MonAlbumPc.Core.Import;
+using MonAlbumPc.Core.Library;
 using MonAlbumPc.Core.Media;
 using MonAlbumPc.Core.Model;
 
@@ -40,6 +41,10 @@ public partial class PhotosPage : UserControl, IRefreshable
 
     public async void Refresh()
     {
+        if (_window.Library is { State: LibraryState.Unavailable } && _all.Count > 0)
+        {
+            return; // the share does not answer: what is on screen is better than an empty page
+        }
         _albums = _core.Albums.List();
         var albums = _albums;
         // Walking big album folders takes a while: keep the window responsive.
@@ -120,6 +125,7 @@ public partial class PhotosPage : UserControl, IRefreshable
             _selected.IsSelected = true;
         }
         EmptyState.Visibility = _all.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        UpdateEmptyState();
         var album = _albums.FirstOrDefault(a => a.Id == _albumFilter)?.Name ?? "Tous les albums";
         var period = _monthFilter is { } m ? " · " + Capitalize(m.ToString("MMMM yyyy", French)) : _yearFilter is { } y ? $" · {y}" : "";
         Caption.Text = $"{album}{period} · {Formatting.Plural(_tiles.Count, "élément", "éléments")}";
@@ -127,6 +133,21 @@ public partial class PhotosPage : UserControl, IRefreshable
         LayoutRows();
         ShowInfo();
         UpdateCommands();
+    }
+
+    // A viewer has no phone to add: its photos come from the library.
+    private void UpdateEmptyState()
+    {
+        if (_window.Library is not { } library)
+        {
+            return;
+        }
+        var unavailable = library.State == LibraryState.Unavailable;
+        EmptyAddPhone.Visibility = Visibility.Collapsed;
+        EmptyTitle.Text = unavailable ? "Bibliothèque indisponible" : "Aucune photo pour l'instant.";
+        EmptyHint.Text = unavailable
+            ? $"Le dossier {library.Root} ne répond pas. Mon Album PC réessaie toutes les minutes."
+            : "Les photos sauvegardées sur le NAS arriveront ici automatiquement.";
     }
 
     /// <summary>Splits the tiles into rows of as many columns as fit, with a title per month.</summary>
@@ -215,7 +236,7 @@ public partial class PhotosPage : UserControl, IRefreshable
         }
     }
 
-    private void ShowInfo()
+    private async void ShowInfo()
     {
         if (_selected is null)
         {
@@ -238,6 +259,17 @@ public partial class PhotosPage : UserControl, IRefreshable
             new("", "Album · dossier", $"{album} · {Path.GetDirectoryName(item.Path)}{Path.DirectorySeparatorChar}"),
         };
         InfoLines.ItemsSource = lines;
+
+        // Not imported by this PC: the journals of the album may know, but reading them can take a moment over the network.
+        if (phone is null && _albums.FirstOrDefault(a => a.Id == item.AlbumId) is { } source)
+        {
+            var journaled = await Task.Run(() => _core.Journals.DeviceOf(source, item.Path));
+            if (journaled is not null && _selected?.Item == item)
+            {
+                lines[1] = lines[1] with { Value = journaled };
+                InfoLines.ItemsSource = lines.ToList();
+            }
+        }
     }
 
     private static string Dimensions(LibraryItem item)
@@ -309,7 +341,7 @@ public partial class PhotosPage : UserControl, IRefreshable
         var what = tile.IsVideo ? "cette vidéo" : "cette photo";
         var album = _albums.FirstOrDefault(a => a.Id == tile.Item.AlbumId);
         // No Recycle Bin on network shares: such files go to the trash folder of their album.
-        var inAlbumTrash = album is not null && AlbumTrash.IsNetworkPath(tile.Item.Path);
+        var inAlbumTrash = album is not null && (_window.Library is not null || AlbumTrash.IsNetworkPath(tile.Item.Path));
         var answer = MessageBox.Show(_window,
             inAlbumTrash
                 ? $"{tile.Name} sera déplacé dans la corbeille de l'album :\n{AlbumTrash.Folder(album!.DestinationRoot)}\n\nVous pourrez l'y récupérer."

@@ -1,21 +1,35 @@
 using System.Net;
 using Microsoft.Win32;
 using MonAlbumPc.Core;
+using MonAlbumPc.Core.Library;
 using MonAlbumPc.Server;
 
 namespace MonAlbumPc.App;
 
-/// <summary>Owns the core services and the network server for the whole life of the app.</summary>
+/// <summary>
+/// Owns the core services for the whole life of the app, with what the mode needs: the network server when autonomous,
+/// the look at the shared library in viewer mode.
+/// </summary>
 public sealed class AppHost : IAsyncDisposable
 {
     private MonAlbumServer? _server;
 
-    public AppHost(string dataDirectory)
+    public AppHost(string dataRoot)
     {
-        Core = CoreServices.Create(dataDirectory);
+        DataRoot = dataRoot;
+        Settings = AppSettings.Load(dataRoot);
+        Core = CoreServices.Create(Settings.CatalogDirectory(dataRoot));
+        Library = Settings.IsViewer ? new LibraryViewer(Core, Settings.LibraryRoot!) : null;
     }
 
+    public string DataRoot { get; }
+    public AppSettings Settings { get; }
     public CoreServices Core { get; }
+
+    /// <summary>The shared library in viewer mode; null when this PC receives the photos itself.</summary>
+    public LibraryViewer? Library { get; }
+
+    public bool IsViewer => Library is not null;
 
     /// <summary>The Android app served to phones, when shipped with this PC.</summary>
     public ApkFile? Apk { get; } = ApkLocator.Find();
@@ -30,6 +44,10 @@ public sealed class AppHost : IAsyncDisposable
 
     public async Task StartAsync()
     {
+        if (IsViewer)
+        {
+            return; // nothing to listen to: the app starts the library once it can show what it finds
+        }
         // Shooting dates and places (map): indexed in the background at startup and after each backup.
         Core.Sessions.Ended += _ => Core.MediaIndexer.RequestRefresh();
         Core.MediaIndexer.RequestRefresh();
@@ -59,6 +77,7 @@ public sealed class AppHost : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         SystemEvents.PowerModeChanged -= OnPowerModeChanged;
+        Library?.Dispose();
         await DisposeServerAsync();
         Core.Dispose();
     }

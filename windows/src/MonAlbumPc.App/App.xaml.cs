@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System.Diagnostics;
+using System.Windows;
 using MonAlbumPc.Core;
 
 namespace MonAlbumPc.App;
@@ -9,6 +10,8 @@ public partial class App : Application
     private AppHost? _host;
     private TrayIcon? _tray;
     private MainWindow? _window;
+    private string[] _arguments = [];
+    private bool _restarting;
 
     /// <summary>Set when the user quits, so the main window really closes instead of hiding.</summary>
     public static bool IsQuitting { get; private set; }
@@ -18,6 +21,7 @@ public partial class App : Application
         base.OnStartup(e);
         Themes.BrandTheme.Apply(this);
         // --data <folder>: separate catalog, for development and tests (one instance per catalog).
+        _arguments = e.Args;
         var dataIndex = Array.IndexOf(e.Args, "--data");
         var customData = dataIndex >= 0 && dataIndex + 1 < e.Args.Length ? e.Args[dataIndex + 1] : null;
         var dataDirectory = customData ?? CoreServices.DefaultDataDirectory;
@@ -31,8 +35,13 @@ public partial class App : Application
         _host = new AppHost(dataDirectory);
         await _host.StartAsync();
 
-        _tray = new TrayIcon(_host, ShowMainWindow, ShowAddPhone, Quit);
+        _tray = new TrayIcon(_host, ShowMainWindow, _host.IsViewer ? null : ShowAddPhone, Quit);
         _host.Core.Sessions.Ended += session => Dispatcher.BeginInvoke(() => _tray?.Announce(session));
+        if (_host.Library is { } library)
+        {
+            library.Notified += notification => Dispatcher.BeginInvoke(() => _tray?.Show(notification));
+            library.Start();
+        }
         if (_host.ServerError is { } error)
         {
             _tray.ShowError("Mon Album PC", error);
@@ -63,14 +72,25 @@ public partial class App : Application
 
     private void Quit()
     {
+        var consequence = _host!.IsViewer
+            ? "Vous ne serez plus prévenu des nouvelles photos tant que Mon Album PC est fermé."
+            : "Les téléphones ne pourront plus envoyer leurs photos tant que Mon Album PC est fermé.";
         var answer = MessageBox.Show(
-            "Les téléphones ne pourront plus envoyer leurs photos tant que Mon Album PC est fermé.\n\nQuitter quand même ?",
+            $"{consequence}\n\nQuitter quand même ?",
             "Quitter Mon Album PC", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
         if (answer == MessageBoxResult.Yes)
         {
             IsQuitting = true;
             Shutdown();
         }
+    }
+
+    /// <summary>Starts again in the mode just saved; the new instance is launched from <see cref="OnExit"/>.</summary>
+    public void Restart()
+    {
+        _restarting = true;
+        IsQuitting = true;
+        Shutdown();
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -82,6 +102,17 @@ public partial class App : Application
             Task.Run(() => host.DisposeAsync().AsTask()).Wait(TimeSpan.FromSeconds(5));
         }
         _instance?.Dispose();
+        if (_restarting)
+        {
+            // After releasing the single-instance lock, or the new process would only wake this one up. The window of a
+            // restart is wanted, even for an app started minimized.
+            var start = new ProcessStartInfo(Environment.ProcessPath!);
+            foreach (var argument in _arguments.Where(a => a != Autostart.MinimizedArgument))
+            {
+                start.ArgumentList.Add(argument);
+            }
+            Process.Start(start);
+        }
         base.OnExit(e);
     }
 }
