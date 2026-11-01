@@ -170,6 +170,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
         val queue = recognizeSaved(api, pc.authorization, pending)
         if (queue.isEmpty()) {
             prefs.setIssue(BackupIssue.NONE, System.currentTimeMillis())
+            reportFinished(pc, api)
             return Result.success()
         }
 
@@ -191,7 +192,9 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
             }
             try {
                 val outcome = processQueue(pc, api, connection.status, queue)
-                finish(pc, outcome)
+                val result = finish(pc, outcome)
+                if (outcome == RunOutcome.Completed || outcome is RunOutcome.Stop) reportFinished(pc, api)
+                result
             } finally {
                 ticker.cancel()
             }
@@ -306,6 +309,20 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
                 forgetPc()
                 Result.success()
             }
+        }
+    }
+
+    /** Lets the server close its session at once and know whether this phone is up to date. Optional: failures are ignored. */
+    private suspend fun reportFinished(pc: PairedPc, api: PcApi) {
+        try {
+            withTimeoutOrNull(FINISHED_TIMEOUT_MS) {
+                val unsaved = dao.unsavedNewestFirst().map { it.state }
+                api.backupFinished(pc.authorization, RunReport.of(unsaved))
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Older server or network trouble: the session closes by itself after two quiet minutes.
         }
     }
 
@@ -598,6 +615,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
         private const val MAX_RESTARTS = 3
         private const val PROGRESS_INTERVAL_MS = 1_000L
         private const val DISCOVERY_TIMEOUT_MS = 10_000L
+        private const val FINISHED_TIMEOUT_MS = 15_000L
 
         private const val UPDATE_STEP_TIMEOUT_MS = 30_000L
 

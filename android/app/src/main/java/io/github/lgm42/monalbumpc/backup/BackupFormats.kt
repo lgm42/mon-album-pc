@@ -1,5 +1,7 @@
 package io.github.lgm42.monalbumpc.backup
 
+import io.github.lgm42.monalbumpc.data.media.MediaState
+import io.github.lgm42.monalbumpc.net.BackupFinishedRequest
 import java.io.IOException
 import java.io.InputStream
 import java.security.MessageDigest
@@ -19,6 +21,15 @@ object IsoDates {
 
     fun formatOrNull(epochMillis: Long?, zone: ZoneId = ZoneId.systemDefault()): String? =
         epochMillis?.takeIf { it > 0 }?.let { format(it, zone) }
+}
+
+/** What a run leaves behind, for `POST /backup-finished` (protocol §5.3 bis). */
+object RunReport {
+
+    fun of(unsaved: List<MediaState>): BackupFinishedRequest {
+        val errors = unsaved.count { it == MediaState.ERROR }
+        return BackupFinishedRequest(pending = unsaved.size - errors, errors = errors)
+    }
 }
 
 /** SHA-256 of the original bytes, lowercase hex (protocol §1). */

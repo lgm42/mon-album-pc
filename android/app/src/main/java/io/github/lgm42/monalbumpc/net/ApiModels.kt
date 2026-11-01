@@ -100,6 +100,10 @@ data class UploadResponse(
     val offset: Long? = null,
 )
 
+/** What is left on the phone at the end of a run (protocol §5.3 bis). */
+@Serializable
+data class BackupFinishedRequest(val pending: Int, val errors: Int)
+
 /** Answer to PATCH /uploads/{id}: the new offset, and `saved`/`exists` once complete. */
 @Serializable
 data class OffsetResponse(

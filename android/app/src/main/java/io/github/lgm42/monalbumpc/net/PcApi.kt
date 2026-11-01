@@ -87,6 +87,15 @@ class PcApi(host: String, port: Int, expectedFingerprint: String?) {
         return execute(httpRequest, UploadResponse.serializer(), uploadClient)
     }
 
+    suspend fun backupFinished(authorization: String, request: BackupFinishedRequest) {
+        val body = json.encodeToString(BackupFinishedRequest.serializer(), request).toRequestBody(JSON_TYPE)
+        val httpRequest = newRequest("backup-finished")
+            .header("Authorization", authorization)
+            .post(body)
+            .build()
+        executeRaw(httpRequest)
+    }
+
     /**
      * Sends bytes from [offset]. On `409 offset_mismatch`, throws [ApiError.OffsetMismatch]
      * with the offset expected by the PC (from the `Upload-Offset` header).

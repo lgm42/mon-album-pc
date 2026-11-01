@@ -29,6 +29,15 @@ class BackupLogicTest {
     }
 
     @Test
+    fun `run report separates files left to send from files in error`() {
+        val report = RunReport.of(listOf(MediaState.PENDING, MediaState.ERROR, MediaState.PENDING, MediaState.UPLOADING))
+        assertEquals(3, report.pending)
+        assertEquals(1, report.errors)
+        assertEquals(0, RunReport.of(emptyList()).pending)
+        assertEquals(0, RunReport.of(emptyList()).errors)
+    }
+
+    @Test
     fun `sha256 is lowercase hex`() {
         val hex = Sha256.hex(ByteArrayInputStream("abc".toByteArray()))
         assertEquals("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", hex)
