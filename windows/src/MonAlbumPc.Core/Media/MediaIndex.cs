@@ -21,9 +21,10 @@ public readonly record struct MediaIndexResult(int Read, int Removed)
 /// <summary>
 /// Metadata of every media file found in the album folders (shooting date, GPS position), cached in the <c>media</c>
 /// table so that the map and the viewer do not open each file again. Files are read again only when their size or
-/// modification date changes.
+/// modification date changes. What the album journals of other servers already say is taken from them: opening
+/// thousands of files over a network share is slow.
 /// </summary>
-public sealed class MediaIndex(Database database)
+public sealed class MediaIndex(Database database, AlbumJournals? journals = null)
 {
     private const string WallClock = "yyyy-MM-dd'T'HH:mm:ss";
     private const int BatchSize = 100;
@@ -77,7 +78,8 @@ public sealed class MediaIndex(Database database)
                     file.Refresh();
                     if (file.Exists)
                     {
-                        entries.Add((file, MediaMetadata.Read(file.FullName)));
+                        var relative = Relative(album.DestinationRoot, file.FullName);
+                        entries.Add((file, FromJournals(album.Id, relative, file.Length) ?? MediaMetadata.Read(file.FullName)));
                     }
                 }
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException)
@@ -97,6 +99,19 @@ public sealed class MediaIndex(Database database)
             progress?.Report(new MediaIndexProgress(album.Name, done, toRead.Count));
         }
         return new MediaIndexResult(toRead.Count, removed.Count);
+    }
+
+    /// <summary>What another server journaled about this very file, when that includes its position.</summary>
+    private MediaInfo? FromJournals(Guid albumId, string relativePath, long size)
+    {
+        if (journals?.FindByPath(albumId, relativePath) is not { Latitude: { } latitude, Longitude: { } longitude } entry || entry.Size != size)
+        {
+            return null;
+        }
+        DateTime? taken = DateTime.TryParseExact(entry.TakenAt, WallClock, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+            ? date
+            : null;
+        return new MediaInfo(taken, new GeoPoint(latitude, longitude));
     }
 
     /// <summary>Records a file just placed in an album folder by the import, so it does not need to be read again.</summary>

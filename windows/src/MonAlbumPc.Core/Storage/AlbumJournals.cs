@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using MonAlbumPc.Core.Import;
+using MonAlbumPc.Core.Model;
 
 namespace MonAlbumPc.Core.Storage;
 
@@ -109,6 +110,26 @@ public sealed class AlbumJournals(AlbumStore albums, DeviceStore devices, Guid s
     public bool ContainsNameAndDate(Guid albumId, string name, DateTime takenAt) =>
         Others(albumId).NameDates.Contains(NameDate(name, takenAt));
 
+    /// <summary>
+    /// What another server recorded about this file of the album, or null. <paramref name="relativePath"/> uses '/'
+    /// separators, like the journals. A journal out of reach simply gives null: this only saves opening the file.
+    /// </summary>
+    public JournalEntry? FindByPath(Guid albumId, string relativePath)
+    {
+        try
+        {
+            return Others(albumId).Paths.GetValueOrDefault(relativePath);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The phone a file of the album came from, according to the other servers' journals.</summary>
+    public string? DeviceOf(Album album, string fullPath) =>
+        FindByPath(album.Id, Path.GetRelativePath(album.DestinationRoot, fullPath).Replace('\\', '/'))?.Device;
+
     /// <summary>What the other servers imported into this album, reloaded at most every 30 seconds.</summary>
     private Snapshot Others(Guid albumId)
     {
@@ -207,11 +228,13 @@ public sealed class AlbumJournals(AlbumStore albums, DeviceStore devices, Guid s
         public HashSet<string> Shas { get; } = new(StringComparer.OrdinalIgnoreCase);
         public HashSet<string> NameSizes { get; } = [];
         public HashSet<string> NameDates { get; } = [];
+        public Dictionary<string, JournalEntry> Paths { get; } = new(StringComparer.OrdinalIgnoreCase);
 
         public void Add(JournalEntry entry)
         {
             Shas.Add(entry.Sha256);
             NameSizes.Add(NameSize(entry.Name, entry.Size));
+            Paths[entry.Path] = entry;
             if (entry.TakenAt is not null)
             {
                 NameDates.Add($"{entry.Name.ToLowerInvariant()}|{entry.TakenAt}");

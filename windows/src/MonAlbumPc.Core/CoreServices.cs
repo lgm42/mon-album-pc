@@ -26,7 +26,7 @@ public sealed class CoreServices : IDisposable
         History = new ImportHistory(Database);
         Journals = new AlbumJournals(Albums, Devices, Identity.PcId, clock);
         History.Journals = Journals;
-        Media = new MediaIndex(Database);
+        Media = new MediaIndex(Database, Journals);
         MediaIndexer = new MediaIndexer(Albums, Media);
         Import = new ImportService(Albums, History, clock, Media);
         Pairing = new PairingService(Albums, Devices, clock);
