@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using MonAlbumPc.Core;
+using MonAlbumPc.Core.Library;
 using MonAlbumPc.Server;
 
 namespace MonAlbumPc.Nas;
@@ -29,6 +30,10 @@ public sealed class NasHost(NasOptions options, ILogger<NasHost> logger) : IHost
         // Shooting places for a future map: indexed in the background, and again after each backup.
         Core.Sessions.Ended += _ => Core.MediaIndexer.RequestRefresh();
         Core.MediaIndexer.RequestRefresh();
+        // What the Windows viewers read: <photos>/.monalbumpc.
+        var publisher = new LibraryPublisher(Core, options.PhotosRoot);
+        publisher.Failed += (what, e) => logger.LogError(e, "Écriture impossible dans la bibliothèque partagée ({What})", what);
+        publisher.Start();
         try
         {
             _server = new MonAlbumServer(Core, new ServerOptions { Apk = Apk });
