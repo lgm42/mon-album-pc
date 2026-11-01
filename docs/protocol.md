@@ -210,6 +210,23 @@ Réponse : `{ "have": [0, 3] }` : positions, dans la requête, des fichiers que 
   volume que la destination.
 - Le téléphone envoie **un fichier à la fois**, du plus récent au plus ancien : les dernières photos sont à l'abri en quelques minutes, même pendant une première sauvegarde de plusieurs milliers de fichiers.
 
+### 5.3 bis `POST /backup-finished`
+
+Le téléphone signale la fin d'un passage qui a envoyé ou vérifié quelque chose (pas le passage horaire qui n'a rien
+trouvé). Le serveur clôt alors la session tout de suite, sans attendre deux minutes de silence, et sait si le téléphone
+est à jour.
+
+Requête : `{ "pending": 0, "errors": 0 }` : nombre de fichiers restant à sauvegarder, et de fichiers en erreur.
+
+Réponse : `204`, y compris s'il n'y avait aucune session à clore.
+
+- `pending == 0 && errors == 0` : la session est marquée **complète**. S'il n'y en avait pas d'ouverte, une session
+  complète de 0 photo est enregistrée : c'est elle qui permet d'annoncer « … a été entièrement synchronisé ».
+- Sinon, la session ouverte est close sans être complète. S'il n'y en a pas, rien n'est enregistré.
+- L'appel est **facultatif et sans conséquence** pour le téléphone : un échec est ignoré. Un téléphone plus ancien ne
+  l'envoie jamais (ses sessions se closent au bout de deux minutes de silence, sans être complètes), et un serveur plus
+  ancien répond `404`.
+
 ### 5.4 `DELETE /pairing`
 
 C'est la corbeille de l'app Android. Le PC supprime le téléphone de l'album, mais garde son historique

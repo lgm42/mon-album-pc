@@ -44,6 +44,12 @@ internal static class ApiEndpoints
         device.MapPost("/uploads", (HttpContext http, UploadRequest request) => BeginUpload(core, Current(http), request));
         device.MapMethods("/uploads/{id}", ["HEAD"], (HttpContext http, string id) => UploadOffset(core, http, Current(http), id));
         device.MapPatch("/uploads/{id}", (HttpContext http, string id) => AppendUpload(core, http, Current(http), id));
+        device.MapPost("/backup-finished", (HttpContext http, BackupFinishedRequest request) =>
+        {
+            var phone = Current(http);
+            core.Sessions.RecordFinished(phone.Id, phone.AlbumId, ImportChannel.Wifi, complete: request is { Pending: 0, Errors: 0 });
+            return Results.NoContent();
+        });
         device.MapDelete("/pairing", (HttpContext http) =>
         {
             core.Devices.Revoke(Current(http).Id, core.Clock.GetLocalNow());

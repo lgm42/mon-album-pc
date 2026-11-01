@@ -46,6 +46,9 @@ public sealed record UploadResponse(string Status, string? UploadId = null, long
 
 public sealed record OffsetResponse(long Offset, string? Status = null);
 
+/// <summary>What is left on the phone at the end of its run.</summary>
+public sealed record BackupFinishedRequest(int Pending, int Errors);
+
 public sealed record ErrorBody(ErrorDetail Error);
 
 public sealed record ErrorDetail(string Code, string Message);

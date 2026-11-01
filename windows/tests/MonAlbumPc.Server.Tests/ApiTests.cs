@@ -70,6 +70,61 @@ public sealed class ApiTests
     }
 
     [Fact]
+    public async Task A_phone_with_nothing_left_closes_its_session_as_complete()
+    {
+        await using var fixture = await ServerFixture.StartAsync();
+        var (api, pairing) = await fixture.PairAsync();
+        var ended = new List<Core.Storage.BackupSession>();
+        fixture.Core.Sessions.Ended += ended.Add;
+        var photo = TestImages.Jpeg("2024:05:12 10:30:15");
+        var declared = await Declare(api, Hashing.Sha256(photo), photo.Length, "IMG_1.jpg");
+        await Patch(api, declared.UploadId!, 0, photo);
+
+        var response = await api.PostAsJsonAsync("backup-finished", new BackupFinishedRequest(0, 0));
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        var session = Assert.Single(ended);
+        Assert.True(session.Complete);
+        Assert.Equal(1, session.Photos);
+        Assert.Equal(pairing.DeviceId, session.DeviceId);
+        Assert.Empty(fixture.Core.Sessions.Active);
+    }
+
+    [Theory]
+    [InlineData(3, 0)]
+    [InlineData(0, 1)]
+    public async Task A_phone_with_work_left_is_not_complete(int pending, int errors)
+    {
+        await using var fixture = await ServerFixture.StartAsync();
+        var (api, _) = await fixture.PairAsync();
+        var ended = new List<Core.Storage.BackupSession>();
+        fixture.Core.Sessions.Ended += ended.Add;
+        var photo = TestImages.Jpeg("2024:05:12 10:30:15");
+        var declared = await Declare(api, Hashing.Sha256(photo), photo.Length, "IMG_1.jpg");
+        await Patch(api, declared.UploadId!, 0, photo);
+
+        var response = await api.PostAsJsonAsync("backup-finished", new BackupFinishedRequest(pending, errors));
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.False(Assert.Single(ended).Complete);
+    }
+
+    [Fact]
+    public async Task An_unknown_phone_cannot_say_it_finished()
+    {
+        await using var fixture = await ServerFixture.StartAsync();
+        using var stranger = fixture.Api(Guid.NewGuid().ToString(), "nope");
+        using var anonymous = fixture.Api();
+
+        var forged = await stranger.PostAsJsonAsync("backup-finished", new BackupFinishedRequest(0, 0));
+        var unauthenticated = await anonymous.PostAsJsonAsync("backup-finished", new BackupFinishedRequest(0, 0));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, forged.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, unauthenticated.StatusCode);
+        Assert.Empty(fixture.Core.SessionHistory.List());
+    }
+
+    [Fact]
     public async Task Unknown_or_unpaired_phones_are_rejected()
     {
         await using var fixture = await ServerFixture.StartAsync();
