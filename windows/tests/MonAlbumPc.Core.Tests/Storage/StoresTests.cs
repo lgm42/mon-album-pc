@@ -36,6 +36,35 @@ public sealed class StoresTests : IDisposable
     }
 
     [Fact]
+    public void Albums_tell_when_they_change()
+    {
+        var changes = 0;
+        _albums.Changed += () => changes++;
+        var album = NewAlbum("Marie");
+
+        _albums.Add(album);
+        Assert.Equal(1, changes);
+        _albums.Update(album with { Name = "Marie D." });
+        Assert.Equal(2, changes);
+        _albums.Delete(album.Id);
+        Assert.Equal(3, changes);
+    }
+
+    [Fact]
+    public void A_refused_deletion_changes_nothing()
+    {
+        var album = NewAlbum("Marie");
+        _albums.Add(album);
+        _devices.Add(NewDevice(album.Id));
+        var changes = 0;
+        _albums.Changed += () => changes++;
+
+        Assert.Throws<InvalidOperationException>(() => _albums.Delete(album.Id));
+
+        Assert.Equal(0, changes);
+    }
+
+    [Fact]
     public void Migrations_are_idempotent()
     {
         _albums.Add(NewAlbum("Marie"));

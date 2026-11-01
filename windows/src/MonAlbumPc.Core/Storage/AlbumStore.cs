@@ -6,6 +6,9 @@ public sealed class AlbumStore(Database database)
 {
     private const string Columns = "id, name, destination_root, color, created_at";
 
+    /// <summary>Raised after an album was added, updated or deleted.</summary>
+    public event Action? Changed;
+
     public void Add(Album album)
     {
         using var connection = database.Open();
@@ -13,6 +16,7 @@ public sealed class AlbumStore(Database database)
             $"INSERT INTO albums ({Columns}) VALUES ($id, $name, $root, $color, $created)",
             ("$id", album.Id.ToString()), ("$name", album.Name), ("$root", album.DestinationRoot),
             ("$color", album.Color), ("$created", album.CreatedAt.ToDb()));
+        Changed?.Invoke();
     }
 
     public void Update(Album album)
@@ -21,6 +25,7 @@ public sealed class AlbumStore(Database database)
         connection.Execute(
             "UPDATE albums SET name = $name, destination_root = $root, color = $color WHERE id = $id",
             ("$id", album.Id.ToString()), ("$name", album.Name), ("$root", album.DestinationRoot), ("$color", album.Color));
+        Changed?.Invoke();
     }
 
     /// <summary>Deletes an album. Refused while active devices are still paired with it.</summary>
@@ -39,6 +44,7 @@ public sealed class AlbumStore(Database database)
         connection.Execute("DELETE FROM media WHERE album_id = $id", ("$id", id.ToString()));
         connection.Execute("DELETE FROM albums WHERE id = $id", ("$id", id.ToString()));
         transaction.Commit();
+        Changed?.Invoke();
     }
 
     public Album? Get(Guid id)
