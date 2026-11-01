@@ -2,6 +2,7 @@ using System.Windows.Controls;
 using System.Windows.Media.Imaging;
 using H.NotifyIcon;
 using H.NotifyIcon.Core;
+using MonAlbumPc.Core.Library;
 using MonAlbumPc.Core.Storage;
 
 namespace MonAlbumPc.App;
@@ -55,6 +56,11 @@ internal sealed class TrayIcon : IDisposable
         if (session.HasError)
         {
             ShowError($"Sauvegarde de {phone} interrompue", session.ErrorMessage ?? "");
+            return;
+        }
+        if (session.Complete)
+        {
+            ShowInfo(ActivityNotifications.CompleteTitle(phone), ActivityNotifications.Detail(session.Photos, session.Videos, album));
             return;
         }
         var parts = new List<string>();

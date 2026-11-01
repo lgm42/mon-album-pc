@@ -40,13 +40,13 @@ public sealed class HistoryViewModel(CoreServices core)
         var phone = core.Devices.Get(s.DeviceId)?.Name ?? "Téléphone dissocié";
         var album = core.Albums.Get(s.AlbumId)?.Name;
         var summary = Summary(s.Photos, s.Videos);
-        var (title, hint) = s.HasError ? Describe(s.ErrorCode!) : (summary, null);
+        var (title, hint) = s.HasError ? Describe(s.ErrorCode!) : (s is { Complete: true, Photos: 0, Videos: 0 } ? "Aucun nouveau fichier" : summary, null);
         return new SessionRow(
             s.StartedAt.LocalDateTime.ToString("HH:mm", French),
             phone,
             album is null ? "Album supprimé" : $"Album {album}",
             title,
-            s.HasError ? (s.Photos + s.Videos > 0 ? $"{summary} reçus avant l'arrêt. {s.ErrorMessage}" : s.ErrorMessage) : null,
+            s.HasError ? (s.Photos + s.Videos > 0 ? $"{summary} reçus avant l'arrêt. {s.ErrorMessage}" : s.ErrorMessage) : s.Complete ? "Téléphone entièrement synchronisé" : null,
             hint,
             s.Channel == ImportChannel.Usb ? "USB" : "Wi-Fi",
             s.Channel == ImportChannel.Usb ? "" : "",
