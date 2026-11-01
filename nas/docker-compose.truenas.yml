@@ -13,5 +13,5 @@ services:
       # MONALBUMPC_ADMIN_PASSWORD: "…"       # optional, otherwise chosen at the first visit
       TZ: "Europe/Paris"
     volumes:
-      - /mnt/tank/apps/monalbumpc:/config    # catalog, certificate (keep it: phones pin it)
-      - /mnt/tank/photos:/photos             # album folders are created under this dataset
+      - /mnt/main/data/apps/monalbumpc:/config            # catalog, certificate (keep it: phones pin it)
+      - /mnt/main/data/donnees/Photos/Telephones:/photos  # the library: one folder per album, shared over SMB
