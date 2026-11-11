@@ -1,0 +1,375 @@
+<!-- This is a Kanban Board file created with MD Kanban extension -->
+<!-- GitHub: https://github.com/jebakumarj/md-kanban -->
+<!-- VS Code Extension: Search "MD Kanban" in the extension store (ID: jeddak.md-kanban) -->
+
+# Mon Album PC
+
+## Backlog
+
+#### Installeur Windows construit par GitHub Actions
+<!-- id: task-1794400000000-1 -->
+Installeur et mises à jour (Velopack), embarquant l'APK Android. Construit et publié par la CI.
+Tags: `windows` `ci`
+<!-- workload: hard -->
+<!-- assignee: Claude -->
+
+#### Proposer l'app au catalogue officiel truenas/apps
+<!-- id: task-1794400000000-2 -->
+Pull request vers le train community de github.com/truenas/apps, une fois l'app stable. Demande des versions numérotées de l'image plutôt que le tag develop.
+Tags: `nas`
+<!-- priority: low -->
+<!-- workload: hard -->
+<!-- assignee: Claude -->
+
+#### Import USB (MTP / WPD) avec manifeste et accusés
+<!-- id: task-1794400000000-3 -->
+Le téléphone en mode partage de fichiers, sans doublon avec la sauvegarde Wi-Fi.
+- [ ] Windows : lecture MTP / WPD et import
+- [ ] Android : manifeste USB et lecture des accusés
+Tags: `windows` `android`
+<!-- priority: low -->
+<!-- workload: extreme -->
+<!-- assignee: Claude -->
+
+#### Diagnostic réseau et règles pare-feu
+<!-- id: task-1794400000000-4 -->
+Tags: `windows`
+<!-- priority: low -->
+<!-- assignee: Claude -->
+
+#### Ajouter un dossier à sauvegarder (sélecteur SAF)
+<!-- id: task-1794400000000-5 -->
+Tags: `android`
+<!-- assignee: Claude -->
+
+#### Écran « Téléphone dissocié »
+<!-- id: task-1794400000000-6 -->
+Ce que voit le téléphone quand le serveur l'a dissocié.
+Tags: `android`
+<!-- workload: easy -->
+<!-- assignee: Claude -->
+
+#### Navigation compacte sous 1280 px
+<!-- id: task-1794400000000-7 -->
+Tags: `windows`
+<!-- priority: low -->
+<!-- assignee: Claude -->
+
+#### Partager une photo avec Windows
+<!-- id: task-1794400000000-8 -->
+Tags: `windows`
+<!-- priority: low -->
+<!-- workload: easy -->
+<!-- assignee: Claude -->
+
+#### Lire les vidéos HEVC
+<!-- id: task-1794400000000-9 -->
+Tags: `windows`
+<!-- assignee: Claude -->
+
+#### Annuler une suppression
+<!-- id: task-1794400000000-10 -->
+Remet la photo en place depuis la corbeille de l'album ou la Corbeille Windows. Remplace la corbeille de la visionneuse web du NAS, retirée.
+Tags: `windows`
+<!-- assignee: Claude -->
+
+#### Vérifier le thème sombre
+<!-- id: task-1794400000000-11 -->
+Tags: `windows`
+<!-- priority: low -->
+<!-- workload: easy -->
+<!-- assignee: Claude -->
+
+#### Garder la session d'administration du NAS après un redémarrage
+<!-- id: task-1794400000000-12 -->
+À vérifier : les clés de chiffrement des cookies ne sont sans doute pas conservées dans /config, ce qui obligerait à se reconnecter après chaque redémarrage du conteneur.
+Tags: `nas`
+<!-- priority: low -->
+<!-- workload: easy -->
+<!-- assignee: Claude -->
+
+## TODO
+
+#### Mettre la clé de release Android en lieu sûr
+<!-- id: task-1794400000000-20 -->
+Sans cette clé, plus aucune mise à jour de l'app ne pourra s'installer sur les téléphones. Fichiers dans Documents\MonAlbumPC.
+- [ ] Copier release.keystore en lieu sûr (clé USB, et pas seulement le NAS)
+- [ ] Ranger son mot de passe dans Vaultwarden
+- [ ] Ensuite seulement, supprimer les deux fichiers .txt des secrets
+Tags: `android`
+<!-- priority: high -->
+<!-- workload: easy -->
+<!-- assignee: Nicolas -->
+
+#### Réglages Xiaomi du téléphone
+<!-- id: task-1794400000000-21 -->
+Pour que la sauvegarde reparte seule, sans ouvrir l'app.
+- [ ] Réglages de l'app › Démarrage automatique activé
+- [ ] Économiseur de batterie › Pas de restrictions
+- [ ] Dans l'app, carte « La sauvegarde automatique est bridée » › Autoriser
+Tags: `android`
+<!-- workload: easy -->
+<!-- assignee: Nicolas -->
+
+#### Vérifier le déploiement NAS
+<!-- id: task-1794400000000-22 -->
+Après l'installation : journaux du conteneur, droits des fichiers écrits, reconnaissance des photos sans renvoi, notification reçue par la visionneuse.
+Tags: `nas`
+<!-- priority: high -->
+<!-- assignee: Claude -->
+
+#### Miniatures générées par le NAS dans la bibliothèque
+<!-- id: task-1794400000000-23 -->
+Étape 4 du plan : le NAS prépare les miniatures, la visionneuse Windows les lit au lieu d'ouvrir chaque photo à travers le réseau.
+Tags: `nas` `windows`
+<!-- workload: hard -->
+<!-- assignee: Claude -->
+
+### Ménage après les tests
+
+#### Dissocier le faux téléphone « A35 de test »
+<!-- id: task-1794400000000-24 -->
+App Windows › Albums et téléphones.
+Tags: `windows`
+<!-- priority: low -->
+<!-- workload: easy -->
+<!-- assignee: Nicolas -->
+
+#### Supprimer le dossier Pictures\Test Claude
+<!-- id: task-1794400000000-25 -->
+S'il existe encore (vide).
+Tags: `windows`
+<!-- priority: low -->
+<!-- workload: easy -->
+<!-- assignee: Nicolas -->
+
+#### Garder ou supprimer les outils Android de Claude
+<!-- id: task-1794400000000-26 -->
+Gradle et SDK Android (quelques Go) dans le dossier temporaire de session de Claude. Les garder permet à Claude de vérifier le code Android avant de pousser.
+<!-- priority: low -->
+<!-- workload: easy -->
+<!-- assignee: Nicolas -->
+
+## DOING
+
+### Déploiement TrueNAS
+
+#### 1. Créer le dataset de configuration
+<!-- id: task-1794400000000-30 -->
+Datasets › data (sous main) › Add Dataset. Nom monalbumpc, préréglage Generic. Ne pas toucher aux droits : il hérite de ceux de main/data.
+Tags: `nas`
+<!-- priority: high -->
+<!-- workload: easy -->
+<!-- assignee: Nicolas -->
+
+#### 2. Installer l'app via YAML
+<!-- id: task-1794400000000-31 -->
+Apps › Discover Apps › ⋮ › Install via YAML. Nom monalbumpc, contenu de nas/docker-compose.truenas.yml. Attendre l'état Running.
+Tags: `nas`
+<!-- priority: high -->
+<!-- workload: easy -->
+<!-- assignee: Nicolas -->
+
+#### 3. Administration web et album
+<!-- id: task-1794400000000-32 -->
+- [ ] Ouvrir https://adresse-du-nas:48622 et accepter le certificat auto-signé
+- [ ] Choisir le mot de passe administrateur (le ranger dans Vaultwarden)
+- [ ] Créer l'album Nicolas sur le dossier existant Nico
+- [ ] Depuis le PC, ouvrir Telephones\.monalbumpc\library.json sur le partage donnees
+Tags: `nas`
+<!-- priority: high -->
+<!-- workload: easy -->
+<!-- assignee: Nicolas -->
+
+#### 4. Basculer le téléphone vers le NAS
+<!-- id: task-1794400000000-33 -->
+Seulement quand la sauvegarde du téléphone est terminée. Rien ne doit être renvoyé : le NAS lit le journal du PC. S'il envoie des milliers de photos, arrêter et prévenir Claude.
+- [ ] App Android › Réglages › corbeille : dissocier le PC
+- [ ] Administration du NAS › Ajouter un téléphone, scanner le QR code
+- [ ] Le téléphone se dit à jour
+Tags: `nas` `android`
+<!-- priority: high -->
+<!-- workload: easy -->
+<!-- assignee: Nicolas -->
+
+#### 5. Passer l'app Windows en Visionneuse
+<!-- id: task-1794400000000-34 -->
+Réglages › Bibliothèque › Utiliser une bibliothèque sur le NAS… Choisir le chemin réseau complet du dossier Telephones sur le partage donnees, pas le lecteur Y:.
+Tags: `windows`
+<!-- priority: high -->
+<!-- workload: easy -->
+<!-- assignee: Nicolas -->
+
+#### 6. Tester la notification
+<!-- id: task-1794400000000-35 -->
+Prendre une photo : moins de 3 minutes plus tard, Windows annonce que le téléphone est entièrement synchronisé.
+Tags: `windows`
+<!-- priority: high -->
+<!-- workload: easy -->
+<!-- assignee: Nicolas -->
+
+#### 7. Redémarrer Backrest
+<!-- id: task-1794400000000-36 -->
+Pour qu'il sauvegarde le nouveau dataset : il contient le certificat mémorisé par les téléphones.
+Tags: `nas`
+<!-- workload: easy -->
+<!-- assignee: Nicolas -->
+
+#### 8. Données mobiles via VPN
+<!-- id: task-1794400000000-37 -->
+Facultatif : dans l'app Android, activer « Autoriser les données mobiles » pour sauvegarder en 4G/5G à travers WireGuard.
+Tags: `android`
+<!-- priority: low -->
+<!-- workload: easy -->
+<!-- assignee: Nicolas -->
+
+## DONE
+
+#### Suivi du projet dans ce tableau
+<!-- id: task-1794400000000-40 -->
+Remplace le tableau Trello et le TODO.md personnel (11/11/2026).
+<!-- assignee: Claude -->
+
+#### Bibliothèque partagée et mode Visionneuse avec notifications
+<!-- id: task-1794400000000-41 -->
+library.json, fil d'activité, fin de sauvegarde signalée par le téléphone, visionneuse web du NAS retirée. Build 13, CI verte.
+Tags: `windows` `nas` `android`
+<!-- assignee: Claude -->
+
+#### Corbeille d'album sur dossier réseau
+<!-- id: task-1794400000000-42 -->
+Tags: `windows`
+<!-- assignee: Claude -->
+
+#### Secrets de la clé de release dans GitHub
+<!-- id: task-1794400000000-43 -->
+Tags: `ci`
+<!-- assignee: Nicolas -->
+
+#### Mise à jour de l'app Android depuis le serveur
+<!-- id: task-1794400000000-44 -->
+Tags: `android`
+<!-- assignee: Claude -->
+
+#### Build Android release signé et optimisé (14,5 Mo)
+<!-- id: task-1794400000000-45 -->
+Tags: `android`
+<!-- assignee: Claude -->
+
+#### Icône Gemini exportée (adaptive icon, .ico, zone de notification)
+<!-- id: task-1794400000000-46 -->
+Tags: `windows` `android`
+<!-- assignee: Claude -->
+
+#### Brief Claude Design de l'app Windows
+<!-- id: task-1794400000000-47 -->
+Tags: `windows`
+<!-- assignee: Claude -->
+
+#### Brief Claude Design de l'app Android
+<!-- id: task-1794400000000-48 -->
+Palette remplacée par celle de l'icône Gemini (docs/design/palette.md).
+Tags: `android`
+<!-- assignee: Claude -->
+
+#### Nouvel essai quand le serveur ne répond pas (veille)
+<!-- id: task-1794400000000-49 -->
+Tags: `android`
+<!-- assignee: Claude -->
+
+#### Option « Autoriser les données mobiles » (VPN)
+<!-- id: task-1794400000000-50 -->
+Tags: `android`
+<!-- assignee: Claude -->
+
+#### Serveur NAS Docker et administration web (Blazor)
+<!-- id: task-1794400000000-51 -->
+Tags: `nas`
+<!-- assignee: Claude -->
+
+#### Indexation du dossier de destination existant
+<!-- id: task-1794400000000-52 -->
+Tags: `windows`
+<!-- assignee: Claude -->
+
+#### Visionneuse Windows (grille virtualisée, plein écran, vidéo, rotation)
+<!-- id: task-1794400000000-53 -->
+Tags: `windows`
+<!-- assignee: Claude -->
+
+#### Historique des sessions et notifications Windows
+<!-- id: task-1794400000000-54 -->
+Tags: `windows`
+<!-- assignee: Claude -->
+
+#### App de la zone de notification et fenêtre principale
+<!-- id: task-1794400000000-55 -->
+Tags: `windows`
+<!-- assignee: Claude -->
+
+#### Serveur HTTPS protocole v1 et page de téléchargement de l'APK
+<!-- id: task-1794400000000-56 -->
+Tags: `windows`
+<!-- assignee: Claude -->
+
+#### Association par QR code ou code à 6 chiffres, certificat épinglé
+<!-- id: task-1794400000000-57 -->
+Tags: `windows` `android`
+<!-- assignee: Claude -->
+
+#### Découverte mDNS (_monalbumpc._tcp)
+<!-- id: task-1794400000000-58 -->
+Tags: `windows`
+<!-- assignee: Claude -->
+
+#### Catalogue SQLite, dédoublonnage, rangement AAAA/AAAA-MM, conversion HEIC
+<!-- id: task-1794400000000-59 -->
+Tags: `windows`
+<!-- assignee: Claude -->
+
+#### Moteur de sauvegarde Android (MediaStore, WorkManager, envois reprenables)
+<!-- id: task-1794400000000-60 -->
+Tags: `android`
+<!-- assignee: Claude -->
+
+#### Galerie Android avec badges d'état
+<!-- id: task-1794400000000-61 -->
+Tags: `android`
+<!-- assignee: Claude -->
+
+#### Écran Dossiers Android (albums MediaStore)
+<!-- id: task-1794400000000-62 -->
+Tags: `android`
+<!-- assignee: Claude -->
+
+#### Squelette Compose : thème, police Nunito, navigation à 3 onglets
+<!-- id: task-1794400000000-63 -->
+Tags: `android`
+<!-- assignee: Claude -->
+
+#### CI GitHub Actions : Windows, Android, image NAS
+<!-- id: task-1794400000000-64 -->
+Tags: `ci`
+<!-- assignee: Claude -->
+
+#### Protocole v1 rédigé (docs/protocol.md)
+<!-- id: task-1794400000000-65 -->
+Découverte mDNS, association QR code, TLS épinglé, transfert reprenable, hash.
+<!-- assignee: Claude -->
+
+#### Dédoublonnage et historique d'import
+<!-- id: task-1794400000000-66 -->
+Historique par téléphone, hash de contenu, indexation de la destination existante, verrou USB/Wi-Fi.
+<!-- assignee: Claude -->
+
+#### Cahier des charges (docs/cdc.md)
+<!-- id: task-1794400000000-67 -->
+<!-- assignee: Claude -->
+
+#### Questions de cadrage
+<!-- id: task-1794400000000-68 -->
+<!-- assignee: Nicolas -->
+
+#### Dépôt GitHub public lgm42/mon-album-pc
+<!-- id: task-1794400000000-69 -->
+<!-- assignee: Nicolas -->
