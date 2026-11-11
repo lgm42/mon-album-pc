@@ -7,12 +7,12 @@ bibliothèque à travers le partage réseau.
 
 ## Installer sur TrueNAS SCALE 24.10 ou plus récent
 
-1. **Préparer la configuration** : créez le dataset `main/data/apps/monalbumpc` (Datasets › Add Dataset, préréglage
-   *Generic*), puis donnez-le à l'utilisateur **`apps` (568)** : Edit Permissions › Owner et Group `apps`. Il contient
-   le catalogue et le certificat du serveur.
+1. **Préparer la configuration** : créez le dataset `main/data/monalbumpc` (Datasets › Add Dataset, préréglage
+   *Generic*). L'utilisateur **`apps` (568)** doit pouvoir y écrire : c'est déjà le cas s'il hérite d'une ACL qui le
+   lui permet, sinon Edit Permissions › Owner et Group `apps`. Il contient le catalogue et le certificat du serveur.
 2. **Préparer la bibliothèque** : c'est le dossier `/mnt/main/data/donnees/Photos/Telephones`, avec un sous-dossier par
    personne (`Nico`, `Marie`…), partagé en SMB avec le reste de `donnees`. Dans l'ACL du dataset (Edit Permissions),
-   donnez le droit **Modify, avec héritage** (flags *Inherit*) :
+   vérifiez ou donnez le droit **Modify, avec héritage** (flags *Inherit*) :
    - à l'utilisateur **`apps` (568)**, qui écrit les photos ;
    - à votre utilisateur ou groupe SMB, qui les lit, les pivote et les supprime depuis Windows.
 
