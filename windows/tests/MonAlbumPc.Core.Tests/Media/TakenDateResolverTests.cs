@@ -69,4 +69,15 @@ public sealed class TakenDateResolverTests : IDisposable
         var path = _temp.WriteFile("broken.jpg", [1, 2, 3]);
         Assert.Equal(TakenDateSource.FileDate, TakenDateResolver.Resolve(path, "broken.jpg", null, FileDate).Source);
     }
+
+    [Fact]
+    public void A_video_whose_atom_size_overflows_falls_back_without_throwing()
+    {
+        // Some WhatsApp videos: an atom announcing an impossible 64-bit size makes the reader overflow.
+        byte[] atom = [0, 0, 0, 1, .."ftyp"u8, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, .."isom"u8, .. new byte[16]];
+        var path = _temp.WriteFile("video.mp4", atom);
+
+        Assert.Equal(TakenDateSource.FileDate, TakenDateResolver.Resolve(path, "video.mp4", null, FileDate).Source);
+        Assert.Null(MediaMetadata.Read(path).Location);
+    }
 }

@@ -43,7 +43,8 @@ public static partial class TakenDateResolver
         {
             directories = ImageMetadataReader.ReadMetadata(path);
         }
-        catch (Exception e) when (e is ImageProcessingException or IOException)
+        // A malformed file makes the reader fail in many ways (an overflow for some WhatsApp videos): it just has no date.
+        catch (Exception e) when (MediaMetadata.IsUnreadable(e))
         {
             return null;
         }

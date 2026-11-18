@@ -40,6 +40,11 @@ public static partial class MediaMetadata
 {
     private static readonly byte[] XyzAtom = [0xA9, (byte)'x', (byte)'y', (byte)'z'];
 
+    /// <summary>Errors of the metadata reader on a missing, locked or malformed file, which then simply has no metadata.</summary>
+    internal static bool IsUnreadable(Exception e) =>
+        e is ImageProcessingException or IOException or UnauthorizedAccessException
+            or ArithmeticException or ArgumentException or IndexOutOfRangeException or InvalidOperationException;
+
     public static MediaInfo Read(string path)
     {
         IReadOnlyList<MetadataExtractor.Directory> directories;
@@ -47,7 +52,7 @@ public static partial class MediaMetadata
         {
             directories = ImageMetadataReader.ReadMetadata(path);
         }
-        catch (Exception e) when (e is ImageProcessingException or IOException or UnauthorizedAccessException)
+        catch (Exception e) when (IsUnreadable(e))
         {
             directories = [];
         }
