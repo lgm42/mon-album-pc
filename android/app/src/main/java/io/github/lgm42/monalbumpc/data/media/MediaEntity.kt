@@ -1,5 +1,6 @@
 package io.github.lgm42.monalbumpc.data.media
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -24,6 +25,12 @@ data class MediaEntity(
     val errorReason: String?,
     val uploadId: String?,
     val savedAt: Long?,
+    /** Failed attempts in a row, for the delay before the next one (see RetryPolicy). */
+    @ColumnInfo(defaultValue = "0") val failures: Int = 0,
+    /** A failed file is left out of the runs until then. */
+    val retryAfter: Long? = null,
+    /** What the PC said when it refused the file, shown as is. */
+    val errorMessage: String? = null,
 )
 
 /** Date used to sort: when the photo was taken, else when the file was modified. */

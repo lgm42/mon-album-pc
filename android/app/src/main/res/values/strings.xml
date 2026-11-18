@@ -106,10 +106,25 @@
     <string name="status_disk_full_title">Le disque du PC est plein</string>
     <string name="status_disk_full_detail">les photos attendront qu\'il y ait de la place</string>
     <plurals name="status_errors_title">
-        <item quantity="one">%d élément n\'a pas pu être sauvegardé</item>
-        <item quantity="other">%d éléments n\'ont pas pu être sauvegardés</item>
+        <item quantity="one">%d fichier en échec</item>
+        <item quantity="other">%d fichiers en échec</item>
     </plurals>
     <string name="status_errors_detail">nouvel essai automatique</string>
+    <string name="status_errors_retry_at">nouvel essai vers %1$s</string>
+    <string name="status_errors_retry_later">nouvel essai plus tard</string>
+    <string name="status_errors_refused">%1$s a refusé %2$s : %3$s</string>
+    <string name="status_searching_title">Recherche de %1$s…</string>
+    <string name="status_comparing_title">Comparaison avec %1$s…</string>
+    <string name="status_preparing_title">Préparation %1$d / %2$d</string>
+    <string name="status_sending_title">Envoi %1$d / %2$d</string>
+    <string name="status_unreachable_detail">essayé %1$s</string>
+    <string name="status_ok_checked_today">vérifié à %1$s</string>
+    <string name="status_ok_checked_yesterday">vérifié hier à %1$s</string>
+    <string name="status_ok_checked_day">vérifié le %1$s</string>
+    <string name="transfer_bytes">%1$s / %2$s</string>
+    <string name="transfer_pace">%1$s/s</string>
+    <string name="transfer_left_seconds">encore %1$d s</string>
+    <string name="transfer_left_minutes">encore %1$d min</string>
     <string name="status_errors_link">Voir</string>
     <string name="status_empty_title">Aucune photo à sauvegarder</string>
     <string name="status_empty_detail">pour l\'instant</string>
@@ -181,6 +196,7 @@
     <string name="error_reason_hash">Le fichier est arrivé abîmé sur le PC, plusieurs fois de suite.</string>
     <string name="error_reason_unreadable">Le téléphone n\'a pas pu lire ce fichier.</string>
     <string name="error_reason_server">Le PC n\'a pas pu enregistrer ce fichier. Nouvel essai automatique plus tard.</string>
+    <string name="error_reason_refused">%1$s a refusé ce fichier : %2$s. Nouvel essai automatique plus tard.</string>
     <string name="viewer_photo">Photo · %1$s</string>
     <string name="viewer_video">Vidéo · %1$s</string>
     <string name="viewer_position">%1$d / %2$d</string>
@@ -246,6 +262,8 @@
     <string name="notif_channel_alerts">Problèmes de sauvegarde</string>
     <string name="notif_progress">Sauvegarde en cours · %1$d / %2$d · %3$s</string>
     <string name="notif_progress_preparing">Préparation de la sauvegarde · %1$s</string>
+    <string name="notif_sending">Envoi %1$d / %2$d · %3$s</string>
+    <string name="notif_preparing_files">Préparation %1$d / %2$d · %3$s</string>
     <plurals name="notif_photos">
         <item quantity="one">%d photo</item>
         <item quantity="other">%d photos</item>

@@ -117,9 +117,15 @@ class BackupLogicTest {
             errors: Int = 0,
             pending: Int = 0,
             tracked: Int = 10,
-        ) = BannerLogic.compute(running, 3, 9, issue, 1000L, errors, pending, tracked, 500L)
+        ) = BannerLogic.compute(
+            running, 3, 9, issue, 1000L, errors, pending, tracked, 500L,
+            activity = RunActivity(BackupPhase.UPLOADING, "IMG_1.jpg", 10, 100),
+        )
 
-        assertEquals(BannerState.Running(3, 9), banner(running = true, issue = BackupIssue.DISK_FULL, pending = 5))
+        assertEquals(
+            BannerState.Running(3, 9, RunActivity(BackupPhase.UPLOADING, "IMG_1.jpg", 10, 100)),
+            banner(running = true, issue = BackupIssue.DISK_FULL, pending = 5),
+        )
         assertEquals(BannerState.DestinationUnavailable, banner(issue = BackupIssue.DESTINATION_UNAVAILABLE, pending = 1))
         assertEquals(BannerState.DiskFull, banner(issue = BackupIssue.DISK_FULL, errors = 1))
         assertEquals(BannerState.PcUnreachable(1000L), banner(issue = BackupIssue.PC_UNREACHABLE, pending = 2))
@@ -129,6 +135,90 @@ class BackupLogicTest {
         assertEquals(BannerState.AllSaved(500L), banner())
         // Nothing waiting: an old issue does not hide "everything is saved".
         assertEquals(BannerState.AllSaved(500L), banner(issue = BackupIssue.PC_UNREACHABLE))
+    }
+
+    @Test
+    fun `a run that has not reached the pc yet shows no progress`() {
+        val banner = BannerLogic.compute(true, 0, 0, BackupIssue.NONE, null, 0, 4, 10, null, activity = null)
+        assertEquals(BannerState.Pending(4), banner)
+        val searching = RunActivity(BackupPhase.SEARCHING)
+        assertEquals(
+            BannerState.Running(0, 0, searching),
+            BannerLogic.compute(true, 0, 0, BackupIssue.NONE, null, 0, 4, 10, null, activity = searching),
+        )
+    }
+
+    @Test
+    fun `banner tells where the pc was looked for, what failed last and when it was checked`() {
+        assertEquals(
+            BannerState.PcUnreachable(1000L, "192.168.1.20:48620"),
+            BannerLogic.compute(false, 0, 0, BackupIssue.PC_UNREACHABLE, 1000L, 0, 2, 10, null, issueDetail = "192.168.1.20:48620"),
+        )
+        val failed = FailedFile("VID.mp4", "server", "Rangement impossible", 5000L)
+        assertEquals(
+            BannerState.Errors(1, failed),
+            BannerLogic.compute(false, 0, 0, BackupIssue.NONE, null, 1, 0, 10, null, latestError = failed),
+        )
+        assertEquals(
+            BannerState.AllSaved(500L, 900L),
+            BannerLogic.compute(false, 0, 0, BackupIssue.NONE, null, 0, 0, 10, 500L, checkedMs = 900L),
+        )
+    }
+
+    @Test
+    fun `the latest error is the one tried last`() {
+        val base = IndexSync.newEntity(media(1))
+        val items = listOf(
+            base.copy(mediaStoreId = 1, displayName = "old.jpg", state = MediaState.ERROR, retryAfter = 100),
+            base.copy(mediaStoreId = 2, displayName = "new.mp4", state = MediaState.ERROR, retryAfter = 900,
+                errorReason = "server", errorMessage = "Rangement impossible"),
+            base.copy(mediaStoreId = 3, displayName = "pending.jpg", retryAfter = 5000),
+        )
+        assertEquals(FailedFile("new.mp4", "server", "Rangement impossible", 900), BannerLogic.latestError(items))
+        assertEquals(null, BannerLogic.latestError(items.take(0)))
+    }
+
+    @Test
+    fun `a file refused by the server waits longer after each failure`() {
+        val now = 1_000_000L
+        val minute = 60_000L
+        assertEquals(now + 15 * minute, RetryPolicy.nextAttemptMs(1, now))
+        assertEquals(now + 60 * minute, RetryPolicy.nextAttemptMs(2, now))
+        assertEquals(now + 4 * 60 * minute, RetryPolicy.nextAttemptMs(3, now))
+        assertEquals(now + 24 * 60 * minute, RetryPolicy.nextAttemptMs(9, now))
+        assertEquals(now + 15 * minute, RetryPolicy.nextAttemptMs(0, now))
+    }
+
+    @Test
+    fun `files waiting for their next attempt are left out of the run, the others keep their order`() {
+        val base = IndexSync.newEntity(media(1))
+        val fresh = base.copy(mediaStoreId = 1)
+        val waiting = base.copy(mediaStoreId = 2, state = MediaState.ERROR, failures = 1, retryAfter = 2_000)
+        val due = base.copy(mediaStoreId = 3, state = MediaState.ERROR, failures = 2, retryAfter = 1_000)
+
+        assertEquals(listOf(1L, 3L), RetryPolicy.due(listOf(fresh, waiting, due), 1_500).map { it.mediaStoreId })
+        assertEquals(listOf(1L, 2L, 3L), RetryPolicy.due(listOf(fresh, waiting, due), 2_000).map { it.mediaStoreId })
+    }
+
+    @Test
+    fun `import failures skip the file, network failures still stop the run`() {
+        assertEquals(FailureAction.SKIP_ITEM, BackupErrors.actionFor(ApiError.ImportFailed("Rangement impossible")))
+        assertEquals(FailureAction.SKIP_ITEM, BackupErrors.actionFor(BackupErrors.forUpload(ApiError.Http(500, null))))
+        assertEquals(FailureAction.SKIP_ITEM, BackupErrors.actionFor(BackupErrors.forUpload(ApiError.Http(500, "internal_error"))))
+        assertEquals(FailureAction.RETRY_LATER, BackupErrors.actionFor(BackupErrors.forUpload(ApiError.Http(503, null))))
+        assertEquals(FailureAction.RETRY_LATER, BackupErrors.actionFor(BackupErrors.forUpload(ApiError.Network("timeout"))))
+        assertEquals(ApiError.DiskFull, BackupErrors.forUpload(ApiError.DiskFull))
+    }
+
+    @Test
+    fun `progress of the file being sent`() {
+        val sending = RunActivity(BackupPhase.UPLOADING, "VID.mp4", 45L shl 20, 120L shl 20, 2L shl 20)
+        assertEquals(0.375f, sending.fileFraction)
+        assertEquals(38L, sending.secondsLeft)
+        assertEquals(null, RunActivity(BackupPhase.UPLOADING, "VID.mp4", 10, 100).secondsLeft)
+        assertEquals(null, RunActivity(BackupPhase.COMPARING).fileFraction)
+        assertEquals(4, BannerState.Running(3, 9, sending).position)
+        assertEquals(9, BannerState.Running(9, 9, sending).position)
     }
 
     @Test

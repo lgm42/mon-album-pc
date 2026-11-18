@@ -215,14 +215,14 @@ class PcApi(host: String, port: Int, expectedFingerprint: String?) {
     }
 
     private fun parseError(status: Int, text: String): ApiError {
-        val code = try {
-            json.decodeFromString(ErrorEnvelope.serializer(), text).error?.code
+        val error = try {
+            json.decodeFromString(ErrorEnvelope.serializer(), text).error
         } catch (e: SerializationException) {
             null
         } catch (e: IllegalArgumentException) {
             null
         }
-        return ApiError.fromCode(status, code?.takeIf { it.isNotEmpty() })
+        return ApiError.fromCode(status, error?.code?.takeIf { it.isNotEmpty() }, error?.message)
     }
 
     companion object {

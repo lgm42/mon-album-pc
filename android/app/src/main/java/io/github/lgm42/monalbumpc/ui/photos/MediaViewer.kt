@@ -309,7 +309,9 @@ private fun stateSentence(item: GalleryItem, pcName: String, progress: BackupPro
     }
     BadgeState.PENDING -> stringResource(R.string.state_pending_body, pcName)
     BadgeState.UPLOADING -> stringResource(R.string.state_uploading_body, pcName, progress.currentPercent)
-    BadgeState.ERROR -> stringResource(
+    BadgeState.ERROR -> if (item.errorReason == ErrorReasons.SERVER && item.errorMessage != null) {
+        stringResource(R.string.error_reason_refused, pcName, item.errorMessage.trimEnd('.'))
+    } else stringResource(
         when (item.errorReason) {
             ErrorReasons.DISK_FULL -> R.string.error_reason_disk_full
             ErrorReasons.DESTINATION_UNAVAILABLE -> R.string.error_reason_destination

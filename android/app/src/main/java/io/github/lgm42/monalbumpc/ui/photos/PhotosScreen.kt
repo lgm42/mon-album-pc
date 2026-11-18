@@ -58,6 +58,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
@@ -72,6 +73,14 @@ import io.github.lgm42.monalbumpc.ui.components.rememberMediaLocationMissing
 import io.github.lgm42.monalbumpc.ui.components.rememberBackgroundUnrestricted
 import io.github.lgm42.monalbumpc.backup.BannerState
 import io.github.lgm42.monalbumpc.backup.Elapsed
+import io.github.lgm42.monalbumpc.backup.FailedFile
+import io.github.lgm42.monalbumpc.backup.TransferText
+import io.github.lgm42.monalbumpc.data.media.ErrorReasons
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import io.github.lgm42.monalbumpc.ui.BackupProgress
 import io.github.lgm42.monalbumpc.ui.MainUiState
 import io.github.lgm42.monalbumpc.ui.UpdateUiState
@@ -304,11 +313,13 @@ private fun StatusBanner(
     val content = if (warning) extended.onWarningContainer else MaterialTheme.colorScheme.onSurface
     val iconTint = if (warning) extended.warningIcon else MaterialTheme.colorScheme.primary
 
+    val context = LocalContext.current
     val (icon: ImageVector, title: String, detail: String?) = when (banner) {
         is BannerState.AllSaved -> Triple(
             Icons.Outlined.CheckCircle,
             stringResource(R.string.status_ok_title),
-            banner.lastBackupMs?.let { stringResource(R.string.status_ok_detail, elapsedAgo(it)) },
+            banner.checkedMs?.let { checkedAt(it) }
+                ?: banner.lastBackupMs?.let { stringResource(R.string.status_ok_detail, elapsedAgo(it)) },
         )
         is BannerState.Pending -> Triple(
             Icons.Outlined.Schedule,
@@ -317,14 +328,14 @@ private fun StatusBanner(
         )
         is BannerState.Running -> Triple(
             Icons.Outlined.CloudUpload,
-            stringResource(R.string.status_running_title),
-            stringResource(R.string.status_running_detail, banner.done, banner.total),
+            TransferText.title(context, banner.done, banner.total, banner.activity, pcName),
+            banner.activity.fileName,
         )
         is BannerState.PcUnreachable -> Triple(
             Icons.Outlined.WarningAmber,
             stringResource(R.string.status_unreachable_title, pcName) +
                 (banner.sinceMs?.let { " " + elapsedSince(it) } ?: ""),
-            null,
+            banner.address?.let { stringResource(R.string.status_unreachable_detail, it) },
         )
         BannerState.DestinationUnavailable -> Triple(
             Icons.Outlined.WarningAmber,
@@ -339,7 +350,7 @@ private fun StatusBanner(
         is BannerState.Errors -> Triple(
             Icons.Outlined.ErrorOutline,
             pluralStringResource(R.plurals.status_errors_title, banner.count, banner.count),
-            stringResource(R.string.status_errors_detail),
+            failureDetail(banner.latest, pcName),
         )
         BannerState.Empty -> Triple(
             Icons.Outlined.Image,
@@ -392,9 +403,34 @@ private fun StatusBanner(
                     Spacer(Modifier.width(8.dp))
                 }
             }
-            if (banner is BannerState.Running) {
+            val fileFraction = (banner as? BannerState.Running)?.activity?.fileFraction
+            if (banner is BannerState.Running && fileFraction != null) {
+                // The file being sent has its own bar: a video takes minutes, the count alone would look stuck.
+                Column(modifier = Modifier.padding(start = 52.dp, end = 16.dp, bottom = 10.dp)) {
+                    LinearProgressIndicator(
+                        progress = { fileFraction },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp)),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.primaryContainer,
+                        gapSize = 0.dp,
+                        drawStopIndicator = {},
+                    )
+                    TransferText.bytes(context, banner.activity)?.let { bytes ->
+                        Text(
+                            text = bytes,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                }
+            }
+            if (banner is BannerState.Running && banner.total > 0) {
                 LinearProgressIndicator(
-                    progress = { if (banner.total > 0) banner.done.toFloat() / banner.total else 0f },
+                    progress = { banner.done.toFloat() / banner.total },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(4.dp),
@@ -550,6 +586,42 @@ private fun EmptyState(filter: GalleryFilter, galleryEmpty: Boolean, onOpenFolde
             }
         }
     }
+}
+
+private val clockFormat = DateTimeFormatter.ofPattern("HH:mm", Locale.FRENCH)
+private val dayFormat = DateTimeFormatter.ofPattern("d MMMM", Locale.FRENCH)
+
+/** "vérifié à 23:25", "vérifié hier à 23:25", "vérifié le 12 novembre". */
+@Composable
+private fun checkedAt(thenMs: Long): String {
+    val zone = ZoneId.systemDefault()
+    val then = Instant.ofEpochMilli(thenMs).atZone(zone)
+    val today = LocalDate.now(zone)
+    return when (then.toLocalDate()) {
+        today -> stringResource(R.string.status_ok_checked_today, clockFormat.format(then))
+        today.minusDays(1) -> stringResource(R.string.status_ok_checked_yesterday, clockFormat.format(then))
+        else -> stringResource(R.string.status_ok_checked_day, dayFormat.format(then))
+    }
+}
+
+/** "NAS a refusé VID-….mp4 : Rangement impossible : … · nouvel essai vers 23:40". */
+@Composable
+private fun failureDetail(latest: FailedFile?, pcName: String): String {
+    val retry = latest?.retryAfterMs?.let { at ->
+        val then = Instant.ofEpochMilli(at).atZone(ZoneId.systemDefault())
+        if (then.toLocalDate() == LocalDate.now(ZoneId.systemDefault())) {
+            stringResource(R.string.status_errors_retry_at, clockFormat.format(then))
+        } else {
+            stringResource(R.string.status_errors_retry_later)
+        }
+    } ?: stringResource(R.string.status_errors_detail)
+    val what = when {
+        latest == null -> null
+        latest.reason == ErrorReasons.SERVER && latest.message != null ->
+            stringResource(R.string.status_errors_refused, pcName, latest.name, latest.message)
+        else -> latest.name
+    }
+    return listOfNotNull(what, retry).joinToString(" · ")
 }
 
 /** "il y a 2 h". */

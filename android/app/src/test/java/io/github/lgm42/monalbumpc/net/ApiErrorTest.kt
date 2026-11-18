@@ -15,6 +15,7 @@ class ApiErrorTest {
         assertEquals(ApiError.OffsetMismatch(null), ApiError.fromCode(409, "offset_mismatch"))
         assertEquals(ApiError.HashMismatch, ApiError.fromCode(422, "hash_mismatch"))
         assertEquals(ApiError.BusyUsb, ApiError.fromCode(409, "busy_usb"))
+        assertEquals(ApiError.ImportFailed("Rangement impossible"), ApiError.fromCode(422, "import_failed", "Rangement impossible"))
     }
 
     @Test

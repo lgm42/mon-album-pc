@@ -69,6 +69,12 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
     @Volatile private var currentId = -1L
     @Volatile private var currentSize = 0L
     private val currentBytes = AtomicLong(0)
+    @Volatile private var phase: BackupPhase? = null
+    @Volatile private var currentName: String? = null
+
+    // Start of the current request, for the pace of the file being sent.
+    @Volatile private var paceSinceMs = 0L
+    @Volatile private var paceSinceBytes = 0L
 
     private var uploadedPhotos = 0
 
@@ -79,7 +85,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
         val name = pairingStore.paired.first()?.pcName.orEmpty()
-        return notifications.progressInfo(0, 0, name)
+        return notifications.progressInfo(0, 0, name, null)
     }
 
     override suspend fun doWork(): Result {
@@ -141,17 +147,59 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
 
         // 1. Local index of the tracked folders.
         syncIndex()
-        val pending = dao.unsavedNewestFirst()
-        if (pending.isEmpty()) {
-            prefs.setIssue(BackupIssue.NONE, System.currentTimeMillis())
+        val unsaved = dao.unsavedNewestFirst()
+        if (unsaved.isEmpty()) {
+            val now = System.currentTimeMillis()
+            prefs.setIssue(BackupIssue.NONE, now)
+            prefs.setLastCheck(now)
             return Result.success()
         }
+        // Files the PC refused wait for their next attempt; nothing else to do means no need to wake the PC.
+        if (RetryPolicy.due(unsaved, System.currentTimeMillis()).isEmpty()) return Result.success()
 
+        return coroutineScope {
+            // Publishes what the run is doing (in-app banner, notification) every second.
+            val ticker = launch {
+                var shown: Any? = null
+                while (isActive) {
+                    publishProgress()
+                    val activity = activity()
+                    val now = Triple(done, total, activity)
+                    // No notification while only looking for the PC: an absent PC would make one pop up at every attempt.
+                    if (activity != null && activity.phase != BackupPhase.SEARCHING && now != shown) {
+                        shown = now
+                        setForegroundSafely(notifications.progressInfo(done, total, paired.pcName, activity))
+                    }
+                    delay(PROGRESS_INTERVAL_MS)
+                }
+            }
+            try {
+                reachAndSend(paired)
+            } finally {
+                ticker.cancel()
+                clearProgress()
+            }
+        }
+    }
+
+    /** The self-update may keep this work running a little longer: it must not show a finished run as still sending. */
+    private suspend fun clearProgress() {
+        phase = null
+        currentName = null
+        try {
+            withContext(NonCancellable) { publishProgress() }
+        } catch (e: Exception) {
+            // Stopped work: nothing left to show anyway.
+        }
+    }
+
+    private suspend fun reachAndSend(paired: PairedPc): Result {
         // 2. Reach the PC.
+        phase = BackupPhase.SEARCHING
         val connection = when (val c = connect(paired)) {
             is Connection.Connected -> c
-            Connection.Unreachable -> {
-                prefs.setIssue(BackupIssue.PC_UNREACHABLE, System.currentTimeMillis())
+            is Connection.Unreachable -> {
+                prefs.setIssue(BackupIssue.PC_UNREACHABLE, System.currentTimeMillis(), c.address)
                 catchUpLater()
                 return Result.success()
             }
@@ -167,38 +215,22 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
 
         // 2 bis. Files never hashed here (e.g. the app was reinstalled): ask by name and size what the PC
         // already has, so thousands of saved photos are recognized at once instead of being hashed one by one.
-        val queue = recognizeSaved(api, pc.authorization, pending)
+        phase = BackupPhase.COMPARING
+        val queue = RetryPolicy.due(recognizeSaved(api, pc.authorization, dao.unsavedNewestFirst()), System.currentTimeMillis())
         if (queue.isEmpty()) {
-            prefs.setIssue(BackupIssue.NONE, System.currentTimeMillis())
+            val now = System.currentTimeMillis()
+            prefs.setIssue(BackupIssue.NONE, now)
+            prefs.setLastCheck(now)
             reportFinished(pc, api)
             return Result.success()
         }
 
         total = queue.size
         done = 0
-        setForegroundSafely(notifications.progressInfo(0, total, pc.pcName))
-
-        return coroutineScope {
-            val ticker = launch {
-                var lastDone = -1
-                while (isActive) {
-                    publishProgress()
-                    if (done != lastDone) {
-                        lastDone = done
-                        setForegroundSafely(notifications.progressInfo(done, total, pc.pcName))
-                    }
-                    delay(PROGRESS_INTERVAL_MS)
-                }
-            }
-            try {
-                val outcome = processQueue(pc, api, connection.status, queue)
-                val result = finish(pc, outcome)
-                if (outcome == RunOutcome.Completed || outcome is RunOutcome.Stop) reportFinished(pc, api)
-                result
-            } finally {
-                ticker.cancel()
-            }
-        }
+        val outcome = processQueue(pc, api, connection.status, queue)
+        val result = finish(pc, outcome)
+        if (outcome == RunOutcome.Completed || outcome is RunOutcome.Stop) reportFinished(pc, api)
+        return result
     }
 
     private suspend fun recognizeSaved(api: PcApi, authorization: String, pending: List<MediaEntity>): List<MediaEntity> {
@@ -228,6 +260,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
         status: StatusResponse,
         queue: List<MediaEntity>,
     ): RunOutcome {
+        var refusedInARow = 0
         for (chunk in queue.chunked(CHUNK_SIZE)) {
             if (isStopped) return RunOutcome.Retry
 
@@ -235,15 +268,23 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
             val hashed = ArrayList<MediaEntity>(chunk.size)
             for (item in chunk) {
                 if (isStopped) return RunOutcome.Retry
-                val withHash = if (item.sha256 != null) item else hash(item)
+                val withHash = if (item.sha256 != null) {
+                    item
+                } else {
+                    phase = BackupPhase.PREPARING
+                    currentName = item.displayName
+                    hash(item)
+                }
                 if (withHash == null) {
                     done++
                 } else {
                     hashed.add(withHash)
                 }
             }
+            currentName = null
 
             // 4. What the PC already has (history, USB imports, destination index).
+            phase = BackupPhase.COMPARING
             val have: Set<String> = if (hashed.isEmpty()) emptySet() else try {
                 api.check(pc.authorization, CheckRequest(hashed.map { CheckItem(it.sha256!!, it.size) })).have.toSet()
             } catch (e: ApiException) {
@@ -265,7 +306,15 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
                 if (item.sha256 in have) continue
                 if (isStopped) return RunOutcome.Retry
                 when (val result = upload(pc, api, item)) {
-                    ItemResult.Saved, ItemResult.Failed, ItemResult.Skipped -> done++
+                    ItemResult.Saved, ItemResult.Failed, ItemResult.Skipped -> {
+                        refusedInARow = 0
+                        done++
+                    }
+                    ItemResult.Refused -> {
+                        done++
+                        // Several files refused in a row: the PC fails on everything, no use sending the rest now.
+                        if (++refusedInARow >= RetryPolicy.MAX_REFUSED_IN_A_ROW) return RunOutcome.Stop(BackupIssue.NONE)
+                    }
                     is ItemResult.Abort -> return result.outcome
                 }
             }
@@ -284,6 +333,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
             RunOutcome.Completed -> {
                 if (!isCatchUp) BackupScheduler.cancelCatchUp(applicationContext)
                 prefs.setLastBackup(now)
+                prefs.setLastCheck(now)
                 prefs.setIssue(BackupIssue.NONE, now)
                 notifications.cancelIssue()
                 Result.success()
@@ -387,7 +437,10 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
         var restarts = 0
         currentId = item.mediaStoreId
         currentSize = item.size
+        currentName = item.displayName
         currentBytes.set(0)
+        startPace(0)
+        phase = BackupPhase.UPLOADING
         try {
             declare@ while (true) {
                 val request = UploadRequest(
@@ -398,6 +451,8 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
                     mime = item.mime,
                     takenAt = IsoDates.formatOrNull(item.dateTaken),
                     modifiedAt = IsoDates.formatOrNull(item.dateModified),
+                    runPosition = (done + 1).coerceAtMost(total),
+                    runTotal = total,
                 )
                 val declared = try {
                     api.createUpload(pc.authorization, request)
@@ -424,6 +479,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
                 while (true) {
                     if (isStopped) return ItemResult.Abort(RunOutcome.Retry)
                     currentBytes.set(offset)
+                    startPace(offset)
                     val body = OffsetStreamBody(item.size, offset, { open(item) }, { currentBytes.set(it) })
                     try {
                         val answer = api.patchUpload(pc.authorization, uploadId, offset, body)
@@ -465,7 +521,12 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
                 }
             }
         } catch (e: ApiException) {
-            return when (BackupErrors.actionFor(e.error)) {
+            val error = BackupErrors.forUpload(e.error)
+            return when (BackupErrors.actionFor(error)) {
+                FailureAction.SKIP_ITEM -> {
+                    failItem(item, ErrorReasons.SERVER, (error as? ApiError.ImportFailed)?.message)
+                    ItemResult.Refused
+                }
                 FailureAction.RETRY_LATER -> abort(item, RunOutcome.Retry, null)
                 FailureAction.STOP_DESTINATION_UNAVAILABLE ->
                     abort(item, RunOutcome.Stop(BackupIssue.DESTINATION_UNAVAILABLE), ErrorReasons.DESTINATION_UNAVAILABLE)
@@ -477,7 +538,13 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
             }
         } finally {
             currentId = -1L
+            currentName = null
         }
+    }
+
+    private fun startPace(bytes: Long) {
+        paceSinceMs = System.currentTimeMillis()
+        paceSinceBytes = bytes
     }
 
     private suspend fun rehash(item: MediaEntity): MediaEntity? = hash(item.copy(sha256 = null))
@@ -488,8 +555,10 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
         return ItemResult.Saved
     }
 
-    private suspend fun failItem(item: MediaEntity, reason: String): ItemResult {
-        dao.markError(item.mediaStoreId, reason)
+    /** The file stays in error and out of the runs for a while, longer after each failure (see [RetryPolicy]). */
+    private suspend fun failItem(item: MediaEntity, reason: String, message: String? = null): ItemResult {
+        val retryAfter = RetryPolicy.nextAttemptMs(item.failures + 1, System.currentTimeMillis())
+        dao.markFailed(item.mediaStoreId, reason, message, retryAfter)
         return ItemResult.Failed
     }
 
@@ -523,7 +592,8 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
 
     private sealed interface Connection {
         data class Connected(val pc: PairedPc, val api: PcApi, val status: StatusResponse) : Connection
-        data object Unreachable : Connection
+        /** [address] is the last one tried, for the banner. */
+        data class Unreachable(val address: String) : Connection
         data object Busy : Connection
         data object Unpaired : Connection
     }
@@ -531,7 +601,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
     /** Tries the last known address, then looks the PC up by its id on the network (protocol §2). */
     private suspend fun connect(pc: PairedPc): Connection {
         val first = status(pc)
-        if (first != Connection.Unreachable) return first
+        if (first !is Connection.Unreachable) return first
         val found = withTimeoutOrNull(DISCOVERY_TIMEOUT_MS) {
             PcDiscovery(applicationContext).discover()
                 .mapNotNull { list -> list.firstOrNull { it.pcId == pc.pcId } }
@@ -552,21 +622,37 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
         when (BackupErrors.actionFor(e.error)) {
             FailureAction.UNPAIR -> Connection.Unpaired
             FailureAction.STOP_BUSY, FailureAction.STOP_PROTOCOL -> Connection.Busy
-            else -> Connection.Unreachable
+            else -> Connection.Unreachable("${PcApi.urlHost(pc.host)}:${pc.apiPort}")
         }
     }
 
     // endregion
 
+    /** What the run is doing now, or null before it needs the PC. */
+    private fun activity(): RunActivity? {
+        val step = phase ?: return null
+        if (step != BackupPhase.UPLOADING || currentId < 0) return RunActivity(step, currentName)
+        val bytes = currentBytes.get()
+        val elapsedMs = System.currentTimeMillis() - paceSinceMs
+        val pace = if (elapsedMs >= PACE_MIN_MS && bytes > paceSinceBytes) (bytes - paceSinceBytes) * 1000 / elapsedMs else 0L
+        return RunActivity(step, currentName, bytes, currentSize, pace)
+    }
+
     private suspend fun publishProgress() {
         val size = currentSize
         val percent = if (size > 0) ((currentBytes.get() * 100) / size).toInt().coerceIn(0, 100) else 0
+        val activity = activity()
         setProgress(
             workDataOf(
                 KEY_DONE to done,
                 KEY_TOTAL to total,
                 KEY_CURRENT_ID to currentId,
                 KEY_CURRENT_PERCENT to percent,
+                KEY_PHASE to activity?.phase?.name,
+                KEY_CURRENT_NAME to activity?.fileName,
+                KEY_CURRENT_BYTES to (activity?.fileBytes ?: 0L),
+                KEY_CURRENT_SIZE to (activity?.fileSize ?: 0L),
+                KEY_PACE to (activity?.bytesPerSecond ?: 0L),
             ),
         )
     }
@@ -594,6 +680,9 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
         data object Saved : ItemResult
         data object Failed : ItemResult
         data object Skipped : ItemResult
+
+        /** The PC got the file but could not store it (import_failed): tried again in a later run. */
+        data object Refused : ItemResult
         data class Abort(val outcome: RunOutcome) : ItemResult
     }
 
@@ -602,6 +691,11 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
         const val KEY_TOTAL = "total"
         const val KEY_CURRENT_ID = "currentId"
         const val KEY_CURRENT_PERCENT = "currentPercent"
+        const val KEY_PHASE = "phase"
+        const val KEY_CURRENT_NAME = "currentName"
+        const val KEY_CURRENT_BYTES = "currentBytes"
+        const val KEY_CURRENT_SIZE = "currentSize"
+        const val KEY_PACE = "bytesPerSecond"
 
         private const val STATUS_EXISTS = "exists"
         private const val STATUS_SAVED = "saved"
@@ -614,6 +708,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
         private const val MAX_STALLS = 5
         private const val MAX_RESTARTS = 3
         private const val PROGRESS_INTERVAL_MS = 1_000L
+        private const val PACE_MIN_MS = 2_000L
         private const val DISCOVERY_TIMEOUT_MS = 10_000L
         private const val FINISHED_TIMEOUT_MS = 15_000L
 

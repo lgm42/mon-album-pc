@@ -16,6 +16,9 @@ sealed class ApiError {
     /** The received bytes do not match the declared SHA-256; the upload was dropped. */
     data object HashMismatch : ApiError()
 
+    /** The PC received the file but could not store it; [message] says why (protocol §5.3). */
+    data class ImportFailed(val message: String?) : ApiError()
+
     /** Any other HTTP error. */
     data class Http(val status: Int, val code: String?) : ApiError()
 
@@ -29,7 +32,7 @@ sealed class ApiError {
     data object InvalidResponse : ApiError()
 
     companion object {
-        fun fromCode(status: Int, code: String?): ApiError = when (code) {
+        fun fromCode(status: Int, code: String?, message: String? = null): ApiError = when (code) {
             "pairing_invalid" -> PairingInvalid
             "pairing_expired" -> PairingExpired
             "device_unknown" -> DeviceUnknown
@@ -39,6 +42,7 @@ sealed class ApiError {
             "protocol_unsupported" -> ProtocolUnsupported
             "offset_mismatch" -> OffsetMismatch(null)
             "hash_mismatch" -> HashMismatch
+            "import_failed" -> ImportFailed(message)
             else -> Http(status, code)
         }
     }

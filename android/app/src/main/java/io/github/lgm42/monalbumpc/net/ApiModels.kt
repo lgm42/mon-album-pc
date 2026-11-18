@@ -87,6 +87,9 @@ data class UploadRequest(
     val mime: String? = null,
     val takenAt: String? = null,
     val modifiedAt: String? = null,
+    /** Rank of this file in the run and size of the run, for the PC's status (protocol §5.3). */
+    val runPosition: Int? = null,
+    val runTotal: Int? = null,
 )
 
 /**

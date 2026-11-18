@@ -30,6 +30,10 @@ data class BackupState(
     val issue: BackupIssue = BackupIssue.NONE,
     val issueSinceMs: Long? = null,
     val notifiedIssue: BackupIssue = BackupIssue.NONE,
+    /** What the issue is about, e.g. the address that did not answer. */
+    val issueDetail: String? = null,
+    /** End of the last run that found everything saved. */
+    val lastCheckMs: Long? = null,
 ) {
     val conditions: BackupConditions
         get() = BackupConditions(chargingOnly, mobileData)
@@ -49,6 +53,8 @@ class BackupPrefs(context: Context) {
                 issue = parseIssue(p[ISSUE]),
                 issueSinceMs = p[ISSUE_SINCE],
                 notifiedIssue = parseIssue(p[NOTIFIED_ISSUE]),
+                issueDetail = p[ISSUE_DETAIL],
+                lastCheckMs = p[LAST_CHECK],
             )
         }
         .distinctUntilChanged()
@@ -67,11 +73,16 @@ class BackupPrefs(context: Context) {
         dataStore.edit { it[LAST_BACKUP] = timeMs }
     }
 
+    suspend fun setLastCheck(timeMs: Long) {
+        dataStore.edit { it[LAST_CHECK] = timeMs }
+    }
+
     /** Records the issue; its start time is kept while the same issue lasts. */
-    suspend fun setIssue(issue: BackupIssue, nowMs: Long) {
+    suspend fun setIssue(issue: BackupIssue, nowMs: Long, detail: String? = null) {
         dataStore.edit { p ->
             val previous = parseIssue(p[ISSUE])
             p[ISSUE] = issue.name
+            if (detail == null) p.remove(ISSUE_DETAIL) else p[ISSUE_DETAIL] = detail
             if (issue == BackupIssue.NONE) {
                 p.remove(ISSUE_SINCE)
                 p[NOTIFIED_ISSUE] = BackupIssue.NONE.name
@@ -92,6 +103,8 @@ class BackupPrefs(context: Context) {
             p.remove(ISSUE)
             p.remove(ISSUE_SINCE)
             p.remove(NOTIFIED_ISSUE)
+            p.remove(ISSUE_DETAIL)
+            p.remove(LAST_CHECK)
         }
     }
 
@@ -105,5 +118,7 @@ class BackupPrefs(context: Context) {
         val ISSUE = stringPreferencesKey("issue")
         val ISSUE_SINCE = longPreferencesKey("issue_since")
         val NOTIFIED_ISSUE = stringPreferencesKey("notified_issue")
+        val ISSUE_DETAIL = stringPreferencesKey("issue_detail")
+        val LAST_CHECK = longPreferencesKey("last_check")
     }
 }

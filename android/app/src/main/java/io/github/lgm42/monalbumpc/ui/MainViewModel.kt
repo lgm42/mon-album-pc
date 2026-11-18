@@ -13,6 +13,8 @@ import io.github.lgm42.monalbumpc.backup.BackupScheduler
 import io.github.lgm42.monalbumpc.backup.BackupWorker
 import io.github.lgm42.monalbumpc.backup.BannerLogic
 import io.github.lgm42.monalbumpc.backup.BannerState
+import io.github.lgm42.monalbumpc.backup.BackupPhase
+import io.github.lgm42.monalbumpc.backup.RunActivity
 import io.github.lgm42.monalbumpc.data.BackupPrefs
 import io.github.lgm42.monalbumpc.data.BackupState
 import io.github.lgm42.monalbumpc.data.media.AppDatabase
@@ -51,6 +53,8 @@ data class BackupProgress(
     val total: Int = 0,
     val currentId: Long? = null,
     val currentPercent: Int = 0,
+    /** What the run is doing; null before it needs the PC. */
+    val activity: RunActivity? = null,
 )
 
 data class MainUiState(
@@ -190,6 +194,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 folderName = folderNames[key].orEmpty(),
                 errorReason = entity?.errorReason,
                 savedAtMs = entity?.savedAt,
+                errorMessage = entity?.errorMessage,
             )
         }
         val counts = GalleryModel.counts(items)
@@ -204,6 +209,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             pending = counts[GalleryFilter.PENDING] ?: 0,
             trackedCount = trackedCount,
             lastBackupMs = sources.backup.lastBackupMs,
+            activity = sources.progress.activity,
+            issueDetail = sources.backup.issueDetail,
+            latestError = BannerLogic.latestError(sources.index),
+            checkedMs = sources.backup.lastCheckMs,
         )
         return MainUiState(
             loaded = true,
@@ -222,15 +231,28 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun progressOf(infos: List<WorkInfo>): BackupProgress {
         // Several runs may be RUNNING while one waits for the other: show the one that reports progress.
         val running = infos.filter { it.state == WorkInfo.State.RUNNING }
-            .maxByOrNull { it.progress.getInt(BackupWorker.KEY_TOTAL, 0) } ?: return BackupProgress()
+            .maxWithOrNull(
+                compareBy<WorkInfo> { it.progress.getString(BackupWorker.KEY_PHASE) != null }
+                    .thenBy { it.progress.getInt(BackupWorker.KEY_TOTAL, 0) },
+            ) ?: return BackupProgress()
         val data = running.progress
         val currentId = data.getLong(BackupWorker.KEY_CURRENT_ID, -1L)
+        val phase = data.getString(BackupWorker.KEY_PHASE)?.let { name -> BackupPhase.entries.firstOrNull { it.name == name } }
         return BackupProgress(
             running = true,
             done = data.getInt(BackupWorker.KEY_DONE, 0),
             total = data.getInt(BackupWorker.KEY_TOTAL, 0),
             currentId = currentId.takeIf { it >= 0 },
             currentPercent = data.getInt(BackupWorker.KEY_CURRENT_PERCENT, 0),
+            activity = phase?.let {
+                RunActivity(
+                    phase = it,
+                    fileName = data.getString(BackupWorker.KEY_CURRENT_NAME),
+                    fileBytes = data.getLong(BackupWorker.KEY_CURRENT_BYTES, 0),
+                    fileSize = data.getLong(BackupWorker.KEY_CURRENT_SIZE, 0),
+                    bytesPerSecond = data.getLong(BackupWorker.KEY_PACE, 0),
+                )
+            },
         )
     }
 

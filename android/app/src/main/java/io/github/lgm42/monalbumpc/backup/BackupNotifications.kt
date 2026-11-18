@@ -38,26 +38,41 @@ class BackupNotifications(context: Context) {
         manager.createNotificationChannel(alerts)
     }
 
-    /** "Sauvegarde en cours · 12 / 52 · PC-SALON", shown by the foreground worker. */
-    fun progressInfo(done: Int, total: Int, pcName: String): ForegroundInfo {
+    /**
+     * Shown by the foreground worker: "Envoi 3 / 20 · NAS" with "VID-….mp4 · 45 Mo / 120 Mo · 2,1 Mo/s" and the bar of the
+     * file being sent (a video takes minutes: the count alone would look stuck), or what the run is doing before.
+     */
+    fun progressInfo(done: Int, total: Int, pcName: String, activity: RunActivity?): ForegroundInfo {
         ensureChannels()
-        val text = if (total > 0) {
-            context.getString(R.string.notif_progress, done, total, pcName)
-        } else {
-            context.getString(R.string.notif_progress_preparing, pcName)
+        val position = if (total > 0) (done + 1).coerceAtMost(total) else 0
+        val title = when {
+            activity?.phase == BackupPhase.UPLOADING && total > 0 -> context.getString(R.string.notif_sending, position, total, pcName)
+            activity?.phase == BackupPhase.PREPARING && total > 0 ->
+                context.getString(R.string.notif_preparing_files, position, total, pcName)
+            activity != null -> TransferText.title(context, done, total, activity, pcName)
+            total > 0 -> context.getString(R.string.notif_progress, done, total, pcName)
+            else -> context.getString(R.string.notif_progress_preparing, pcName)
         }
-        val notification = NotificationCompat.Builder(context, CHANNEL_PROGRESS)
+        val text = activity?.fileName?.let { name ->
+            listOfNotNull(name, TransferText.bytes(context, activity)).joinToString(" · ")
+        }
+        val builder = NotificationCompat.Builder(context, CHANNEL_PROGRESS)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(text)
+            .setContentTitle(title)
             .setContentIntent(openApp())
             .setOnlyAlertOnce(true)
             .setOngoing(true)
             .setSilent(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
-            .setProgress(total.coerceAtLeast(0), done.coerceIn(0, total.coerceAtLeast(0)), total <= 0)
-            .build()
-        return foregroundInfo(notification)
+        if (text != null) builder.setContentText(text).setStyle(NotificationCompat.BigTextStyle().bigText(text))
+        val fileFraction = activity?.fileFraction
+        if (fileFraction != null) {
+            builder.setProgress(PROGRESS_MAX, (fileFraction * PROGRESS_MAX).toInt(), false)
+        } else {
+            builder.setProgress(total.coerceAtLeast(0), done.coerceIn(0, total.coerceAtLeast(0)), total <= 0)
+        }
+        return foregroundInfo(builder.build())
     }
 
     private fun foregroundInfo(notification: Notification): ForegroundInfo =
@@ -146,5 +161,6 @@ class BackupNotifications(context: Context) {
         const val ID_PROGRESS = 1001
         const val ID_DONE = 1002
         const val ID_ERROR = 1003
+        private const val PROGRESS_MAX = 1000
     }
 }

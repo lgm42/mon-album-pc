@@ -37,7 +37,10 @@ interface MediaDao {
     @Query("UPDATE media SET sha256 = :sha256 WHERE mediaStoreId = :id")
     suspend fun setHash(id: Long, sha256: String)
 
-    @Query("UPDATE media SET state = 'SAVED', errorReason = NULL, uploadId = NULL, savedAt = :savedAt WHERE mediaStoreId IN (:ids)")
+    @Query(
+        "UPDATE media SET state = 'SAVED', errorReason = NULL, errorMessage = NULL, failures = 0, retryAfter = NULL, " +
+            "uploadId = NULL, savedAt = :savedAt WHERE mediaStoreId IN (:ids)",
+    )
     suspend fun markSaved(ids: List<Long>, savedAt: Long)
 
     @Query("UPDATE media SET state = 'UPLOADING', uploadId = :uploadId WHERE mediaStoreId = :id")
@@ -49,11 +52,21 @@ interface MediaDao {
     @Query("UPDATE media SET state = 'ERROR', errorReason = :reason, uploadId = NULL WHERE mediaStoreId = :id")
     suspend fun markError(id: Long, reason: String)
 
+    /** One more failed attempt: the file is left out of the runs until [retryAfter]. */
+    @Query(
+        "UPDATE media SET state = 'ERROR', errorReason = :reason, errorMessage = :message, failures = failures + 1, " +
+            "retryAfter = :retryAfter, uploadId = NULL WHERE mediaStoreId = :id",
+    )
+    suspend fun markFailed(id: Long, reason: String, message: String?, retryAfter: Long)
+
     /** After a crash or a stopped worker, nothing is really uploading. */
     @Query("UPDATE media SET state = 'PENDING' WHERE state = 'UPLOADING'")
     suspend fun resetUploading()
 
     /** "Réessayer maintenant": errors go back to the queue. */
-    @Query("UPDATE media SET state = 'PENDING', errorReason = NULL WHERE state = 'ERROR' AND mediaStoreId IN (:ids)")
+    @Query(
+        "UPDATE media SET state = 'PENDING', errorReason = NULL, errorMessage = NULL, failures = 0, retryAfter = NULL " +
+            "WHERE state = 'ERROR' AND mediaStoreId IN (:ids)",
+    )
     suspend fun retryErrors(ids: List<Long>)
 }

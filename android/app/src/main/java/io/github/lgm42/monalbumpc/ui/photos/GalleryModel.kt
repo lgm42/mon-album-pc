@@ -19,6 +19,8 @@ data class GalleryItem(
     val folderName: String,
     val errorReason: String? = null,
     val savedAtMs: Long? = null,
+    /** What the PC said when it refused the file. */
+    val errorMessage: String? = null,
 )
 
 sealed interface GalleryCell {
