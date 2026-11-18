@@ -80,14 +80,6 @@ Tags: `windows`
 <!-- workload: easy -->
 <!-- assignee: Claude -->
 
-#### Garder la session d'administration du NAS après un redémarrage
-<!-- id: task-1794400000000-12 -->
-À vérifier : les clés de chiffrement des cookies ne sont sans doute pas conservées dans /config, ce qui obligerait à se reconnecter après chaque redémarrage du conteneur.
-Tags: `nas`
-<!-- priority: low -->
-<!-- workload: easy -->
-<!-- assignee: Claude -->
-
 ## TODO
 
 #### Mettre la clé de release Android en lieu sûr
@@ -154,22 +146,6 @@ Gradle et SDK Android (quelques Go) dans le dossier temporaire de session de Cla
 
 ### Déploiement TrueNAS
 
-#### 1. Créer le dataset de configuration
-<!-- id: task-1794400000000-30 -->
-Datasets › data (sous main) › Add Dataset. Nom monalbumpc, préréglage Generic. Ne pas toucher aux droits : il hérite de ceux de main/data.
-Tags: `nas`
-<!-- priority: high -->
-<!-- workload: easy -->
-<!-- assignee: Nicolas -->
-
-#### 2. Installer l'app via YAML
-<!-- id: task-1794400000000-31 -->
-Apps › Discover Apps › ⋮ › Install via YAML. Nom monalbumpc, contenu de nas/docker-compose.truenas.yml. Attendre l'état Running.
-Tags: `nas`
-<!-- priority: high -->
-<!-- workload: easy -->
-<!-- assignee: Nicolas -->
-
 #### 3. Administration web et album
 <!-- id: task-1794400000000-32 -->
 - [ ] Ouvrir https://adresse-du-nas:48622 et accepter le certificat auto-signé
@@ -224,6 +200,24 @@ Tags: `android`
 <!-- assignee: Nicolas -->
 
 ## DONE
+
+#### Garder la session d'administration du NAS après un redémarrage
+<!-- id: task-1794400000000-12 -->
+Clés des cookies conservées dans /config/keys.
+Tags: `nas`
+<!-- assignee: Claude -->
+
+#### 2. Installer l'app via YAML
+<!-- id: task-1794400000000-31 -->
+App custom monalbumpc installée par l'API le 18/11, avec le bouton Web UI.
+Tags: `nas`
+<!-- assignee: Claude -->
+
+#### 1. Créer le dataset de configuration
+<!-- id: task-1794400000000-30 -->
+main/data/monalbumpc, propriétaire apps (568).
+Tags: `nas`
+<!-- assignee: Claude -->
 
 #### Suivi du projet dans ce tableau
 <!-- id: task-1794400000000-40 -->
