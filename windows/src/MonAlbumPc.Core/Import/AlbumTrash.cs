@@ -28,6 +28,28 @@ public static class AlbumTrash
         return target;
     }
 
+    /// <summary>Number of files in the trash of the album and their total size; zero when it does not exist.</summary>
+    public static (int Files, long Bytes) Measure(string albumRoot)
+    {
+        var folder = Folder(albumRoot);
+        if (!Directory.Exists(folder))
+        {
+            return (0, 0);
+        }
+        var files = new DirectoryInfo(folder).EnumerateFiles("*", new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = 0 }).ToList();
+        return (files.Count, files.Sum(f => f.Length));
+    }
+
+    /// <summary>Erases the trash of the album for good. The import history keeps the files: they are not imported again.</summary>
+    public static void Empty(string albumRoot)
+    {
+        var folder = Folder(albumRoot);
+        if (Directory.Exists(folder))
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
     // "IMG_1.jpg" already in the trash: "IMG_1 (2).jpg".
     private static string Unique(string target)
     {
