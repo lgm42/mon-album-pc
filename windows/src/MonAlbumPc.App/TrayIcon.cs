@@ -2,6 +2,7 @@ using System.Windows.Controls;
 using System.Windows.Media.Imaging;
 using H.NotifyIcon;
 using H.NotifyIcon.Core;
+using MonAlbumPc.Core.Import;
 using MonAlbumPc.Core.Library;
 using MonAlbumPc.Core.Storage;
 
@@ -10,6 +11,8 @@ namespace MonAlbumPc.App;
 /// <summary>Icon in the notification area: status line, open, add a phone (when this PC receives photos), quit.</summary>
 internal sealed class TrayIcon : IDisposable
 {
+    private const int MaxTooltip = 127;
+
     private readonly TaskbarIcon _icon;
     private readonly MenuItem _status;
     private readonly AppHost _host;
@@ -46,7 +49,19 @@ internal sealed class TrayIcon : IDisposable
         _icon.TrayBalloonTipClicked += (_, _) => open();
         // Efficiency mode would throttle the process, which also hosts the server receiving photos.
         _icon.ForceCreate(enablesEfficiencyMode: false);
+        if (host.Library is null)
+        {
+            host.Core.Sessions.Changed += OnSessionsChanged;
+        }
     }
+
+    // Hovering the icon tells what is arriving without opening the window.
+    private void OnSessionsChanged() => _icon.Dispatcher.BeginInvoke(() =>
+    {
+        var text = _host.Core.Sessions.Active.Count == 0 ? "Mon Album PC" : StatusText();
+        // The notification area cuts tooltips at 127 characters.
+        _icon.ToolTipText = text.Length <= MaxTooltip ? text : text[..(MaxTooltip - 1)] + "…";
+    });
 
     public void ShowError(string title, string message) => _icon.ShowNotification(title, message, NotificationIcon.Warning);
 
@@ -71,7 +86,8 @@ internal sealed class TrayIcon : IDisposable
         var album = _host.Core.Albums.Get(session.AlbumId)?.Name ?? "";
         if (session.HasError)
         {
-            ShowError($"Sauvegarde de {phone} interrompue", session.ErrorMessage ?? "");
+            ShowError(session.ErrorCode == SessionErrors.ImportFailed ? ActivityNotifications.FailedFilesTitle(phone) : $"Sauvegarde de {phone} interrompue",
+                session.ErrorMessage ?? "");
             return;
         }
         if (session.Complete)
@@ -85,7 +101,11 @@ internal sealed class TrayIcon : IDisposable
         ShowInfo("Sauvegarde terminée", $"{string.Join(" et ", parts)} de {phone} rangées dans l'album {album}.");
     }
 
-    public void Dispose() => _icon.Dispose();
+    public void Dispose()
+    {
+        _host.Core.Sessions.Changed -= OnSessionsChanged;
+        _icon.Dispose();
+    }
 
     private string StatusText()
     {
@@ -96,7 +116,7 @@ internal sealed class TrayIcon : IDisposable
         if (_host.Core.Sessions.Active.FirstOrDefault() is { } active)
         {
             var phone = _host.Core.Devices.Get(active.DeviceId)?.Name ?? "un téléphone";
-            return $"Réception depuis {phone}… {Formatting.Count(active.Photos + active.Videos)} reçus";
+            return SessionStatusText.Compact(active, phone, _host.Core.Clock.GetLocalNow());
         }
         return _host.ServerError is null ? "Prêt à recevoir les photos" : "Les téléphones ne peuvent pas joindre ce PC";
     }

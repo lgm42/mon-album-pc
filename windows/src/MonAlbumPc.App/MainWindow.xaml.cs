@@ -1,10 +1,12 @@
 ﻿using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using MonAlbumPc.App.Albums;
 using MonAlbumPc.App.History;
 using MonAlbumPc.App.Pages;
 using MonAlbumPc.App.Phones;
+using MonAlbumPc.Core.Import;
 using MonAlbumPc.Core.Library;
 
 namespace MonAlbumPc.App;
@@ -15,6 +17,9 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, FrameworkElement> _pages = [];
     private bool _syncingSelection;
     private bool _pageOutdated;
+
+    // A silent phone raises no event: look again now and then to show that it is being waited for.
+    private readonly DispatcherTimer _waitingCheck = new() { Interval = TimeSpan.FromSeconds(5) };
 
     public MainWindow(AppHost host)
     {
@@ -30,6 +35,7 @@ public partial class MainWindow : Window
             library.StateChanged += OnLibraryStateChanged;
             library.ContentChanged += OnLibraryContentChanged;
         }
+        _waitingCheck.Tick += (_, _) => UpdateStatus();
         UpdateStatus();
         MainNav.SelectedIndex = 0;
         _host.Core.Sessions.Changed += OnSessionsChanged;
@@ -125,22 +131,33 @@ public partial class MainWindow : Window
     private void UpdateStatus()
     {
         StatusProgress.Visibility = Visibility.Collapsed;
+        SetBar(FileProgress, null);
+        SetLine(FileTransfer, null);
+        SetLine(StatusCounts, null);
+        SetLine(StatusError, null);
         if (_host.Library is { } library)
         {
             ShowLibraryStatus(library);
             return;
         }
-        if (_host.Core.Sessions.Active.FirstOrDefault() is { } active)
+        var core = _host.Core;
+        var now = core.Clock.GetLocalNow();
+        if (core.Sessions.Active.FirstOrDefault() is { } active)
         {
-            StatusIcon.Text = "";
-            StatusIcon.SetResourceReference(ForegroundProperty, "AccentTextFillColorPrimaryBrush");
-            StatusTitle.Text = "Réception en cours";
-            var phone = _host.Core.Devices.Get(active.DeviceId)?.Name ?? "Téléphone";
-            var received = active.Photos + active.Videos;
-            StatusDetail.Text = received == 0 ? phone : $"{phone} · {Formatting.Plural(received, "élément reçu", "éléments reçus")}";
-            StatusProgress.Visibility = Visibility.Visible;
+            var status = SessionStatusText.For(active, core.Devices.Get(active.DeviceId)?.Name ?? "Téléphone", now);
+            StatusIcon.Text = status.Waiting ? "" : "";
+            StatusIcon.SetResourceReference(ForegroundProperty, status.Waiting ? "SystemFillColorCautionBrush" : "AccentTextFillColorPrimaryBrush");
+            StatusTitle.Text = status.Title;
+            StatusDetail.Text = status.Detail;
+            SetLine(FileTransfer, status.Transfer);
+            SetLine(StatusCounts, status.Counts);
+            SetLine(StatusError, status.Error);
+            SetBar(FileProgress, status.FileFraction);
+            StatusProgress.Visibility = status.Waiting || status.FileFraction is not null ? Visibility.Collapsed : Visibility.Visible;
+            _waitingCheck.Start();
             return;
         }
+        _waitingCheck.Stop();
         if (_host.ServerError is { } error)
         {
             StatusIcon.Text = "";
@@ -155,6 +172,23 @@ public partial class MainWindow : Window
         StatusDetail.Text = _host.LanAddress is { } address
             ? $"Adresse sur le réseau : {address}"
             : "Ce PC n'est connecté à aucun réseau.";
+        if (core.Sessions.Last is { } last)
+        {
+            SetLine(StatusCounts, SessionStatusText.Summary(last, core.Devices.Get(last.Session.DeviceId)?.Name ?? "téléphone dissocié", now));
+            SetLine(StatusError, last.Session.ErrorMessage);
+        }
+    }
+
+    private static void SetLine(TextBlock block, string? text)
+    {
+        block.Text = text ?? "";
+        block.Visibility = text is null ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private static void SetBar(ProgressBar bar, double? fraction)
+    {
+        bar.Value = fraction ?? 0;
+        bar.Visibility = fraction is null ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void ShowLibraryStatus(LibraryViewer library)
