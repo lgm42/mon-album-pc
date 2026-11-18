@@ -321,7 +321,7 @@ public partial class PhotosPage : UserControl, IRefreshable
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ImageMagick.MagickException)
         {
-            MessageBox.Show(_window, $"Impossible de pivoter cette photo.\n\n{ex.Message}", "Pivoter", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Dialogs.Inform(_window, "Impossible de pivoter cette photo", ex.Message);
             return;
         }
         tile.Reload();
@@ -342,12 +342,12 @@ public partial class PhotosPage : UserControl, IRefreshable
         var album = _albums.FirstOrDefault(a => a.Id == tile.Item.AlbumId);
         // No Recycle Bin on network shares: such files go to the trash folder of their album.
         var inAlbumTrash = album is not null && (_window.Library is not null || AlbumTrash.IsNetworkPath(tile.Item.Path));
-        var answer = MessageBox.Show(_window,
-            inAlbumTrash
-                ? $"{tile.Name} sera déplacé dans la corbeille de l'album :\n{AlbumTrash.Folder(album!.DestinationRoot)}\n\nVous pourrez l'y récupérer."
-                : $"{tile.Name} sera placé dans la Corbeille de Windows. Vous pourrez le restaurer depuis la Corbeille.",
-            $"Supprimer {what} ?", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
-        if (answer != MessageBoxResult.Yes)
+        var confirmed = inAlbumTrash
+            ? Dialogs.Confirm(_window, $"Supprimer {what} ?", $"{tile.Name} sera déplacé dans la corbeille de l'album. Vous pourrez l'y récupérer.",
+                "Supprimer", AlbumTrash.Folder(album!.DestinationRoot), destructive: true)
+            : Dialogs.Confirm(_window, $"Supprimer {what} ?", $"{tile.Name} sera placé dans la Corbeille de Windows. Vous pourrez le restaurer depuis la Corbeille.",
+                "Supprimer", destructive: true);
+        if (!confirmed)
         {
             return;
         }
@@ -368,7 +368,7 @@ public partial class PhotosPage : UserControl, IRefreshable
         }
         catch (Exception ex) when (ex is IOException or OperationCanceledException or UnauthorizedAccessException)
         {
-            MessageBox.Show(_window, $"Impossible de supprimer {tile.Name}.\n\n{ex.Message}", "Supprimer", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Dialogs.Inform(_window, $"Impossible de supprimer {tile.Name}", ex.Message);
             return;
         }
         _all.RemoveAll(i => i.Path == tile.Item.Path);

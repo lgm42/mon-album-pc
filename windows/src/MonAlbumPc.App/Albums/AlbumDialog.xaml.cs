@@ -89,8 +89,7 @@ public partial class AlbumDialog : Window
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            MessageBox.Show(this, $"Impossible de créer le dossier {folder}.\n\n{ex.Message}", Title,
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+            Dialogs.Inform(this, "Impossible de créer le dossier", ex.Message, folder);
             return;
         }
 

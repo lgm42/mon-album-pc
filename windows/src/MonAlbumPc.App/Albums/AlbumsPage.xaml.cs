@@ -40,10 +40,8 @@ public partial class AlbumsPage : UserControl, IRefreshable
     private void OnDeleteAlbum(object sender, RoutedEventArgs e)
     {
         var album = Card(sender).Album;
-        var answer = MessageBox.Show(_window,
-            $"Supprimer l'album {album.Name} ?\n\nLe dossier {album.DestinationRoot} et ses photos sont conservés.",
-            "Supprimer l'album", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
-        if (answer == MessageBoxResult.Yes)
+        if (Dialogs.Confirm(_window, $"Supprimer l'album {album.Name} ?", "Le dossier de l'album et ses photos sont conservés.",
+                "Supprimer", album.DestinationRoot, destructive: true))
         {
             _host.Core.Albums.Delete(album.Id);
             Refresh();
@@ -59,8 +57,7 @@ public partial class AlbumsPage : UserControl, IRefreshable
         }
         else
         {
-            MessageBox.Show(_window, $"Le dossier {folder} est introuvable : le disque est peut-être débranché.",
-                "Dossier indisponible", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Dialogs.Inform(_window, "Dossier indisponible", "Ce dossier est introuvable : le disque est peut-être débranché.", folder);
         }
     }
 
@@ -79,11 +76,10 @@ public partial class AlbumsPage : UserControl, IRefreshable
     private void OnUnpair(object sender, RoutedEventArgs e)
     {
         var phone = (PhoneRow)((FrameworkElement)sender).DataContext;
-        var answer = MessageBox.Show(_window,
-            $"Dissocier {phone.Name} ?\n\nCe téléphone ne sera plus sauvegardé sur ce PC. Les photos déjà reçues restent dans le " +
-            "dossier de l'album. Pour le relier à nouveau, il faudra rescanner un QR code.",
-            "Dissocier le téléphone", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
-        if (answer == MessageBoxResult.Yes)
+        if (Dialogs.Confirm(_window, $"Dissocier {phone.Name} ?",
+                "Ce téléphone ne sera plus sauvegardé sur ce PC. Les photos déjà reçues restent dans le dossier de l'album. " +
+                "Pour le relier à nouveau, il faudra rescanner un QR code.",
+                "Dissocier", destructive: true))
         {
             _host.Core.Devices.Revoke(phone.Device.Id, _host.Core.Clock.GetLocalNow());
             Refresh();

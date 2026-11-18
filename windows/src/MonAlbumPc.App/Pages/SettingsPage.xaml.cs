@@ -87,19 +87,16 @@ public partial class SettingsPage : UserControl, IRefreshable
         // A share that does not answer can take a while to say so.
         if (await Task.Run(() => LibraryManifest.Read(folder)) is null)
         {
-            MessageBox.Show(window,
-                $"Ce dossier n'est pas une bibliothèque Mon Album PC :\n{folder}\n\nLe fichier .monalbumpc\\library.json est introuvable ou illisible. " +
-                "Choisissez le dossier qui contient les dossiers des albums, et vérifiez que le NAS a bien démarré.",
-                "Bibliothèque", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Dialogs.Inform(window, "Ce dossier n'est pas une bibliothèque Mon Album PC",
+                "Le fichier .monalbumpc\\library.json est introuvable ou illisible. " +
+                "Choisissez le dossier qui contient les dossiers des albums, et vérifiez que le NAS a bien démarré.", folder);
             return;
         }
         var consequence = _host.IsViewer
             ? "Mon Album PC va redémarrer et afficher cette bibliothèque."
             : "Ce PC ne recevra plus les photos des téléphones : c'est le NAS qui les reçoit. Votre catalogue est conservé, " +
               "vous pourrez revenir au mode autonome à tout moment.\n\nMon Album PC va redémarrer.";
-        var answer = MessageBox.Show(window, $"Utiliser cette bibliothèque ?\n{folder}\n\n{consequence}", "Bibliothèque",
-            MessageBoxButton.OKCancel, MessageBoxImage.Question, MessageBoxResult.Cancel);
-        if (answer == MessageBoxResult.OK)
+        if (Dialogs.Confirm(window, "Utiliser cette bibliothèque ?", consequence, "Utiliser", folder))
         {
             SwitchTo(new AppSettings(AppMode.Viewer, folder));
         }
@@ -107,10 +104,9 @@ public partial class SettingsPage : UserControl, IRefreshable
 
     private void OnLeaveLibrary(object sender, RoutedEventArgs e)
     {
-        var answer = MessageBox.Show(Window.GetWindow(this),
-            "Ce PC recevra à nouveau lui-même les photos des téléphones qui lui sont associés. Les photos du NAS n'y sont pas touchées.\n\nMon Album PC va redémarrer.",
-            "Revenir au mode autonome", MessageBoxButton.OKCancel, MessageBoxImage.Question, MessageBoxResult.Cancel);
-        if (answer == MessageBoxResult.OK)
+        if (Dialogs.Confirm(Window.GetWindow(this), "Revenir au mode autonome ?",
+                "Ce PC recevra à nouveau lui-même les photos des téléphones qui lui sont associés. Les photos du NAS n'y sont pas touchées.\n\nMon Album PC va redémarrer.",
+                "Revenir au mode autonome"))
         {
             SwitchTo(_host.Settings with { Mode = AppMode.Autonomous });
         }
@@ -124,8 +120,7 @@ public partial class SettingsPage : UserControl, IRefreshable
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            MessageBox.Show(Window.GetWindow(this), $"Impossible d'enregistrer ce réglage.\n\n{ex.Message}", "Bibliothèque",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+            Dialogs.Inform(Window.GetWindow(this), "Impossible d'enregistrer ce réglage", ex.Message);
             return;
         }
         ((App)Application.Current).Restart();

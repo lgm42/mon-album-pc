@@ -86,8 +86,7 @@ public partial class AddPhoneDialog : Window
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {
-                MessageBox.Show(this, $"Impossible de créer le dossier {folder}.\n\n{e.Message}", Title,
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                Dialogs.Inform(this, "Impossible de créer le dossier", e.Message, folder);
                 return;
             }
             album = new Album(Guid.NewGuid(), name, folder, _host.Core.Albums.NextColor(), _host.Core.Clock.GetLocalNow());

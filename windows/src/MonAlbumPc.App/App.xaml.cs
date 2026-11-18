@@ -75,10 +75,7 @@ public partial class App : Application
         var consequence = _host!.IsViewer
             ? "Vous ne serez plus prévenu des nouvelles photos tant que Mon Album PC est fermé."
             : "Les téléphones ne pourront plus envoyer leurs photos tant que Mon Album PC est fermé.";
-        var answer = MessageBox.Show(
-            $"{consequence}\n\nQuitter quand même ?",
-            "Quitter Mon Album PC", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
-        if (answer == MessageBoxResult.Yes)
+        if (Dialogs.Confirm(_window, "Quitter Mon Album PC ?", consequence, "Quitter"))
         {
             IsQuitting = true;
             Shutdown();
