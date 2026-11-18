@@ -1040,3 +1040,466 @@ fluent-dialog.app-dialog::part(control) {
 .fluent-dialog-header:focus {
     outline: none;
 }
+
+/* ---------- Photos ---------- */
+
+.photos-page {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    height: 100%;
+    min-height: 0;
+}
+
+.photo-filters {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 20px 8px 16px 12px;
+    overflow-y: auto;
+    border-right: 1px solid var(--app-card-stroke);
+}
+
+.filter-title {
+    padding: 0 8px 6px;
+}
+
+.filter-title:not(:first-child) {
+    padding-top: 20px;
+}
+
+.filter-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 32px;
+    padding: 0 8px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.filter-item .ellipsis {
+    flex: 1;
+}
+
+.filter-item:hover {
+    background: var(--app-subtle-hover);
+}
+
+.filter-item.active {
+    background: var(--app-subtle-selected);
+}
+
+.filter-item.active::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 8px;
+    width: 3px;
+    height: 16px;
+    border-radius: 2px;
+    background: var(--accent-fill-rest);
+}
+
+.filter-item.year {
+    font-weight: 600;
+}
+
+.filter-item.month {
+    padding-left: 24px;
+}
+
+.filter-dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.photo-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+}
+
+.photo-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 20px 24px 0;
+}
+
+.photo-header h1 {
+    flex: none;
+    margin: 0;
+    font-size: 28px;
+    line-height: 36px;
+    font-weight: 600;
+}
+
+.photo-narrow-filters {
+    display: none;
+}
+
+.photo-toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 2px;
+    margin: 12px 16px 8px 24px;
+    padding: 4px;
+}
+
+.selection-count {
+    font-weight: 600;
+    margin-right: 8px;
+}
+
+.toolbar-spacer {
+    flex: 1;
+}
+
+.size-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 8px;
+}
+
+.photo-report {
+    margin: 0 16px 8px 24px;
+}
+
+/* Only the rows near the visible area exist: they are placed by the page (see PhotoGridLayout). */
+.photo-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0 16px 24px 24px;
+    position: relative;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.photo-canvas {
+    position: relative;
+}
+
+.photo-row {
+    position: absolute;
+    left: 0;
+    right: 0;
+    display: grid;
+    grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+    grid-auto-rows: var(--tile);
+    gap: 4px;
+    align-content: start;
+}
+
+.photo-row.title-row {
+    display: block;
+}
+
+.month-title {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 0;
+    padding-top: 16px;
+    font-size: 16px;
+    line-height: 28px;
+    font-weight: 600;
+}
+
+.tile {
+    position: relative;
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--app-subtle-selected);
+    cursor: pointer;
+}
+
+.tile img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform .12s ease;
+}
+
+.tile.selected {
+    background: var(--app-brand-container);
+}
+
+.tile.selected img {
+    transform: scale(.9);
+    border-radius: 4px;
+}
+
+.tile.selected::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 4px;
+    box-shadow: inset 0 0 0 2px var(--accent-fill-rest);
+    pointer-events: none;
+}
+
+.tile-check {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: 26px;
+    height: 26px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.tile-check svg {
+    fill: rgba(0, 0, 0, .25);
+    stroke: #fff;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .4));
+}
+
+.tile:hover .tile-check, .selecting .tile-check, .tile.selected .tile-check {
+    display: inline-flex;
+}
+
+.tile.selected .tile-check svg {
+    fill: var(--accent-fill-rest);
+    stroke: var(--foreground-on-accent-rest);
+}
+
+.tile-badge {
+    position: absolute;
+    right: 6px;
+    bottom: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, .62);
+    color: #fff;
+    font-size: 12px;
+    line-height: 16px;
+}
+
+.photo-loading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 24px 0;
+}
+
+/* Viewer */
+
+.lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+    display: flex;
+    flex-direction: column;
+    background: #0b0b0d;
+    color: #fff;
+}
+
+.lightbox-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 56px;
+    padding: 4px 8px 4px 16px;
+}
+
+.lightbox-title {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.lightbox-caption {
+    font-size: 12px;
+    line-height: 16px;
+    color: rgba(255, 255, 255, .72);
+}
+
+.lb-button {
+    flex: none;
+    width: 40px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: #fff;
+    cursor: pointer;
+}
+
+.lb-button:hover, .lb-button.on {
+    background: rgba(255, 255, 255, .12);
+}
+
+.lightbox-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    position: relative;
+}
+
+.lightbox-stage {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+}
+
+.lightbox-stage img, .lightbox-stage video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.lb-preload {
+    display: none;
+}
+
+.lb-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 48px;
+    height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, .45);
+    color: #fff;
+    cursor: pointer;
+}
+
+.lb-nav:hover {
+    background: rgba(0, 0, 0, .7);
+}
+
+.lb-nav:disabled {
+    opacity: .25;
+    cursor: default;
+}
+
+.lb-nav.prev {
+    left: 12px;
+}
+
+.lb-nav.next {
+    right: 12px;
+}
+
+.lightbox-info {
+    flex: none;
+    width: 300px;
+    padding: 16px;
+    overflow-y: auto;
+    background: #1c1c1f;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.lightbox-info h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.lb-line {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.lb-label {
+    font-size: 12px;
+    color: rgba(255, 255, 255, .64);
+}
+
+.lb-folder {
+    word-break: break-all;
+}
+
+/* Phones: filters as two lists above the grid, information over the photo. */
+@media (max-width: 760px) {
+    .photos-page {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .photo-filters {
+        display: none;
+    }
+
+    .photo-header {
+        flex-wrap: wrap;
+        row-gap: 0;
+        padding: 12px 12px 0;
+    }
+
+    .photo-header h1 {
+        font-size: 20px;
+        line-height: 28px;
+    }
+
+    .photo-narrow-filters {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 8px;
+        padding: 8px 12px 0;
+    }
+
+    .photo-toolbar, .photo-report {
+        margin: 8px 12px;
+    }
+
+    .toolbar-label, .size-control svg {
+        display: none;
+    }
+
+    .size-control {
+        padding: 0 4px;
+    }
+
+    .size-control fluent-slider {
+        width: 72px !important;
+    }
+
+    .photo-scroll {
+        padding: 0 8px 16px 12px;
+    }
+
+    .lightbox-info {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: auto;
+        max-height: 50%;
+        background: rgba(28, 28, 31, .94);
+    }
+
+    .lb-nav {
+        width: 40px;
+        height: 40px;
+    }
+}

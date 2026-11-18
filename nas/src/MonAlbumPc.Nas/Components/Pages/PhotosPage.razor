@@ -1,0 +1,862 @@
+@page "/photos"
+@using MonAlbumPc.Core.Import
+@using MonAlbumPc.Core.Storage
+@using MonAlbumPc.Nas.Components.Photos
+@implements IAsyncDisposable
+@inject CoreServices Core
+@inject IJSRuntime JS
+@inject IDialogService Dialogs
+@inject IToastService Toasts
+
+<PageTitle>Photos · Mon Album PC</PageTitle>
+
+<div class="photos-page">
+    <aside class="photo-filters" aria-label="Filtres">
+        <div class="caption filter-title">Albums</div>
+        @foreach (var filter in _albumFilters)
+        {
+            <button type="button" class="filter-item @(filter.Key == _albumKey ? "active" : "")" @onclick="() => ChooseAlbum(filter.Key)">
+                @if (filter.Color is not null)
+                {
+                    <span class="filter-dot" style="background:@filter.Color"></span>
+                }
+                <span class="ellipsis">@filter.Label</span>
+                <span class="caption">@Formatting.Count(filter.Count)</span>
+            </button>
+        }
+        <div class="caption filter-title">Dates</div>
+        <button type="button" class="filter-item @(_dateKey is null ? "active" : "")" @onclick="() => ChooseDate(null)">
+            <span class="ellipsis">Toutes les dates</span>
+        </button>
+        @foreach (var filter in _dateFilters)
+        {
+            <button type="button" class="filter-item @(filter.IsYear ? "year" : "month") @(filter.Key == _dateKey ? "active" : "")"
+                    @onclick="() => ChooseDate(filter.Key)">
+                <span class="ellipsis">@filter.Label</span>
+                <span class="caption">@Formatting.Count(filter.Count)</span>
+            </button>
+        }
+    </aside>
+
+    <section class="photo-main">
+        <div class="photo-header">
+            <h1>Photos</h1>
+            <span class="muted ellipsis">@Caption</span>
+        </div>
+
+        <div class="photo-narrow-filters">
+            <FluentSelect TOption="PhotoFilter" AriaLabel="Album" Items="_albumFilters" OptionValue="f => f.Key"
+                          OptionText="AlbumOptionText"
+                          SelectedOption="@_albumFilters.FirstOrDefault(f => f.Key == _albumKey)"
+                          SelectedOptionChanged="f => ChooseAlbum(f?.Key)" Width="100%" />
+            <FluentSelect TOption="PhotoFilter" AriaLabel="Période" Items="NarrowDates" OptionValue="f => f.Key"
+                          OptionText="DateOptionText" SelectedOption="@NarrowDates.FirstOrDefault(f => f.Key == (_dateKey ?? AllDatesKey))"
+                          SelectedOptionChanged="OnNarrowDateChanged" Width="100%" />
+        </div>
+
+        <div class="photo-toolbar card">
+            @if (_selected.Count > 0)
+            {
+                <FluentButton Appearance="Appearance.Stealth" Title="Tout désélectionner" IconStart="@(new Icons.Regular.Size20.Dismiss())"
+                              OnClick="ClearSelection" />
+                <span class="selection-count">@Formatting.Plural(_selected.Count, "sélectionné", "sélectionnés")</span>
+            }
+            <FluentButton Appearance="Appearance.Stealth" IconStart="@(new Icons.Regular.Size20.Open())" Disabled="@(_selected.Count == 0)"
+                          OnClick="OpenSelected" Title="Afficher en grand (Entrée)">
+                <span class="toolbar-label">Afficher</span>
+            </FluentButton>
+            <FluentButton Appearance="Appearance.Stealth" IconStart="@(new Icons.Regular.Size20.Delete())" Disabled="@(_selected.Count == 0)"
+                          OnClick="DeleteSelected" Title="Supprimer (Suppr)">
+                <span class="toolbar-label">Supprimer</span>
+            </FluentButton>
+            <FluentButton Appearance="Appearance.Stealth" IconStart="@(new Icons.Regular.Size20.DeleteDismiss())" Disabled="@(_trash.Files == 0)"
+                          OnClick="EmptyTrash" Title="@TrashTooltip">
+                <span class="toolbar-label">Vider la corbeille</span>
+            </FluentButton>
+            <span class="toolbar-spacer"></span>
+            <FluentButton Appearance="Appearance.Stealth" IconStart="@(new Icons.Regular.Size20.ArrowClockwise())" Disabled="_loading"
+                          OnClick="LoadAsync" Title="Actualiser" />
+            <span class="size-control" title="Taille des vignettes">
+                <FluentIcon Value="@(new Icons.Regular.Size16.Image())" Color="Color.Custom" CustomColor="var(--app-text-secondary)" />
+                <FluentSlider TValue="int" Min="MinTile" Max="MaxTile" Step="4" Value="_tileSize" ValueChanged="OnTileSizeChanged"
+                              Style="width:96px" AriaLabel="Taille des vignettes" />
+                <FluentIcon Value="@(new Icons.Regular.Size24.Image())" Color="Color.Custom" CustomColor="var(--app-text-secondary)" />
+            </span>
+        </div>
+
+        @if (_report is { } report)
+        {
+            <FluentMessageBar Intent="@report.Intent" Title="@report.Title" OnDismissed="() => _report = null" Class="photo-report">
+                @foreach (var line in report.Lines.Take(5))
+                {
+                    <div class="caption">@line</div>
+                }
+                @if (report.Lines.Count > 5)
+                {
+                    <div class="caption">… et @Formatting.Count(report.Lines.Count - 5) autres.</div>
+                }
+            </FluentMessageBar>
+        }
+
+        <div class="photo-scroll @(_selected.Count > 0 ? "selecting" : "")" @ref="_scroller">
+            <div class="photo-canvas" @ref="_canvas"
+                 style="height:@Px(_layout?.Height ?? 0);--tile:@Px(_layout?.Tile ?? 0);--cols:@(_layout?.Columns ?? 1)">
+                @foreach (var row in _visible)
+                {
+                    <div @key="row" class="photo-row @(row.IsTitle ? "title-row" : "")" style="top:@Px(row.Top);height:@Px(row.Height)">
+                        @if (row.IsTitle)
+                        {
+                            <h2 class="month-title">@row.Title <span class="caption">@row.Count</span></h2>
+                        }
+                        else
+                        {
+                            @for (var i = row.Start; i < row.Start + row.Length; i++)
+                            {
+                                var index = i;
+                                var entry = _view[index];
+                                <div @key="entry" class="tile @(_selected.Contains(entry) ? "selected" : "")" title="@entry.Name"
+                                     @onclick="e => OnTileClick(index, e)" @ondblclick="() => OpenViewer(index)"
+                                     @oncontextmenu="() => OnTileLongPress(index)" @oncontextmenu:preventDefault="_touch">
+                                    <img src="@entry.ThumbUrl" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.style.visibility='hidden'" />
+                                    @if (entry.IsVideo)
+                                    {
+                                        <span class="tile-badge">@PlayIcon Vidéo</span>
+                                    }
+                                    <span class="tile-check" title="Sélectionner" @onclick="() => Toggle(index)" @onclick:stopPropagation="true">@CheckIcon</span>
+                                </div>
+                            }
+                        }
+                    </div>
+                }
+            </div>
+
+            @if (_model is null)
+            {
+                <div class="photo-loading"><FluentProgressRing /><span class="muted">Lecture des albums…</span></div>
+            }
+            else if (_model.IsEmpty)
+            {
+                <div class="empty-state">
+                    <img src="img/app.png" alt="" />
+                    <h2>Aucune photo pour l'instant.</h2>
+                    @if (_model.Albums.Count == 0)
+                    {
+                        <p>Créez un album et reliez-lui un téléphone : ses photos apparaîtront ici après la première sauvegarde.</p>
+                        <FluentAnchor Href="albums" Appearance="Appearance.Accent">Créer un album</FluentAnchor>
+                    }
+                    else
+                    {
+                        <p>Les photos sauvegardées par les téléphones apparaîtront ici automatiquement.</p>
+                    }
+                </div>
+            }
+            else if (_view.Count == 0)
+            {
+                <div class="history-empty muted">Aucune photo ne correspond à ces filtres.</div>
+            }
+        </div>
+    </section>
+</div>
+
+@if (Current is { } current)
+{
+    var position = _viewerIndex!.Value;
+    <div class="lightbox" role="dialog" aria-modal="true" aria-label="@current.Name">
+        <div class="lightbox-bar">
+            <div class="lightbox-title">
+                <span class="ellipsis"><b>@current.Name</b></span>
+                <span class="lightbox-caption ellipsis">
+                    @((_details?.Taken ?? current.Item.Date).ToString("d MMMM yyyy", Formatting.French)) · @Formatting.Count(position + 1) sur @Formatting.Count(_view.Count)
+                </span>
+            </div>
+            <button type="button" class="lb-button @(_showInfo ? "on" : "")" title="Informations" aria-pressed="@(_showInfo ? "true" : "false")"
+                    @onclick="() => _showInfo = !_showInfo">
+                <FluentIcon Value="@(new Icons.Regular.Size20.Info())" Color="Color.Custom" CustomColor="currentColor" />
+            </button>
+            <a class="lb-button" href="@current.DownloadUrl" download="@current.Name" title="Télécharger l'original">
+                <FluentIcon Value="@(new Icons.Regular.Size20.ArrowDownload())" Color="Color.Custom" CustomColor="currentColor" />
+            </a>
+            <button type="button" class="lb-button" title="Supprimer (Suppr)" @onclick="() => DeleteAsync([current])">
+                <FluentIcon Value="@(new Icons.Regular.Size20.Delete())" Color="Color.Custom" CustomColor="currentColor" />
+            </button>
+            <button type="button" class="lb-button" title="Fermer (Échap)" @onclick="CloseViewer">
+                <FluentIcon Value="@(new Icons.Regular.Size20.Dismiss())" Color="Color.Custom" CustomColor="currentColor" />
+            </button>
+        </div>
+        <div class="lightbox-body">
+            <div class="lightbox-stage">
+                @if (current.IsVideo)
+                {
+                    <video @key="current" src="@current.OriginalUrl" poster="@current.ThumbUrl" controls autoplay playsinline preload="metadata"></video>
+                }
+                else
+                {
+                    <img @key="@("thumb" + current.Path)" class="lb-placeholder" src="@current.ThumbUrl" alt="" />
+                    <img @key="current" src="@current.ViewUrl" alt="" onerror="this.style.visibility='hidden'" />
+                }
+                <button type="button" class="lb-nav prev" title="Précédent (←)" disabled="@(position == 0)" @onclick="() => Move(-1)">
+                    <FluentIcon Value="@(new Icons.Regular.Size24.ChevronLeft())" Color="Color.Custom" CustomColor="currentColor" />
+                </button>
+                <button type="button" class="lb-nav next" title="Suivant (→)" disabled="@(position >= _view.Count - 1)" @onclick="() => Move(1)">
+                    <FluentIcon Value="@(new Icons.Regular.Size24.ChevronRight())" Color="Color.Custom" CustomColor="currentColor" />
+                </button>
+            </div>
+            @if (_showInfo)
+            {
+                <aside class="lightbox-info">
+                    <h2>Informations</h2>
+                    @if (_details is { } details)
+                    {
+                        <div class="lb-line"><span class="lb-label">Prise de vue</span><span>@details.Taken.ToString("d MMMM yyyy 'à' HH:mm", Formatting.French)</span></div>
+                        <div class="lb-line"><span class="lb-label">Téléphone d'origine</span><span>@details.Phone</span></div>
+                        <div class="lb-line"><span class="lb-label">@(current.IsVideo ? "Taille" : "Dimensions · taille")</span><span>@details.Dimensions</span></div>
+                        <div class="lb-line"><span class="lb-label">Album · dossier</span><span class="lb-folder">@details.Folder</span></div>
+                    }
+                    else
+                    {
+                        <FluentProgressRing Width="20px" />
+                    }
+                </aside>
+            }
+        </div>
+        @* The neighbours load in the background: previous/next shows at once. *@
+        @foreach (var neighbour in Neighbours(position))
+        {
+            <img @key="@("next" + neighbour.Path)" class="lb-preload" src="@neighbour.ViewUrl" alt="" />
+        }
+    </div>
+}
+
+@code {
+    private const string AllDatesKey = "all-dates";
+    private const int MinTile = 64;
+    private const int MaxTile = 280;
+
+    private static readonly MarkupString CheckIcon = new(
+        """<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m7.5 12.5 3 3 6-6.5" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>""");
+
+    private static readonly MarkupString PlayIcon = new(
+        """<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg>""");
+
+    private ElementReference _scroller;
+    private ElementReference _canvas;
+    private IJSObjectReference? _module;
+    private DotNetObjectReference<PhotosPage>? _self;
+
+    private PhotosModel? _model;
+    private bool _loading;
+    private IReadOnlyList<PhotoFilter> _albumFilters = [];
+    private IReadOnlyList<PhotoFilter> _dateFilters = [];
+    private string _albumKey = PhotosModel.AllKey;
+    private string? _dateKey;
+    private List<PhotoEntry> _view = [];
+
+    private PhotoGridLayout? _layout;
+    private List<PhotoRow> _visible = [];
+    private double _width;
+    private double _scrollTop;
+    private double _viewportHeight;
+    private double? _pendingScroll;
+    private int _tileSize = 150;
+    private bool _touch;
+
+    private readonly HashSet<PhotoEntry> _selected = [];
+    private int? _anchor;
+    private bool _dialogOpen;
+    private Report? _report;
+    private (int Files, long Bytes) _trash;
+    private int _trashVersion;
+
+    private int? _viewerIndex;
+    private PhotoDetails? _details;
+    private bool _showInfo = true;
+
+    private PhotoEntry? Current => _viewerIndex is { } i && i < _view.Count ? _view[i] : null;
+
+    private Guid? AlbumId => _albumFilters.FirstOrDefault(f => f.Key == _albumKey)?.AlbumId;
+
+    private IReadOnlyList<PhotoFilter> NarrowDates =>
+        [new(AllDatesKey, "Toutes les dates", _dateFilters.Where(f => f.IsYear).Sum(f => f.Count)), .. _dateFilters];
+
+    private string Caption
+    {
+        get
+        {
+            if (_model is null)
+            {
+                return "";
+            }
+            var album = _albumFilters.FirstOrDefault(f => f.Key == _albumKey)?.Label ?? "Tous les albums";
+            var date = _dateFilters.FirstOrDefault(f => f.Key == _dateKey);
+            var period = date is null ? "" : date.Month is { } m ? $" · {Formatting.Month(m)}" : $" · {date.Label}";
+            return $"{album}{period} · {Formatting.Plural(_view.Count, "élément", "éléments")}";
+        }
+    }
+
+    private string TrashTooltip => _trash.Files == 0
+        ? "La corbeille est vide"
+        : $"Corbeille : {Formatting.Plural(_trash.Files, "élément", "éléments")} · {Formatting.Size(_trash.Bytes)}";
+
+    private static string AlbumOptionText(PhotoFilter filter) => $"{filter.Label} ({Formatting.Count(filter.Count)})";
+
+    private static string DateOptionText(PhotoFilter filter) =>
+        $"{(filter.Month is { } month ? Formatting.Month(month) : filter.Label)} ({Formatting.Count(filter.Count)})";
+
+    private static string Px(double value) => value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "px";
+
+    protected override void OnInitialized() => Core.Sessions.Ended += OnSessionEnded;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _self = DotNetObjectReference.Create(this);
+            _module = await JS.InvokeAsync<IJSObjectReference>("import", "./" + Assets["Components/Pages/PhotosPage.razor.js"]);
+            var setup = await _module.InvokeAsync<PageSetup>("init", _scroller, _canvas, _self);
+            _touch = setup.Touch;
+            _showInfo = !_touch;
+            _tileSize = Math.Clamp(setup.TileSize ?? (_touch ? 88 : 150), MinTile, MaxTile);
+            await LoadAsync();
+            return;
+        }
+        if (_pendingScroll is { } top && _module is not null)
+        {
+            _pendingScroll = null;
+            await _module.InvokeVoidAsync("scrollTo", _scroller, top);
+        }
+    }
+
+    // ---- Library ----
+
+    private async Task LoadAsync()
+    {
+        if (_loading)
+        {
+            return;
+        }
+        _loading = true;
+        StateHasChanged();
+        var model = new PhotosModel();
+        try
+        {
+            await Task.Run(() => model.Load(Core));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            _report = new Report(MessageIntent.Error, "Lecture des albums impossible", [e.Message]);
+        }
+        var selected = _selected.Select(s => s.Path).ToList();
+        var viewing = Current?.Path;
+        var top = TopEntry()?.Path;
+        _model = model;
+        _selected.Clear();
+        BuildFilters();
+        _view = [];
+        BuildView(keep: null);
+        if (top is not null && _view.FindIndex(e => e.Path == top) is var first and > 0)
+        {
+            Layout(first);
+        }
+        _selected.UnionWith(model.Find(selected).Where(_view.Contains));
+        if (viewing is not null && _view.FindIndex(e => e.Path == viewing) is var index and >= 0)
+        {
+            OpenViewer(index);
+        }
+        _loading = false;
+        StateHasChanged();
+        await MeasureTrashAsync();
+    }
+
+    // A finished backup brings new photos (raised on a server thread).
+    private void OnSessionEnded(BackupSession session) => _ = InvokeAsync(LoadAsync);
+
+    // ---- Filters ----
+
+    private void BuildFilters()
+    {
+        if (_model is null)
+        {
+            return;
+        }
+        _albumFilters = _model.AlbumFilters();
+        if (_albumFilters.All(f => f.Key != _albumKey))
+        {
+            _albumKey = PhotosModel.AllKey;
+        }
+        _dateFilters = _model.DateFilters(AlbumId);
+        if (_dateFilters.All(f => f.Key != _dateKey))
+        {
+            _dateKey = null;
+        }
+    }
+
+    private async Task ChooseAlbum(string? key)
+    {
+        _albumKey = key ?? PhotosModel.AllKey;
+        _dateKey = null;
+        BuildFilters();
+        BuildView(keep: null);
+        await MeasureTrashAsync();
+    }
+
+    private void ChooseDate(string? key)
+    {
+        _dateKey = key;
+        BuildView(keep: null);
+    }
+
+    private void OnNarrowDateChanged(PhotoFilter? filter) => ChooseDate(filter?.Key is null or AllDatesKey ? null : filter.Key);
+
+    /// <summary>Applies the filters, keeping <paramref name="keep"/> (or the first item after it) at the top of the grid.</summary>
+    private void BuildView(PhotoEntry? keep)
+    {
+        if (_model is null)
+        {
+            return;
+        }
+        var previous = _view;
+        _view = _model.View(AlbumId, _dateFilters.FirstOrDefault(f => f.Key == _dateKey));
+        var shown = _view.ToHashSet();
+        _selected.IntersectWith(shown);
+        _anchor = null;
+        _viewerIndex = null;
+        var top = keep is null ? -1 : previous.IndexOf(keep);
+        var kept = top < 0 ? null : previous.Skip(top).FirstOrDefault(shown.Contains);
+        Layout(kept is null ? 0 : _view.IndexOf(kept));
+    }
+
+    /// <summary>The item at the top of the grid, to keep it in sight when the grid changes.</summary>
+    private PhotoEntry? TopEntry() => _layout?.ItemAt(_scrollTop) is { } i && i < _view.Count ? _view[i] : null;
+
+    // ---- Grid ----
+
+    /// <summary>Splits the view into rows for the current width, keeping item <paramref name="keep"/> at the top.</summary>
+    private void Layout(int keep)
+    {
+        if (_width <= 0)
+        {
+            return;
+        }
+        _layout = new PhotoGridLayout(_view, _width, _tileSize);
+        var top = keep > 0 ? _layout.ScrollTopFor(keep) : 0;
+        if (Math.Abs(top - _scrollTop) > 1)
+        {
+            _scrollTop = top;
+            _pendingScroll = top;
+        }
+        UpdateVisible(force: true);
+    }
+
+    /// <summary>The rows from one screen above to one screen below the visible area. True when they changed.</summary>
+    private bool UpdateVisible(bool force = false)
+    {
+        if (_layout is null)
+        {
+            return false;
+        }
+        var screen = Math.Max(_viewportHeight, 600);
+        var rows = _layout.Between(_scrollTop - screen, _scrollTop + 2 * screen).ToList();
+        if (!force && rows.Count == _visible.Count && (rows.Count == 0 || (rows[0] == _visible[0] && rows[^1] == _visible[^1])))
+        {
+            return false;
+        }
+        _visible = rows;
+        return true;
+    }
+
+    [JSInvokable]
+    public Task OnViewport(double top, double height, double width) => InvokeAsync(() =>
+    {
+        _scrollTop = top;
+        _viewportHeight = height;
+        if (Math.Abs(width - _width) > 0.5)
+        {
+            var keep = TopEntry();
+            _width = width;
+            Layout(keep is null ? 0 : _view.IndexOf(keep));
+            StateHasChanged();
+        }
+        else if (UpdateVisible())
+        {
+            StateHasChanged();
+        }
+    });
+
+    private async Task OnTileSizeChanged(int size)
+    {
+        var keep = TopEntry();
+        _tileSize = size;
+        Layout(keep is null ? 0 : _view.IndexOf(keep));
+        if (_module is not null)
+        {
+            await _module.InvokeVoidAsync("saveTileSize", size);
+        }
+    }
+
+    /// <summary>Scrolls just enough to show item <paramref name="index"/>.</summary>
+    private void Reveal(int index)
+    {
+        if (_layout?.RowOf(index) is not { } row)
+        {
+            return;
+        }
+        var top = _scrollTop;
+        if (row.Top < _scrollTop)
+        {
+            top = Math.Max(0, row.Top - PhotoGridLayout.TitleHeight);
+        }
+        else if (row.Top + row.Height > _scrollTop + _viewportHeight)
+        {
+            top = row.Top + row.Height - _viewportHeight;
+        }
+        if (Math.Abs(top - _scrollTop) > 1)
+        {
+            _scrollTop = top;
+            _pendingScroll = top;
+            UpdateVisible();
+        }
+    }
+
+    // ---- Selection ----
+
+    private void OnTileClick(int index, MouseEventArgs e)
+    {
+        var additive = e.CtrlKey || e.MetaKey;
+        if (_touch && !additive && !e.ShiftKey)
+        {
+            // Touch: a tap shows the photo, or adds it to the selection once one has started (long press).
+            if (_selected.Count == 0)
+            {
+                OpenViewer(index);
+            }
+            else
+            {
+                Toggle(index);
+            }
+            return;
+        }
+        if (e.ShiftKey && _anchor is { } anchor && anchor < _view.Count)
+        {
+            if (!additive)
+            {
+                _selected.Clear();
+            }
+            for (var i = Math.Min(anchor, index); i <= Math.Max(anchor, index); i++)
+            {
+                _selected.Add(_view[i]);
+            }
+            return;
+        }
+        if (additive)
+        {
+            Toggle(index);
+            return;
+        }
+        _selected.Clear();
+        _selected.Add(_view[index]);
+        _anchor = index;
+    }
+
+    private void OnTileLongPress(int index)
+    {
+        if (_touch)
+        {
+            Toggle(index);
+        }
+    }
+
+    private void Toggle(int index)
+    {
+        var entry = _view[index];
+        if (!_selected.Remove(entry))
+        {
+            _selected.Add(entry);
+        }
+        _anchor = index;
+    }
+
+    private void ClearSelection()
+    {
+        _selected.Clear();
+        _anchor = null;
+    }
+
+    private void SelectSingle(int index)
+    {
+        _selected.Clear();
+        _selected.Add(_view[index]);
+        _anchor = index;
+        Reveal(index);
+    }
+
+    /// <summary>The selection in display order.</summary>
+    private List<PhotoEntry> Selection() => _view.Where(_selected.Contains).ToList();
+
+    [JSInvokable]
+    public Task OnKey(string key) => InvokeAsync(async () =>
+    {
+        if (_dialogOpen || _model is null)
+        {
+            return;
+        }
+        if (Current is { } current)
+        {
+            switch (key)
+            {
+                case "ArrowLeft": Move(-1); break;
+                case "ArrowRight": Move(1); break;
+                case "Escape": CloseViewer(); break;
+                case "Delete": await DeleteAsync([current]); break;
+                default: return;
+            }
+        }
+        else
+        {
+            switch (key)
+            {
+                case "SelectAll":
+                    _selected.UnionWith(_view);
+                    break;
+                case "Escape":
+                    ClearSelection();
+                    break;
+                case "Delete":
+                    await DeleteSelected();
+                    break;
+                case "Enter":
+                    OpenSelected();
+                    break;
+                case "ArrowLeft" or "ArrowRight" when _view.Count > 0:
+                    var from = _anchor ?? (key == "ArrowRight" ? -1 : _view.Count);
+                    SelectSingle(Math.Clamp(from + (key == "ArrowRight" ? 1 : -1), 0, _view.Count - 1));
+                    break;
+                default:
+                    return;
+            }
+        }
+        StateHasChanged();
+    });
+
+    // ---- Viewer ----
+
+    private void OpenSelected()
+    {
+        var first = _anchor is { } a && a < _view.Count && _selected.Contains(_view[a]) ? a : _view.FindIndex(_selected.Contains);
+        if (first >= 0)
+        {
+            OpenViewer(first);
+        }
+    }
+
+    private void OpenViewer(int index)
+    {
+        _viewerIndex = index;
+        _ = LoadDetailsAsync(_view[index]);
+    }
+
+    private void Move(int delta)
+    {
+        if (_viewerIndex is not { } index || index + delta < 0 || index + delta >= _view.Count)
+        {
+            return;
+        }
+        OpenViewer(index + delta);
+        // A single selection follows the viewer, as in the Windows app.
+        if (_selected.Count <= 1)
+        {
+            SelectSingle(index + delta);
+        }
+    }
+
+    private void CloseViewer()
+    {
+        if (_viewerIndex is { } index)
+        {
+            Reveal(index);
+        }
+        _viewerIndex = null;
+        _details = null;
+    }
+
+    private IEnumerable<PhotoEntry> Neighbours(int index) =>
+        new[] { index + 1, index - 1 }.Where(i => i >= 0 && i < _view.Count).Select(i => _view[i]).Where(e => !e.IsVideo);
+
+    private async Task LoadDetailsAsync(PhotoEntry entry)
+    {
+        _details = null;
+        var details = await Task.Run(() => PhotoDetails.Read(Core, entry));
+        if (Current == entry)
+        {
+            _details = details;
+            StateHasChanged();
+        }
+    }
+
+    // ---- Delete and trash ----
+
+    private Task DeleteSelected() => DeleteAsync(Selection());
+
+    private async Task DeleteAsync(IReadOnlyList<PhotoEntry> entries)
+    {
+        if (entries.Count == 0 || _dialogOpen)
+        {
+            return;
+        }
+        var title = entries.Count == 1
+            ? $"Supprimer {entries[0].Name} ?"
+            : $"Supprimer {Formatting.Plural(entries.Count, "élément", "éléments")} ?";
+        var message = entries.Count == 1 ? "Il ira dans la corbeille de son album." : "Ils iront dans la corbeille de leur album.";
+        if (!await ConfirmAsync(title, message, "Supprimer"))
+        {
+            return;
+        }
+        var failures = new List<string>();
+        var moved = await Task.Run(() =>
+        {
+            var done = new List<PhotoEntry>();
+            foreach (var entry in entries)
+            {
+                try
+                {
+                    AlbumTrash.Move(entry.Album.DestinationRoot, entry.Path);
+                    done.Add(entry);
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                {
+                    failures.Add($"{entry.Name} : {e.Message}");
+                }
+            }
+            return done;
+        });
+
+        var viewing = _viewerIndex;
+        var top = TopEntry();
+        _model!.Remove(moved);
+        _selected.ExceptWith(moved);
+        BuildFilters();
+        BuildView(top);
+        // The viewer goes on with the next photo.
+        if (viewing is { } index && _view.Count > 0)
+        {
+            OpenViewer(Math.Min(index, _view.Count - 1));
+        }
+
+        if (moved.Count > 0)
+        {
+            Toasts.ShowSuccess($"{Formatting.Plural(moved.Count, "élément déplacé", "éléments déplacés")} dans la corbeille.");
+        }
+        _report = failures.Count == 0 ? null : new Report(MessageIntent.Warning,
+            $"{Formatting.Plural(failures.Count, "élément n'a pas pu être supprimé", "éléments n'ont pas pu être supprimés")}", failures);
+        await MeasureTrashAsync();
+    }
+
+    private async Task EmptyTrash()
+    {
+        var (files, bytes) = _trash;
+        if (files == 0 || _dialogOpen)
+        {
+            return;
+        }
+        var albums = ScopeAlbums();
+        var where = AlbumId is null ? "des albums" : $"de l'album {albums[0].Name}";
+        if (!await ConfirmAsync("Vider la corbeille ?",
+                $"{Formatting.Plural(files, "élément", "éléments")} ({Formatting.Size(bytes)}) de la corbeille {where} seront effacés. Cette action est définitive.",
+                "Vider la corbeille"))
+        {
+            return;
+        }
+        var failures = await Task.Run(() =>
+        {
+            var errors = new List<string>();
+            foreach (var album in albums)
+            {
+                try
+                {
+                    AlbumTrash.Empty(album.DestinationRoot);
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                {
+                    errors.Add($"{album.Name} : {e.Message}");
+                }
+            }
+            return errors;
+        });
+        if (failures.Count == 0)
+        {
+            Toasts.ShowSuccess("Corbeille vidée.");
+            _report = null;
+        }
+        else
+        {
+            _report = new Report(MessageIntent.Warning, "La corbeille n'a pas pu être vidée entièrement", failures);
+        }
+        await MeasureTrashAsync();
+    }
+
+    private List<Album> ScopeAlbums() =>
+        _model?.Albums.Where(a => AlbumId is null || a.Id == AlbumId).ToList() ?? [];
+
+    private async Task MeasureTrashAsync()
+    {
+        var version = ++_trashVersion;
+        var albums = ScopeAlbums();
+        var measure = await Task.Run(() =>
+        {
+            var total = (Files: 0, Bytes: 0L);
+            foreach (var album in albums)
+            {
+                try
+                {
+                    var (files, bytes) = AlbumTrash.Measure(album.DestinationRoot);
+                    total = (total.Files + files, total.Bytes + bytes);
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                {
+                    // An album folder out of reach: its trash cannot be emptied from here anyway.
+                }
+            }
+            return total;
+        });
+        if (version == _trashVersion)
+        {
+            _trash = measure;
+            StateHasChanged();
+        }
+    }
+
+    private async Task<bool> ConfirmAsync(string title, string message, string action)
+    {
+        _dialogOpen = true;
+        try
+        {
+            var dialog = await Dialogs.ShowConfirmationAsync(message, action, "Annuler", title);
+            return !(await dialog.Result).Cancelled;
+        }
+        finally
+        {
+            _dialogOpen = false;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Core.Sessions.Ended -= OnSessionEnded;
+        if (_module is not null)
+        {
+            try
+            {
+                await _module.InvokeVoidAsync("dispose");
+                await _module.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The browser is gone: nothing to detach.
+            }
+        }
+        _self?.Dispose();
+    }
+
+    private sealed record PageSetup(bool Touch, int? TileSize);
+
+    private sealed record Report(MessageIntent Intent, string Title, IReadOnlyList<string> Lines);
+}
