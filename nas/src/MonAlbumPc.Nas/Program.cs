@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.FluentUI.AspNetCore.Components;
 using MonAlbumPc.Nas;
 using MonAlbumPc.Nas.Components;
+using MonAlbumPc.Nas.Media;
 
 var options = NasOptions.FromEnvironment();
 var builder = WebApplication.CreateBuilder(args);
@@ -17,6 +18,7 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<NasHost>());
 builder.Services.AddSingleton(sp => sp.GetRequiredService<NasHost>().Core);
 builder.Services.AddSingleton(new AdminPassword(options.ConfigDirectory));
 builder.Services.AddHostedService<ThumbnailKeeper>();
+builder.Services.AddSingleton<MediaImages>();
 
 // Cookie keys kept in /config, next to the certificate: a restart of the container does not sign the administrator out.
 builder.Services.AddDataProtection()
@@ -128,6 +130,7 @@ app.MapPost("/logout", async (HttpContext http, IAntiforgery antiforgery) =>
     return Results.Redirect("/login");
 });
 
+app.MapMedia();
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 
 app.Run();
