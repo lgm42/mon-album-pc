@@ -80,6 +80,29 @@ Tags: `windows`
 <!-- workload: easy -->
 <!-- assignee: Claude -->
 
+#### Barre d'outils Photos : boutons sous le curseur à 1200 px
+<!-- id: task-1794400000000-77 -->
+Explorateur et Plein écran passent sous le curseur de taille.
+Tags: `windows`
+<!-- priority: low -->
+<!-- workload: easy -->
+<!-- assignee: Claude -->
+
+#### Vignettes web périmées après une rotation
+<!-- id: task-1794400000000-78 -->
+La rotation garde la date du fichier : le navigateur garde l'ancienne vignette jusqu'à 24 h.
+Tags: `nas`
+<!-- priority: low -->
+<!-- workload: easy -->
+<!-- assignee: Claude -->
+
+#### Réserver l'adresse IP du PC dans la box
+<!-- id: task-1794400000000-79 -->
+Le PC a changé d'adresse après l'association du téléphone.
+<!-- priority: low -->
+<!-- workload: easy -->
+<!-- assignee: Nicolas -->
+
 ## TODO
 
 #### Mettre la clé de release Android en lieu sûr
@@ -110,13 +133,6 @@ Tags: `nas`
 <!-- priority: high -->
 <!-- assignee: Claude -->
 
-#### Miniatures générées par le NAS dans la bibliothèque
-<!-- id: task-1794400000000-23 -->
-Étape 4 du plan : le NAS prépare les miniatures, la visionneuse Windows les lit au lieu d'ouvrir chaque photo à travers le réseau.
-Tags: `nas` `windows`
-<!-- workload: hard -->
-<!-- assignee: Claude -->
-
 ### Ménage après les tests
 
 #### Dissocier le faux téléphone « A35 de test »
@@ -144,29 +160,22 @@ Gradle et SDK Android (quelques Go) dans le dossier temporaire de session de Cla
 
 ## DOING
 
-### Déploiement TrueNAS
+#### Provenance des photos (WhatsApp, captures)
+<!-- id: task-1794400000000-75 -->
+Mot-clé XMP sans réencodage, filtre « Provenance » dans les visionneuses, marquage des fichiers existants depuis l'administration (sur confirmation).
+Tags: `nas` `windows`
+<!-- priority: high -->
+<!-- workload: hard -->
+<!-- assignee: Claude -->
 
-#### 3. Administration web et album
-<!-- id: task-1794400000000-32 -->
-- [ ] Ouvrir https://adresse-du-nas:48622 et accepter le certificat auto-signé
-- [ ] Choisir le mot de passe administrateur (le ranger dans Vaultwarden)
-- [ ] Créer l'album Nicolas sur le dossier existant Nico
-- [ ] Depuis le PC, ouvrir Telephones\.monalbumpc\library.json sur le partage donnees
+#### Carte dans l'administration web du NAS
+<!-- id: task-1794400000000-76 -->
+Même carte que sous Windows (Leaflet, OpenStreetMap).
 Tags: `nas`
-<!-- priority: high -->
-<!-- workload: easy -->
-<!-- assignee: Nicolas -->
+<!-- workload: hard -->
+<!-- assignee: Claude -->
 
-#### 4. Basculer le téléphone vers le NAS
-<!-- id: task-1794400000000-33 -->
-Seulement quand la sauvegarde du téléphone est terminée. Rien ne doit être renvoyé : le NAS lit le journal du PC. S'il envoie des milliers de photos, arrêter et prévenir Claude.
-- [ ] App Android › Réglages › corbeille : dissocier le PC
-- [ ] Administration du NAS › Ajouter un téléphone, scanner le QR code
-- [ ] Le téléphone se dit à jour
-Tags: `nas` `android`
-<!-- priority: high -->
-<!-- workload: easy -->
-<!-- assignee: Nicolas -->
+### Déploiement TrueNAS
 
 #### 5. Passer l'app Windows en Visionneuse
 <!-- id: task-1794400000000-34 -->
@@ -200,6 +209,65 @@ Tags: `android`
 <!-- assignee: Nicolas -->
 
 ## DONE
+
+#### 3. Administration web et album
+<!-- id: task-1794400000000-32 -->
+- [x] Ouvrir https://adresse-du-nas:48622 et accepter le certificat auto-signé
+- [x] Choisir le mot de passe administrateur (le ranger dans Vaultwarden)
+- [x] Créer l'album Nicolas sur le dossier existant Nico
+- [x] Depuis le PC, ouvrir Telephones\.monalbumpc\library.json sur le partage donnees
+Tags: `nas`
+<!-- priority: high -->
+<!-- workload: easy -->
+<!-- assignee: Nicolas -->
+
+#### 4. Basculer le téléphone vers le NAS
+<!-- id: task-1794400000000-33 -->
+Seulement quand la sauvegarde du téléphone est terminée. Rien ne doit être renvoyé : le NAS lit le journal du PC. S'il envoie des milliers de photos, arrêter et prévenir Claude.
+- [x] App Android › Réglages › corbeille : dissocier le PC
+- [x] Administration du NAS › Ajouter un téléphone, scanner le QR code
+- [x] Le téléphone se dit à jour
+Tags: `nas` `android`
+<!-- priority: high -->
+<!-- workload: easy -->
+<!-- assignee: Nicolas -->
+
+#### Miniatures générées par le NAS dans la bibliothèque
+<!-- id: task-1794400000000-23 -->
+Service de fond du NAS (30 s après le démarrage, toutes les heures, après chaque sauvegarde), priorité minimale ; la visionneuse Windows lit les miniatures.
+Tags: `nas` `windows`
+<!-- workload: hard -->
+<!-- assignee: Claude -->
+
+#### Import des vidéos aux métadonnées illisibles
+<!-- id: task-1794400000000-70 -->
+Une vidéo WhatsApp mal formée bloquait la sauvegarde depuis le 23/10.
+Tags: `windows` `nas`
+<!-- assignee: Claude -->
+
+#### Sélection multiple, suppression groupée et corbeille (Windows)
+<!-- id: task-1794400000000-71 -->
+Ctrl, Maj, Ctrl+A ; « Vider la corbeille » avec confirmation.
+Tags: `windows`
+<!-- assignee: Claude -->
+
+#### Boîtes de dialogue au style Windows 11
+<!-- id: task-1794400000000-72 -->
+Toutes les MessageBox remplacées.
+Tags: `windows`
+<!-- assignee: Claude -->
+
+#### Visionneuse photos dans l'administration web du NAS
+<!-- id: task-1794400000000-73 -->
+Filtres, sélection, corbeille, plein écran, vidéos, HEIC converti.
+Tags: `nas`
+<!-- assignee: Claude -->
+
+#### État détaillé des sauvegardes et barre de progression par fichier
+<!-- id: task-1794400000000-74 -->
+Erreurs dans les journaux du conteneur, fichier en cours, débit, fichiers refusés mis de côté et réessayés.
+Tags: `nas` `windows` `android`
+<!-- assignee: Claude -->
 
 #### Garder la session d'administration du NAS après un redémarrage
 <!-- id: task-1794400000000-12 -->
