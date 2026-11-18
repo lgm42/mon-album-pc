@@ -7,7 +7,7 @@ using MonAlbumPc.Server;
 namespace MonAlbumPc.Nas;
 
 /// <summary>Runs the phone-facing server (protocol API, download page, mDNS) for the life of the container.</summary>
-public sealed class NasHost(NasOptions options, ILogger<NasHost> logger) : IHostedService, IAsyncDisposable
+public sealed class NasHost(NasOptions options, ILogger<NasHost> logger, ILoggerFactory loggers) : IHostedService, IAsyncDisposable
 {
     private MonAlbumServer? _server;
 
@@ -36,7 +36,8 @@ public sealed class NasHost(NasOptions options, ILogger<NasHost> logger) : IHost
         publisher.Start();
         try
         {
-            _server = new MonAlbumServer(Core, new ServerOptions { Apk = Apk });
+            // Its own web host: without the provider, its errors would never reach the container logs.
+            _server = new MonAlbumServer(Core, new ServerOptions { Apk = Apk }, new ForwardingLoggerProvider(loggers));
             await _server.StartAsync(cancellationToken);
             logger.LogInformation("Serveur prêt : API {Api}, téléchargement {Download}, administration {Admin}",
                 _server.ApiPort, _server.DownloadPort, options.AdminPort);
