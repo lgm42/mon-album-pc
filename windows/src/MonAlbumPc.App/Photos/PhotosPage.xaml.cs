@@ -28,7 +28,10 @@ public partial class PhotosPage : UserControl, IRefreshable
     private Dictionary<string, PhotoTile> _byPath = [];
     // By path, so that the selection outlives the tiles rebuilt by a refresh.
     private readonly Selection<string> _selection = new();
-    private bool _deleting;
+    // A deletion or an emptying of the trash is running.
+    private bool _busy;
+    private List<TrashContent> _trashes = [];
+    private int _trashMeasure;
     private Guid? _albumFilter;
     private DateTime? _monthFilter;
     private int? _yearFilter;
@@ -55,6 +58,7 @@ public partial class PhotosPage : UserControl, IRefreshable
         _all = await Task.Run(() => albums.SelectMany(PhotoLibrary.Scan).ToList());
         BuildFilters();
         BuildTiles();
+        UpdateTrash();
     }
 
     // ---- Filters ----
@@ -100,6 +104,7 @@ public partial class PhotosPage : UserControl, IRefreshable
         _yearFilter = null;
         BuildFilters();
         BuildTiles();
+        UpdateTrash();
     }
 
     private void OnDateFilter(object sender, SelectionChangedEventArgs e)
@@ -252,7 +257,8 @@ public partial class PhotosPage : UserControl, IRefreshable
     {
         var count = _selection.Count;
         RotateLeftButton.IsEnabled = RotateRightButton.IsEnabled = count == 1 && FocusedTile is { IsVideo: false };
-        DeleteButton.IsEnabled = count > 0 && !_deleting;
+        DeleteButton.IsEnabled = count > 0 && !_busy;
+        EmptyTrashButton.IsEnabled = _trashes.Any(t => t.Files > 0) && !_busy;
         ExplorerButton.IsEnabled = count == 1;
         FullScreenButton.IsEnabled = count > 0;
     }
@@ -395,7 +401,7 @@ public partial class PhotosPage : UserControl, IRefreshable
     private async void OnDelete(object sender, RoutedEventArgs e)
     {
         var tiles = SelectedTiles();
-        if (tiles.Count == 0 || _deleting)
+        if (tiles.Count == 0 || _busy)
         {
             return;
         }
@@ -413,7 +419,7 @@ public partial class PhotosPage : UserControl, IRefreshable
         ViewerVideo.Stop();
         ViewerVideo.Source = null;
         ViewerImage.Source = null;
-        _deleting = true;
+        _busy = true;
         UpdateCommands();
         Mouse.OverrideCursor = Cursors.Wait;
         List<DeleteFailure> failures;
@@ -423,7 +429,7 @@ public partial class PhotosPage : UserControl, IRefreshable
         }
         finally
         {
-            _deleting = false;
+            _busy = false;
             Mouse.OverrideCursor = null;
         }
         var failed = failures.Select(f => f.Target.Item.Path).ToHashSet();
@@ -439,6 +445,7 @@ public partial class PhotosPage : UserControl, IRefreshable
         {
             CloseViewer();
         }
+        UpdateTrash();
         ReportFailures(failures, targets.Count);
     }
 
@@ -536,6 +543,97 @@ public partial class PhotosPage : UserControl, IRefreshable
     private sealed record DeleteTarget(LibraryItem Item, string Name, string? AlbumRoot);
 
     private sealed record DeleteFailure(DeleteTarget Target, string Error);
+
+    // ---- Album trash ----
+
+    /// <summary>Measures the trash of the albums in view, on the network for most of them: off the UI thread.</summary>
+    private async void UpdateTrash()
+    {
+        var measure = ++_trashMeasure;
+        var albums = _albums.Where(a => _albumFilter is null || a.Id == _albumFilter).ToList();
+        var viewer = _window.Library is not null;
+        var trashes = await Task.Run(() => albums
+            // Local albums of an autonomous PC use the Windows Recycle Bin, which is not ours to empty.
+            .Where(a => viewer || AlbumTrash.IsNetworkPath(a.DestinationRoot))
+            .Select(MeasureTrash)
+            .ToList());
+        if (measure != _trashMeasure)
+        {
+            return; // a newer measure is on its way
+        }
+        _trashes = trashes;
+        var files = trashes.Sum(t => t.Files);
+        EmptyTrashButton.Visibility = trashes.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        TrashCount.Text = files == 0 ? "" : Formatting.Count(files);
+        EmptyTrashButton.ToolTip = files == 0
+            ? "La corbeille est vide"
+            : $"{Formatting.Plural(files, "élément", "éléments")} · {Size(trashes.Sum(t => t.Bytes))}";
+        UpdateCommands();
+    }
+
+    private static TrashContent MeasureTrash(Album album)
+    {
+        try
+        {
+            var (files, bytes) = AlbumTrash.Measure(album.DestinationRoot);
+            return new TrashContent(album, files, bytes);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return new TrashContent(album, 0, 0); // the share does not answer: nothing to empty for now
+        }
+    }
+
+    private async void OnEmptyTrash(object sender, RoutedEventArgs e)
+    {
+        var full = _trashes.Where(t => t.Files > 0).ToList();
+        if (full.Count == 0 || _busy)
+        {
+            return;
+        }
+        var files = full.Sum(t => t.Files);
+        var where = full is [var single] ? $"de la corbeille de l'album {single.Album.Name}" : $"des corbeilles de {full.Count} albums";
+        if (!Dialogs.Confirm(_window, "Vider la corbeille ?",
+                $"{Formatting.Plural(files, "élément", "éléments")} ({Size(full.Sum(t => t.Bytes))}) {where} " +
+                $"{(files == 1 ? "sera supprimé" : "seront supprimés")}. Cette action est définitive.",
+                "Vider la corbeille", destructive: true))
+        {
+            return;
+        }
+        _busy = true;
+        UpdateCommands();
+        Mouse.OverrideCursor = Cursors.Wait;
+        List<string> failures;
+        try
+        {
+            failures = await Task.Run(() => full.SelectMany(EmptyTrash).ToList());
+        }
+        finally
+        {
+            _busy = false;
+            Mouse.OverrideCursor = null;
+        }
+        UpdateTrash();
+        if (failures.Count > 0)
+        {
+            Dialogs.Inform(_window, "Impossible de vider la corbeille", "Des fichiers n'ont pas pu être supprimés.", string.Join("\n", failures));
+        }
+    }
+
+    private static IEnumerable<string> EmptyTrash(TrashContent trash)
+    {
+        try
+        {
+            AlbumTrash.Empty(trash.Album.DestinationRoot);
+            return [];
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return [$"{trash.Album.Name} : {e.Message}"];
+        }
+    }
+
+    private sealed record TrashContent(Album Album, int Files, long Bytes);
 
     private void OnOpenInExplorer(object sender, RoutedEventArgs e)
     {

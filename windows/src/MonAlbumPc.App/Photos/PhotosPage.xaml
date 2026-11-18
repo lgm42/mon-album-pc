@@ -16,6 +16,33 @@
             </Style.Triggers>
         </Style>
 
+        <!-- A button that looks like the filter rows around it. -->
+        <Style x:Key="FilterButton" TargetType="Button">
+            <Setter Property="Margin" Value="0,1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Back" CornerRadius="4" Background="Transparent" MinHeight="36">
+                            <ContentPresenter Margin="14,0,12,0" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Back" Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Back" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.4" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="FilterItem" TargetType="ListBoxItem" BasedOn="{StaticResource NavItem}">
             <Setter Property="Margin" Value="0,1" />
         </Style>
@@ -101,6 +128,15 @@
                         <TextBlock Style="{StaticResource Caption}" Text="Albums" Margin="8,0,0,6" />
                         <ListBox x:Name="AlbumList" Style="{StaticResource NavList}" ItemContainerStyle="{StaticResource FilterItem}"
                                  ItemTemplate="{StaticResource FilterTemplate}" SelectionChanged="OnAlbumFilter" />
+                        <!-- Albums on a share keep their deleted photos in a trash of their own, emptied here for the albums above. -->
+                        <Button x:Name="EmptyTrashButton" Style="{StaticResource FilterButton}" Visibility="Collapsed" IsEnabled="False"
+                                ToolTipService.ShowOnDisabled="True" Click="OnEmptyTrash">
+                            <DockPanel MinHeight="32">
+                                <TextBlock x:Name="TrashCount" DockPanel.Dock="Right" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" FontSize="14" Text="&#xE74D;" Margin="0,0,10,0" />
+                                <TextBlock Text="Vider la corbeille" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            </DockPanel>
+                        </Button>
                         <TextBlock Style="{StaticResource Caption}" Text="Dates" Margin="8,20,0,6" />
                         <ListBox x:Name="DateList" Style="{StaticResource NavList}" ItemContainerStyle="{StaticResource FilterItem}"
                                  ItemTemplate="{StaticResource FilterTemplate}" SelectionChanged="OnDateFilter" />
