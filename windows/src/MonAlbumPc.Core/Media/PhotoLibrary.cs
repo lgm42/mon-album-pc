@@ -5,8 +5,8 @@ using MonAlbumPc.Core.Model;
 
 namespace MonAlbumPc.Core.Media;
 
-/// <summary>A photo or video shown by the viewer.</summary>
-public sealed record LibraryItem(string Path, Guid AlbumId, DateTime Month, DateTime Date, bool IsVideo, long Size);
+/// <summary>A photo or video shown by the viewer. <see cref="AlbumRoot"/> locates its prepared thumbnail, when known.</summary>
+public sealed record LibraryItem(string Path, Guid AlbumId, DateTime Month, DateTime Date, bool IsVideo, long Size, string? AlbumRoot = null);
 
 /// <summary>
 /// Lists the media of an album folder. Files under <c>{yyyy}\{yyyy-MM}</c> belong to that month; anything else (copied by
@@ -29,7 +29,7 @@ public static partial class PhotoLibrary
             {
                 var date = f.LastWriteTime;
                 var month = MonthOfFolder(f.DirectoryName) ?? new DateTime(date.Year, date.Month, 1);
-                return new LibraryItem(f.FullName, album.Id, month, date, MediaTypes.IsVideo(f.Name), f.Length);
+                return new LibraryItem(f.FullName, album.Id, month, date, MediaTypes.IsVideo(f.Name), f.Length, album.DestinationRoot);
             })
             .OrderByDescending(i => i.Month)
             .ThenByDescending(i => i.Date)

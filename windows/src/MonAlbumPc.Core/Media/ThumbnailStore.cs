@@ -31,4 +31,20 @@ public static class ThumbnailStore
             return null;
         }
     }
+
+    /// <summary>
+    /// Deletes the thumbnail of <paramref name="mediaPath"/> after a change that keeps the file date (a rotation keeps it
+    /// so the photo stays in place): the NAS makes it again, and meanwhile the viewers read the photo itself.
+    /// </summary>
+    public static void Forget(string albumRoot, string mediaPath)
+    {
+        try
+        {
+            File.Delete(PathFor(albumRoot, mediaPath));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // Out of reach: the old thumbnail stays until the photo changes date.
+        }
+    }
 }

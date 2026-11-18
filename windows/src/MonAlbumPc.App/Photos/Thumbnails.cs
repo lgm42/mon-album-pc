@@ -7,17 +7,21 @@ using MonAlbumPc.Core.Media;
 
 namespace MonAlbumPc.App.Photos;
 
-/// <summary>Decodes thumbnails off the UI thread: photos with WPF at the needed size, videos through the Windows shell.</summary>
+/// <summary>
+/// Decodes thumbnails off the UI thread: the one prepared by the NAS when there is a fresh one, otherwise photos with WPF
+/// at the needed size and videos through the Windows shell.
+/// </summary>
 internal static class Thumbnails
 {
     private static readonly SemaphoreSlim Gate = new(4);
 
-    public static async Task<ImageSource?> LoadAsync(string path, bool isVideo, int pixels)
+    public static async Task<ImageSource?> LoadAsync(LibraryItem item, int pixels)
     {
         await Gate.WaitAsync();
         try
         {
-            return await Task.Run(() => isVideo ? FromShell(path, pixels) : FromFile(path, pixels));
+            return await Task.Run(() => FromStore(item, pixels)
+                ?? (item.IsVideo ? FromShell(item.Path, pixels) : FromFile(item.Path, pixels)));
         }
         catch (Exception e) when (e is IOException or NotSupportedException or FileFormatException or COMException or UnauthorizedAccessException)
         {
@@ -42,16 +46,27 @@ internal static class Thumbnails
         }
     }
 
+    /// <summary>The thumbnail kept next to the album: a few kilobytes instead of a whole photo across the network.</summary>
+    private static ImageSource? FromStore(LibraryItem item, int pixels)
+    {
+        if (item.AlbumRoot is null || ThumbnailStore.Fresh(item.AlbumRoot, item.Path) is not { } thumbnail)
+        {
+            return null;
+        }
+        try
+        {
+            // Stored upright: no EXIF rotation to apply.
+            return Decode(thumbnail, pixels);
+        }
+        catch (Exception e) when (e is IOException or NotSupportedException or FileFormatException or UnauthorizedAccessException)
+        {
+            return null; // replaced or removed meanwhile: the media itself still works
+        }
+    }
+
     private static ImageSource FromFile(string path, int pixels)
     {
-        var image = new BitmapImage();
-        image.BeginInit();
-        image.CacheOption = BitmapCacheOption.OnLoad;
-        image.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
-        image.UriSource = new Uri(path);
-        image.DecodePixelWidth = pixels;
-        image.EndInit();
-        image.Freeze();
+        var image = Decode(path, pixels);
 
         // WPF ignores the EXIF orientation: apply it so phone photos are upright.
         var degrees = ExifOrientation.Degrees(ExifOrientation.Read(path));
@@ -62,6 +77,19 @@ internal static class Thumbnails
         var rotated = new TransformedBitmap(image, new RotateTransform(degrees));
         rotated.Freeze();
         return rotated;
+    }
+
+    private static BitmapImage Decode(string path, int pixels)
+    {
+        var image = new BitmapImage();
+        image.BeginInit();
+        image.CacheOption = BitmapCacheOption.OnLoad;
+        image.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
+        image.UriSource = new Uri(path);
+        image.DecodePixelWidth = pixels;
+        image.EndInit();
+        image.Freeze();
+        return image;
     }
 
     private static ImageSource? FromShell(string path, int pixels)

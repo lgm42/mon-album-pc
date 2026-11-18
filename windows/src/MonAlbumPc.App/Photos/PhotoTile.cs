@@ -31,9 +31,13 @@ public sealed partial class PhotoTile(LibraryItem item, int thumbnailPixels) : O
         }
     }
 
-    /// <summary>Drops the thumbnail (after a rotation) so it is decoded again.</summary>
+    /// <summary>Drops the thumbnail (after a rotation) so it is decoded again; the one prepared by the NAS is now sideways.</summary>
     public void Reload()
     {
+        if (Item.AlbumRoot is { } albumRoot)
+        {
+            ThumbnailStore.Forget(albumRoot, Item.Path);
+        }
         _requested = false;
         _thumbnail = null;
         OnPropertyChanged(nameof(Thumbnail));
@@ -41,7 +45,7 @@ public sealed partial class PhotoTile(LibraryItem item, int thumbnailPixels) : O
 
     private async Task LoadAsync()
     {
-        _thumbnail = await Thumbnails.LoadAsync(Item.Path, Item.IsVideo, thumbnailPixels);
+        _thumbnail = await Thumbnails.LoadAsync(Item, thumbnailPixels);
         OnPropertyChanged(nameof(Thumbnail));
     }
 }

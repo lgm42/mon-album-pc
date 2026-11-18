@@ -26,6 +26,7 @@ public sealed class PhotoLibraryTests : IDisposable
         Assert.Equal(new DateTime(2024, 5, 1), items[1].Month);
         Assert.True(items[1].IsVideo);
         Assert.Equal(new DateTime(2023, 8, 1), items[3].Month);
+        Assert.All(items, i => Assert.Equal(album.DestinationRoot, i.AlbumRoot));
     }
 
     [Fact]

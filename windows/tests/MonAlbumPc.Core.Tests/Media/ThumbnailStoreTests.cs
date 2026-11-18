@@ -34,4 +34,18 @@ public sealed class ThumbnailStoreTests : IDisposable
         File.SetLastWriteTimeUtc(photo, File.GetLastWriteTimeUtc(thumbnail).AddMinutes(1));
         Assert.Null(ThumbnailStore.Fresh(root, photo));
     }
+
+    [Fact]
+    public void Forgetting_a_thumbnail_deletes_it()
+    {
+        var root = _temp.Combine("Nico");
+        var photo = _temp.WriteFile(@"Nico\2026\IMG_1.jpg", [1]);
+        var thumbnail = _temp.WriteFile(@"Nico\.monalbumpc\miniatures\2026\IMG_1.jpg.jpg", [2]);
+
+        ThumbnailStore.Forget(root, photo);
+        ThumbnailStore.Forget(root, photo);
+
+        Assert.False(File.Exists(thumbnail));
+        Assert.Null(ThumbnailStore.Fresh(root, photo));
+    }
 }
