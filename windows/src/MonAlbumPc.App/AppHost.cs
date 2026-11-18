@@ -53,7 +53,8 @@ public sealed class AppHost : IAsyncDisposable
         Core.MediaIndexer.RequestRefresh();
         try
         {
-            _server = new MonAlbumServer(Core, new ServerOptions { Apk = Apk });
+            _server = new MonAlbumServer(Core, new ServerOptions { Apk = Apk },
+                new FileLoggerProvider(Path.Combine(Core.DataDirectory, "server.log")));
             await _server.StartAsync();
             ServerError = null;
             SystemEvents.PowerModeChanged += OnPowerModeChanged;
