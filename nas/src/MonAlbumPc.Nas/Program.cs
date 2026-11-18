@@ -16,6 +16,7 @@ builder.Services.AddSingleton<NasHost>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<NasHost>());
 builder.Services.AddSingleton(sp => sp.GetRequiredService<NasHost>().Core);
 builder.Services.AddSingleton(new AdminPassword(options.ConfigDirectory));
+builder.Services.AddHostedService<ThumbnailKeeper>();
 
 // Cookie keys kept in /config, next to the certificate: a restart of the container does not sign the administrator out.
 builder.Services.AddDataProtection()
