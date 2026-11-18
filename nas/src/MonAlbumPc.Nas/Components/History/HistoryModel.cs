@@ -1,4 +1,5 @@
 using MonAlbumPc.Core;
+using MonAlbumPc.Core.Import;
 using MonAlbumPc.Core.Storage;
 using MonAlbumPc.Nas.Components.Shared;
 
@@ -46,7 +47,7 @@ public sealed class HistoryModel(CoreServices core)
             phone,
             album is null ? "Album supprimé" : $"Album {album}",
             title,
-            s.HasError ? (s.Photos + s.Videos > 0 ? $"{summary} reçus avant l'arrêt. {s.ErrorMessage}" : s.ErrorMessage) : s.Complete ? "Téléphone entièrement synchronisé" : null,
+            s.HasError ? (s.Photos + s.Videos > 0 ? $"{summary} reçus{(s.ErrorCode == SessionErrors.ImportFailed ? "" : " avant l'arrêt")}. {s.ErrorMessage}" : s.ErrorMessage) : s.Complete ? "Téléphone entièrement synchronisé" : null,
             hint,
             s.Channel == ImportChannel.Usb,
             s.HasError);
@@ -65,6 +66,8 @@ public sealed class HistoryModel(CoreServices core)
         "destination_unavailable" => ("Dossier de destination introuvable",
             "Conseil : vérifiez que le volume des photos est bien monté sur le NAS. Le téléphone réessaiera tout seul."),
         "disk_full" => ("Disque plein", "Conseil : libérez de la place sur le volume des photos."),
+        SessionErrors.ImportFailed => ("Fichiers non sauvegardés",
+            "Le téléphone a continué avec les autres et réessaiera ces fichiers plus tard. Le détail est dans le journal du conteneur."),
         _ => ("Sauvegarde interrompue", null),
     };
 
