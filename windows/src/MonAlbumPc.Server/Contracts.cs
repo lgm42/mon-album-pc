@@ -33,6 +33,8 @@ public sealed record NameCheckRequest(IReadOnlyList<NameCheckItem> Items);
 /// <summary>Positions, in the request, of the files the PC already has.</summary>
 public sealed record NameCheckResponse(IReadOnlyList<int> Have);
 
+/// <param name="RunPosition">Rank of this file in the phone's run (1 = first), for the status; absent from older phones.</param>
+/// <param name="RunTotal">Number of files of the phone's run; absent from older phones.</param>
 public sealed record UploadRequest(
     string Sha256,
     long Size,
@@ -40,7 +42,9 @@ public sealed record UploadRequest(
     string? SourceFolder,
     string? Mime,
     DateTimeOffset? TakenAt,
-    DateTimeOffset? ModifiedAt);
+    DateTimeOffset? ModifiedAt,
+    int? RunPosition = null,
+    int? RunTotal = null);
 
 public sealed record UploadResponse(string Status, string? UploadId = null, long? Offset = null);
 

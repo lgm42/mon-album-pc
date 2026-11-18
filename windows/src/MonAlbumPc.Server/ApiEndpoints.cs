@@ -2,6 +2,8 @@ using System.Security.Cryptography;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using MonAlbumPc.Core;
 using MonAlbumPc.Core.Import;
 using MonAlbumPc.Core.Media;
@@ -20,9 +22,27 @@ internal static class ApiEndpoints
 
     public static void Map(WebApplication app, CoreServices core, ServerOptions options)
     {
+        var log = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("MonAlbumPc.Server.Api");
+
         // Secrets travel in headers: the API is never served on the plain HTTP download port.
         var api = app.MapGroup("/api/v1").AddEndpointFilter(async (context, next) =>
             context.HttpContext.Request.IsHttps ? await next(context) : Results.NotFound());
+
+        // A failure nobody expected still gets a line in the logs and an answer the phone can show.
+        api.AddEndpointFilter(async (context, next) =>
+        {
+            var http = context.HttpContext;
+            try
+            {
+                return await next(context);
+            }
+            catch (Exception e) when (!http.RequestAborted.IsCancellationRequested)
+            {
+                log.LogError(e, "Erreur inattendue sur {Method} {Path} ({Phone})", http.Request.Method, http.Request.Path,
+                    (http.Items[DeviceKey] as Device)?.Name ?? "téléphone non identifié");
+                return Error(StatusCodes.Status500InternalServerError, "internal_error", $"Erreur inattendue du serveur : {e.Message}");
+            }
+        });
 
         api.MapPost("/pair", (PairRequest request) => Pair(core, request));
 
@@ -41,9 +61,9 @@ internal static class ApiEndpoints
         device.MapGet("/status", (HttpContext http) => Status(core, options, Current(http)));
         device.MapPost("/check", (HttpContext http, CheckRequest request) => Check(core, Current(http), request));
         device.MapPost("/check-names", (HttpContext http, NameCheckRequest request) => CheckNames(core, Current(http), request));
-        device.MapPost("/uploads", (HttpContext http, UploadRequest request) => BeginUpload(core, Current(http), request));
+        device.MapPost("/uploads", (HttpContext http, UploadRequest request) => BeginUpload(core, log, Current(http), request));
         device.MapMethods("/uploads/{id}", ["HEAD"], (HttpContext http, string id) => UploadOffset(core, http, Current(http), id));
-        device.MapPatch("/uploads/{id}", (HttpContext http, string id) => AppendUpload(core, http, Current(http), id));
+        device.MapPatch("/uploads/{id}", (HttpContext http, string id) => AppendUpload(core, log, http, Current(http), id));
         device.MapPost("/backup-finished", (HttpContext http, BackupFinishedRequest request) =>
         {
             var phone = Current(http);
@@ -103,6 +123,7 @@ internal static class ApiEndpoints
         {
             return Error(StatusCodes.Status400BadRequest, "too_many_items", $"{MaxCheckItems} éléments au maximum.");
         }
+        core.Sessions.Comparing(device.Id, device.AlbumId, ImportChannel.Wifi);
         var have = core.History.ContainsMany(device.AlbumId, request.Items.Select(i => i.Sha256.ToLowerInvariant()));
         return Results.Ok(new CheckResponse([.. have]));
     }
@@ -113,6 +134,7 @@ internal static class ApiEndpoints
         {
             return Error(StatusCodes.Status400BadRequest, "too_many_items", $"{MaxCheckItems} éléments au maximum.");
         }
+        core.Sessions.Comparing(device.Id, device.AlbumId, ImportChannel.Wifi);
         var have = request.Items
             .Select((item, index) => (item, index))
             .Where(x => core.History.ContainsNameAndSize(device.AlbumId, x.item.Name, x.item.Size))
@@ -121,7 +143,7 @@ internal static class ApiEndpoints
         return Results.Ok(new NameCheckResponse(have));
     }
 
-    private static IResult BeginUpload(CoreServices core, Device device, UploadRequest request)
+    private static IResult BeginUpload(CoreServices core, ILogger log, Device device, UploadRequest request)
     {
         var album = AlbumOf(core, device);
         var sha256 = request.Sha256.ToLowerInvariant();
@@ -143,9 +165,10 @@ internal static class ApiEndpoints
             var upload = core.Uploads.Begin(album, device.Id, new UploadDeclaration(
                 sha256, request.Size, request.Name, request.SourceFolder, request.Mime, request.TakenAt, request.ModifiedAt));
             var offset = core.Uploads.Offset(album, upload);
-            core.Sessions.Touch(device.Id, album.Id, ImportChannel.Wifi);
+            core.Sessions.Receiving(device.Id, album.Id, ImportChannel.Wifi, request.Name, request.Size, offset,
+                request.RunPosition, request.RunTotal);
             return offset == request.Size && request.Size > 0
-                ? Complete(core, album, device, upload)
+                ? Complete(core, log, album, device, upload)
                 : Results.Ok(new UploadResponse("upload", upload.Id, offset));
         });
     }
@@ -165,7 +188,7 @@ internal static class ApiEndpoints
         });
     }
 
-    private static async Task<IResult> AppendUpload(CoreServices core, HttpContext http, Device device, string id)
+    private static async Task<IResult> AppendUpload(CoreServices core, ILogger log, HttpContext http, Device device, string id)
     {
         var album = AlbumOf(core, device);
         if (core.Locks.IsUsbBusy(device.Id))
@@ -183,10 +206,13 @@ internal static class ApiEndpoints
             {
                 return Results.NotFound();
             }
-            core.Sessions.Touch(device.Id, album.Id, ImportChannel.Wifi);
-            var newOffset = await core.Uploads.AppendAsync(album, upload, offset, http.Request.Body, http.RequestAborted);
-            return newOffset == upload.Declaration.Size
-                ? Complete(core, album, device, upload)
+            var declaration = upload.Declaration;
+            core.Sessions.Receiving(device.Id, album.Id, ImportChannel.Wifi, declaration.Name, declaration.Size, offset);
+            // A video may come in one long request: the status follows the bytes as they are written.
+            var newOffset = await core.Uploads.AppendAsync(album, upload, offset, http.Request.Body, http.RequestAborted,
+                received => core.Sessions.Progress(device.Id, received));
+            return newOffset == declaration.Size
+                ? Complete(core, log, album, device, upload)
                 : Results.Ok(new OffsetResponse(newOffset));
         }
         catch (OffsetMismatchException e)
@@ -204,7 +230,7 @@ internal static class ApiEndpoints
         }
     }
 
-    private static IResult Complete(CoreServices core, Album album, Device device, Upload upload)
+    private static IResult Complete(CoreServices core, ILogger log, Album album, Device device, Upload upload)
     {
         var declaration = upload.Declaration;
         var incoming = new IncomingFile(
@@ -224,23 +250,42 @@ internal static class ApiEndpoints
             if (result.Outcome == ImportOutcome.Saved)
             {
                 core.Sessions.RecordSaved(device.Id, album.Id, ImportChannel.Wifi, MediaTypes.IsVideo(declaration.Name));
+                log.LogDebug("{File} de {Phone} rangé dans {Destination}", declaration.Name, device.Name, result.DestinationPath);
             }
             return Results.Ok(new OffsetResponse(declaration.Size, result.Outcome == ImportOutcome.Saved ? "saved" : "exists"));
         }
         catch (HashMismatchException e)
         {
+            log.LogWarning("{File} de {Phone} arrivé abîmé, il sera renvoyé : {Message}", declaration.Name, device.Name, e.Message);
             core.Uploads.Delete(album, upload);
             return Error(StatusCodes.Status422UnprocessableEntity, "hash_mismatch", e.Message);
         }
         catch (DestinationUnavailableException e)
         {
+            log.LogWarning("Destination introuvable, {File} de {Phone} attendra : {Message}", declaration.Name, device.Name, e.Message);
             core.Sessions.RecordError(device.Id, album.Id, ImportChannel.Wifi, "destination_unavailable", e.Message);
             return Error(StatusCodes.Status503ServiceUnavailable, "destination_unavailable", e.Message);
         }
         catch (DiskFullException e)
         {
+            log.LogWarning("Disque plein, {File} de {Phone} attendra : {Message}", declaration.Name, device.Name, e.Message);
             core.Sessions.RecordError(device.Id, album.Id, ImportChannel.Wifi, "disk_full", e.Message);
             return Error(StatusCodes.Status507InsufficientStorage, "disk_full", e.Message);
+        }
+        catch (Exception e)
+        {
+            // One file the server cannot store (unexpected metadata, I/O error…) must not hold back the others. The bytes stay
+            // in the upload: a retry, maybe after an update of the server, imports them without sending them again.
+            log.LogError(e, "Import impossible de {File} ({Size} octets) envoyé par {Phone}", declaration.Name, declaration.Size, device.Name);
+            if (!File.Exists(core.Uploads.DataPath(album, upload)))
+            {
+                core.Uploads.Delete(album, upload);
+            }
+            var message = $"Rangement impossible : {e.Message}";
+            core.Sessions.RecordFileError(device.Id, album.Id, ImportChannel.Wifi, declaration.Name, message);
+            // 422 rather than 500: phones up to 0.1.13 mark the file in error and go on, where a 5xx made them retry the whole
+            // run, stuck on this file.
+            return Error(StatusCodes.Status422UnprocessableEntity, SessionErrors.ImportFailed, message);
         }
     }
 

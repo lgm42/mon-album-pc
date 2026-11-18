@@ -25,10 +25,14 @@ public sealed class ServerFixture : IAsyncDisposable
     public MonAlbumServer Server { get; private set; } = null!;
     public TempDirectory Temp => _temp;
 
+    /// <summary>What the server logged.</summary>
+    public RecordingLoggerProvider Logs { get; } = new();
+
     public static async Task<ServerFixture> StartAsync(ServerOptions? options = null)
     {
         var fixture = new ServerFixture();
-        fixture.Server = new MonAlbumServer(fixture.Core, options ?? new ServerOptions { ApiPort = 0, DownloadPort = 0, Advertise = false });
+        fixture.Server = new MonAlbumServer(fixture.Core, options ?? new ServerOptions { ApiPort = 0, DownloadPort = 0, Advertise = false },
+            fixture.Logs);
         await fixture.Server.StartAsync();
         return fixture;
     }

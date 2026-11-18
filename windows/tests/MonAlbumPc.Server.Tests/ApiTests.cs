@@ -223,6 +223,96 @@ public sealed class ApiTests
     }
 
     [Fact]
+    public async Task A_file_that_cannot_be_stored_is_logged_recorded_and_refused_without_blocking_the_others()
+    {
+        await using var fixture = await ServerFixture.StartAsync();
+        var (api, _) = await fixture.PairAsync();
+        var ended = new List<Core.Storage.BackupSession>();
+        fixture.Core.Sessions.Ended += ended.Add;
+        // A file where the year folder should be: placing the photo throws something nobody planned for.
+        var blocker = Path.Combine(fixture.Album.DestinationRoot, "2024");
+        await File.WriteAllTextAsync(blocker, "");
+        var photo = TestImages.Jpeg("2024:05:12 10:30:15");
+        var sha = Hashing.Sha256(photo);
+        var declared = await Declare(api, sha, photo.Length, "VID-20231126-WA0007.jpg");
+
+        var response = await Patch(api, declared.UploadId!, 0, photo);
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        var error = (await response.Content.ReadFromJsonAsync<ErrorBody>())!.Error;
+        Assert.Equal("import_failed", error.Code);
+        Assert.StartsWith("Rangement impossible", error.Message);
+        var log = Assert.Single(fixture.Logs.Lines, l => l.Level == Microsoft.Extensions.Logging.LogLevel.Error);
+        Assert.Contains("VID-20231126-WA0007.jpg", log.Message);
+        Assert.Contains("A35 de Marie", log.Message);
+        Assert.NotNull(log.Exception);
+        var active = Assert.Single(fixture.Core.Sessions.Active);
+        Assert.Equal(1, active.Failures);
+        Assert.Equal("VID-20231126-WA0007.jpg", active.LastFailure!.Name);
+
+        // The others still go through, and the session tells about the refused file.
+        var other = TestImages.Jpeg("2025:01:02 08:00:00");
+        var otherUpload = await Declare(api, Hashing.Sha256(other), other.Length, "IMG_2.jpg");
+        Assert.Equal(HttpStatusCode.OK, (await Patch(api, otherUpload.UploadId!, 0, other)).StatusCode);
+        await api.PostAsJsonAsync("backup-finished", new BackupFinishedRequest(0, 1));
+        var session = Assert.Single(ended);
+        Assert.Equal("import_failed", session.ErrorCode);
+        Assert.StartsWith("VID-20231126-WA0007.jpg : Rangement impossible", session.ErrorMessage);
+        Assert.Equal(1, session.Photos);
+        Assert.Equal(1, fixture.Core.Sessions.Last!.Errors);
+
+        // Once the cause is gone, declaring the file again stores the bytes kept from the first time.
+        File.Delete(blocker);
+        Assert.Equal("saved", (await Declare(api, sha, photo.Length, "VID-20231126-WA0007.jpg")).Status);
+    }
+
+    [Fact]
+    public async Task The_status_follows_the_phone_from_comparison_to_the_bytes_of_its_file()
+    {
+        await using var fixture = await ServerFixture.StartAsync();
+        var (api, _) = await fixture.PairAsync();
+        var photo = TestImages.Jpeg("2024:05:12 10:30:15");
+        var sha = Hashing.Sha256(photo);
+
+        await api.PostAsJsonAsync("check", new CheckRequest([new CheckItem(sha, photo.Length)]));
+        Assert.True(Assert.Single(fixture.Core.Sessions.Active).Comparing);
+
+        var response = await api.PostAsJsonAsync("uploads", Declaration(sha, photo.Length, "IMG_1.jpg") with { RunPosition = 3, RunTotal = 20 });
+        var declared = (await response.Content.ReadFromJsonAsync<UploadResponse>())!;
+        var receiving = Assert.Single(fixture.Core.Sessions.Active);
+        Assert.False(receiving.Comparing);
+        Assert.Equal(new IncomingTransfer("IMG_1.jpg", photo.Length, 0), receiving.Current! with { Since = default });
+        Assert.Equal((3, 20), (receiving.Position, receiving.Total));
+
+        await Patch(api, declared.UploadId!, 0, photo[..100]);
+        Assert.Equal(100, Assert.Single(fixture.Core.Sessions.Active).Current!.Received);
+
+        await Patch(api, declared.UploadId!, 100, photo[100..]);
+        var done = Assert.Single(fixture.Core.Sessions.Active);
+        Assert.Null(done.Current);
+        Assert.Equal(1, done.Photos);
+    }
+
+    [Fact]
+    public async Task Sessions_leave_a_line_in_the_logs_when_they_start_and_end()
+    {
+        await using var fixture = await ServerFixture.StartAsync();
+        var (api, _) = await fixture.PairAsync();
+        var photo = TestImages.Jpeg("2024:05:12 10:30:15");
+        var declared = await Declare(api, Hashing.Sha256(photo), photo.Length, "IMG_1.jpg");
+        await Patch(api, declared.UploadId!, 0, photo);
+
+        await api.PostAsJsonAsync("backup-finished", new BackupFinishedRequest(0, 0));
+
+        var sessions = fixture.Logs.Lines.Where(l => l.Category == "MonAlbumPc.Sessions").Select(l => l.Message).ToList();
+        Assert.Equal(2, sessions.Count);
+        Assert.Contains("A35 de Marie", sessions[0]);
+        Assert.Contains("commencée", sessions[0]);
+        Assert.Contains("terminée", sessions[1]);
+        Assert.Contains("téléphone à jour", sessions[1]);
+    }
+
+    [Fact]
     public async Task Apk_is_announced_and_served_to_paired_phones()
     {
         var apkPath = Path.Combine(Path.GetTempPath(), $"monalbumpc-{Guid.NewGuid():N}.apk");

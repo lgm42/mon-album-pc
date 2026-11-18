@@ -181,12 +181,17 @@ Réponse : `{ "have": [0, 3] }` : positions, dans la requête, des fichiers que 
   "sourceFolder": "Appareil photo",
   "mime": "video/mp4",
   "takenAt": "2026-10-17T13:17:05+02:00",
-  "modifiedAt": "2026-10-17T13:18:40+02:00"
+  "modifiedAt": "2026-10-17T13:18:40+02:00",
+  "runPosition": 19,
+  "runTotal": 20
 }
 ```
 
 - `takenAt` : date de prise de vue connue du téléphone (MediaStore), ou `null`. Le PC lit lui-même
   l'EXIF et ne se sert de cette valeur qu'en secours.
+- `runPosition`, `runTotal` (facultatifs) : rang de ce fichier dans le passage en cours (1 = premier) et nombre de
+  fichiers que ce passage traite. Ils ne servent qu'à l'affichage côté serveur (« fichier 19 sur 20 ») ; un téléphone
+  plus ancien ne les envoie pas, un serveur plus ancien les ignore.
 - Réponse `200 { "status": "exists" }` : déjà sauvegardé, le téléphone marque le fichier comme sauvegardé.
 - Réponse `200 { "status": "upload", "uploadId": "…", "offset": 0 }` : à envoyer. Si un envoi
   interrompu existe pour ce SHA-256 et ce téléphone, `offset` indique où il s'est arrêté.
@@ -202,6 +207,11 @@ Réponse : `{ "have": [0, 3] }` : positions, dans la requête, des fichiers que 
   dans l'historique, puis répond `200 { "offset": <taille>, "status": "saved" }` (ou `"exists"` si un fichier
   identique est déjà rangé).
 - Si le SHA-256 ne correspond pas : `422 hash_mismatch`. L'envoi est effacé et sera repris de zéro.
+- Si le fichier est bien arrivé mais que le serveur ne parvient pas à le ranger (métadonnées inattendues, erreur
+  d'écriture…) : `422 import_failed`, avec la raison dans `message`. Le serveur l'inscrit dans le journal et dans la
+  session, et **garde les octets reçus** : en le déclarant de nouveau plus tard, le téléphone obtient directement le
+  résultat, sans renvoyer le fichier. Cette réponse peut aussi venir de `POST /uploads` quand l'envoi était déjà complet.
+  Le téléphone passe au fichier suivant et réessaie celui-ci lors d'un passage ultérieur, de plus en plus espacé.
 
 **3. Reprendre après une coupure** : `HEAD /uploads/{uploadId}` renvoie l'offset reçu dans l'en-tête
 `Upload-Offset`. Un `404` signifie que l'envoi a expiré : il faut recommencer à l'étape 1.
@@ -245,7 +255,12 @@ Format :
 { "error": { "code": "destination_unavailable", "message": "…" } }
 ```
 
-Le champ `message` est lisible, en français, et sert aux journaux. L'interface se base sur `code`.
+Le champ `message` est lisible, en français, et sert aux journaux. L'interface se base sur `code`, et peut montrer
+`message` quand le code ne suffit pas à expliquer l'erreur (`import_failed`).
+
+`import_failed` est en 422 et non en 5xx pour les téléphones jusqu'à la 0.1.13 : ils mettent en erreur un média refusé
+par un code 4xx inconnu et passent au suivant, alors qu'un 5xx leur faisait recommencer tout le passage, bloqués sur ce
+fichier.
 
 | HTTP | `code` | Comportement du téléphone |
 | --- | --- | --- |
@@ -255,6 +270,8 @@ Le champ `message` est lisible, en français, et sert aux journaux. L'interface 
 | 409 | `busy_usb` | Réessaie plus tard, sans erreur visible |
 | 409 | `offset_mismatch` | Reprend à l'offset indiqué |
 | 422 | `hash_mismatch` | Recommence l'envoi (3 essais, puis erreur sur le média) |
+| 422 | `import_failed` | Erreur sur ce média, affiche `message`, passe au suivant ; nouvel essai plus tard (15 min, 1 h, 4 h, 12 h, puis chaque jour) |
+| 500 | `internal_error` | Erreur inattendue du serveur, inscrite dans son journal ; réessaie plus tard |
 | 503 | `destination_unavailable` | Bandeau « Le PC ne peut pas recevoir les photos… », réessaie plus tard |
 | 507 | `disk_full` | Erreur « le disque du PC est plein », réessaie plus tard |
 | 426 | `protocol_unsupported` | Propose la mise à jour de l'app |

@@ -18,6 +18,7 @@ public sealed class MonAlbumServer(CoreServices core, ServerOptions options, ILo
     private WebApplication? _app;
     private MdnsAdvertiser? _mdns;
     private Timer? _idleSessions;
+    private SessionLog? _sessionLog;
 
     public int ApiPort { get; private set; }
     public int DownloadPort { get; private set; }
@@ -41,6 +42,7 @@ public sealed class MonAlbumServer(CoreServices core, ServerOptions options, ILo
         });
 
         _app = builder.Build();
+        _sessionLog = new SessionLog(core, _app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("MonAlbumPc.Sessions"));
         ApiEndpoints.Map(_app, core, options);
         DownloadEndpoints.Map(_app, core, options);
         await _app.StartAsync(cancellationToken);
@@ -72,6 +74,7 @@ public sealed class MonAlbumServer(CoreServices core, ServerOptions options, ILo
     public async Task StopAsync()
     {
         _idleSessions?.Dispose();
+        _sessionLog?.Dispose();
         _mdns?.Dispose();
         _mdns = null;
         if (_app is not null)
@@ -83,6 +86,7 @@ public sealed class MonAlbumServer(CoreServices core, ServerOptions options, ILo
     public async ValueTask DisposeAsync()
     {
         _idleSessions?.Dispose();
+        _sessionLog?.Dispose();
         _mdns?.Dispose();
         _mdns = null;
         if (_app is not null)

@@ -60,9 +60,10 @@ public sealed class UploadStore(TimeProvider clock)
 
     /// <summary>
     /// Appends <paramref name="body"/> at <paramref name="offset"/>. Bytes are flushed as they come, so an
-    /// interrupted request still advances the offset. Returns the new offset.
+    /// interrupted request still advances the offset. Returns the new offset; <paramref name="progress"/> gets it as bytes come.
     /// </summary>
-    public async Task<long> AppendAsync(Album album, Upload upload, long offset, Stream body, CancellationToken cancellationToken)
+    public async Task<long> AppendAsync(Album album, Upload upload, long offset, Stream body, CancellationToken cancellationToken,
+        Action<long>? progress = null)
     {
         var path = DataPath(UploadsDirectory(album), upload.Id);
         await using var file = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.Read, 1 << 16, useAsync: true);
@@ -83,6 +84,7 @@ public sealed class UploadStore(TimeProvider clock)
                     throw new InvalidDataException("Le téléphone envoie plus d'octets que la taille annoncée.");
                 }
                 await file.WriteAsync(buffer.AsMemory(0, read), CancellationToken.None);
+                progress?.Invoke(file.Position);
             }
         }
         catch (Exception e) when (e is IOException or OperationCanceledException)
