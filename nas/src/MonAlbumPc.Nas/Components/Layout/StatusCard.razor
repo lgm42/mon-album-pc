@@ -1,13 +1,17 @@
+@using MonAlbumPc.Core.Import
 @implements IDisposable
 @inject NasHost Host
 
-@* Same three states as the status card of the Windows app. *@
+@* Same states as the status card of the Windows app, worded by SessionStatusText. *@
 <div class="status-card @_state">
     <div class="status-head">
         @switch (_state)
         {
             case "receiving":
                 <FluentIcon Value="@(new Icons.Regular.Size20.ArrowSync())" Color="Color.Accent" />
+                break;
+            case "waiting":
+                <FluentIcon Value="@(new Icons.Regular.Size20.Clock())" Color="Color.Custom" CustomColor="var(--app-caution)" />
                 break;
             case "error":
                 <FluentIcon Value="@(new Icons.Filled.Size20.Warning())" Color="Color.Custom" CustomColor="var(--app-caution)" />
@@ -18,22 +22,43 @@
         }
         <span class="status-title">@_title</span>
     </div>
-    <div class="status-detail" title="@_detail">@_detail</div>
-    @if (_state == "receiving")
+    @foreach (var line in _lines)
+    {
+        <div class="status-detail" title="@line">@line</div>
+    }
+    @if (_fileFraction is { } fraction)
+    {
+        <FluentProgress Class="status-progress" Min="0" Max="1000" Value="@((int)(fraction * 1000))" />
+    }
+    @if (_transfer is not null)
+    {
+        <div class="status-detail" title="@_transfer">@_transfer</div>
+    }
+    @if (_state == "receiving" && _fileFraction is null)
     {
         <FluentProgress Class="status-progress" />
+    }
+    @if (_error is not null)
+    {
+        <div class="status-detail status-error" title="@_error">@_error</div>
     }
 </div>
 
 @code {
     private string _state = "ready";
     private string _title = "";
-    private string _detail = "";
+    private List<string> _lines = [];
+    private string? _transfer;
+    private double? _fileFraction;
+    private string? _error;
+    private Timer? _timer;
 
     protected override void OnInitialized()
     {
         Update();
         Host.Core.Sessions.Changed += OnChanged;
+        // A silent phone raises no event: look again now and then to show that it is being waited for.
+        _timer = new Timer(_ => OnChanged(), null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
     }
 
     // Raised on server threads.
@@ -46,29 +71,44 @@
     private void Update()
     {
         var core = Host.Core;
+        var now = core.Clock.GetLocalNow();
+        _transfer = null;
+        _fileFraction = null;
+        _error = null;
         if (core.Sessions.Active.FirstOrDefault() is { } active)
         {
-            _state = "receiving";
-            _title = "Réception en cours";
-            var phone = core.Devices.Get(active.DeviceId)?.Name ?? "Téléphone";
-            var received = active.Photos + active.Videos;
-            _detail = received == 0 ? phone : $"{phone} · {Formatting.Plural(received, "élément reçu", "éléments reçus")}";
+            var status = SessionStatusText.For(active, core.Devices.Get(active.DeviceId)?.Name ?? "Téléphone", now);
+            _state = status.Waiting ? "waiting" : "receiving";
+            _title = status.Title;
+            _lines = [.. (status.Detail?.Split(Environment.NewLine) ?? []), .. status.Counts is { } counts ? [counts] : Array.Empty<string>()];
+            _transfer = status.Transfer;
+            _fileFraction = status.FileFraction;
+            _error = status.Error;
         }
         else if (Host.ServerError is { } error)
         {
             _state = "error";
             _title = "Sauvegardes impossibles";
-            _detail = error;
+            _lines = [error];
         }
         else
         {
             _state = "ready";
             _title = "Prêt à recevoir les photos";
-            _detail = Host.LanAddress is { } address
+            _lines = [Host.LanAddress is { } address
                 ? $"Adresse sur le réseau : {address}"
-                : "Ce serveur n'est connecté à aucun réseau.";
+                : "Ce serveur n'est connecté à aucun réseau."];
+            if (core.Sessions.Last is { } last)
+            {
+                _lines.Add(SessionStatusText.Summary(last, core.Devices.Get(last.Session.DeviceId)?.Name ?? "téléphone dissocié", now));
+                _error = last.Session.ErrorMessage;
+            }
         }
     }
 
-    public void Dispose() => Host.Core.Sessions.Changed -= OnChanged;
+    public void Dispose()
+    {
+        _timer?.Dispose();
+        Host.Core.Sessions.Changed -= OnChanged;
+    }
 }
