@@ -46,6 +46,19 @@ public sealed class ActivityNotificationsTests
     }
 
     [Fact]
+    public void Files_the_server_could_not_store_are_not_an_interruption()
+    {
+        var entry = Entry(photos: 3) with { ErrorCode = "import_failed", ErrorMessage = "VID.mp4 : Rangement impossible" };
+
+        var notification = ActivityNotifications.For(entry);
+
+        Assert.Equal("Fichiers de POCO X7 Pro non sauvegardés", notification.Title);
+        Assert.Equal("VID.mp4 : Rangement impossible", notification.Message);
+        Assert.True(notification.IsWarning);
+        Assert.Contains("fichiers de POCO X7 Pro non sauvegardés", ActivityNotifications.Summarize([entry], absent: true)!.Message);
+    }
+
+    [Fact]
     public void Nothing_new_gives_no_notification() => Assert.Null(ActivityNotifications.Summarize([], absent: true));
 
     [Fact]

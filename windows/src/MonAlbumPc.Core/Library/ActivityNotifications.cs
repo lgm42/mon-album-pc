@@ -14,6 +14,9 @@ public static class ActivityNotifications
 
     public static string InterruptedTitle(string phone) => $"Sauvegarde de {phone} interrompue";
 
+    /// <summary>The phone went on, but some of its files could not be stored.</summary>
+    public static string FailedFilesTitle(string phone) => $"Fichiers de {phone} non sauvegardés";
+
     /// <summary>"52 photos et 3 vidéos dans l'album Nicolas".</summary>
     public static string Detail(int photos, int videos, string album)
     {
@@ -27,6 +30,10 @@ public static class ActivityNotifications
     public static LibraryNotification For(ActivityEntry entry)
     {
         var phone = entry.Device ?? "Le téléphone";
+        if (entry.ErrorCode == Import.SessionErrors.ImportFailed)
+        {
+            return new LibraryNotification(FailedFilesTitle(entry.Device ?? "ce téléphone"), entry.ErrorMessage ?? "", IsWarning: true);
+        }
         if (entry.HasError)
         {
             return new LibraryNotification(InterruptedTitle(entry.Device ?? "ce téléphone"), entry.ErrorMessage ?? "La sauvegarde s'est arrêtée.", IsWarning: true);
@@ -62,7 +69,9 @@ public static class ActivityNotifications
         // Where each phone ended up: a backup interrupted, then resumed to the end, is good news only.
         var last = entries.GroupBy(e => e.Device ?? "Le téléphone").Select(g => (Phone: g.Key, Entry: g.MaxBy(e => e.At)!)).ToList();
         parts.AddRange(last.Where(l => l.Entry.Complete).Select(l => $"{l.Phone} entièrement synchronisé"));
-        parts.AddRange(last.Where(l => l.Entry.HasError).Select(l => $"sauvegarde de {l.Phone} interrompue"));
+        parts.AddRange(last.Where(l => l.Entry.HasError).Select(l => l.Entry.ErrorCode == Import.SessionErrors.ImportFailed
+            ? $"fichiers de {l.Phone} non sauvegardés"
+            : $"sauvegarde de {l.Phone} interrompue"));
         return new LibraryNotification(
             absent ? "Pendant votre absence" : "Nouvelles photos disponibles",
             parts.Count == 0 ? "De nouvelles sauvegardes sont arrivées." : string.Join(" ; ", parts),
