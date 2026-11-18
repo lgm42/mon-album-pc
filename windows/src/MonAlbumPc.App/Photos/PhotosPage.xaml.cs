@@ -279,7 +279,11 @@ public partial class PhotosPage : UserControl, IRefreshable
         var selected = SelectedTiles();
         NoSelection.Visibility = selected.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         Details.Visibility = selected.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
-        if (selected.Count != 1)
+        if (selected.Count == 0)
+        {
+            return;
+        }
+        if (selected.Count > 1)
         {
             ShowSummary(selected);
             return;
@@ -312,10 +316,6 @@ public partial class PhotosPage : UserControl, IRefreshable
 
     private void ShowSummary(List<PhotoTile> tiles)
     {
-        if (tiles.Count == 0)
-        {
-            return;
-        }
         InfoName.Text = Formatting.Plural(tiles.Count, "élément sélectionné", "éléments sélectionnés");
         var videos = tiles.Count(t => t.IsVideo);
         var content = new List<string>();
@@ -414,8 +414,9 @@ public partial class PhotosPage : UserControl, IRefreshable
         {
             return;
         }
+        // By path: a refresh of the library may have rebuilt the tiles while the dialog was open.
         var order = _tiles;
-        var index = order.IndexOf(tiles[0]);
+        var index = Math.Max(0, order.FindIndex(t => t.Item.Path == targets[0].Item.Path));
         ViewerVideo.Stop();
         ViewerVideo.Source = null;
         ViewerImage.Source = null;
