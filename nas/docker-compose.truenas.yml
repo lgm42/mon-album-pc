@@ -15,3 +15,16 @@ services:
     volumes:
       - /mnt/main/data/monalbumpc:/config                 # catalog, certificate (keep it: phones pin it)
       - /mnt/main/data/donnees/Photos/Telephones:/photos  # the library: one folder per album, shared over SMB
+
+# Shown by TrueNAS on the app page: "Web UI" button and notes.
+x-portals:
+  - name: Administration
+    scheme: https
+    host: 0.0.0.0
+    port: 48622
+    path: /
+x-notes: |
+  # Mon Album PC
+  Sauvegarde des photos des téléphones Android sur le NAS.
+  Administration : port 48622 (certificat auto-signé, à accepter au premier accès).
+  Téléphones : port 48620 (API) et 48621 (téléchargement de l'app Android).
