@@ -3,6 +3,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.FluentUI.AspNetCore.Components;
 using MonAlbumPc.Nas;
 using MonAlbumPc.Nas.Components;
@@ -15,6 +16,11 @@ builder.Services.AddSingleton<NasHost>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<NasHost>());
 builder.Services.AddSingleton(sp => sp.GetRequiredService<NasHost>().Core);
 builder.Services.AddSingleton(new AdminPassword(options.ConfigDirectory));
+
+// Cookie keys kept in /config, next to the certificate: a restart of the container does not sign the administrator out.
+builder.Services.AddDataProtection()
+    .SetApplicationName("MonAlbumPc.Nas")
+    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(options.ConfigDirectory, "keys")));
 
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddFluentUIComponents();
