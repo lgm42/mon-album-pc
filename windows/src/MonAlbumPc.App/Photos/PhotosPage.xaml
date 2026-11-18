@@ -73,6 +73,12 @@
                                     Visibility="{Binding IsSelected, Converter={StaticResource Visible}}">
                                 <Border BorderThickness="2" CornerRadius="2" BorderBrush="White" />
                             </Border>
+                            <Border Width="20" Height="20" CornerRadius="10" Margin="8" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                    Background="{DynamicResource AccentFillColorDefaultBrush}" BorderBrush="White" BorderThickness="1"
+                                    Visibility="{Binding IsSelected, Converter={StaticResource Visible}}">
+                                <TextBlock Style="{StaticResource Icon}" FontSize="11" HorizontalAlignment="Center" Text="&#xE73E;"
+                                           Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}" />
+                            </Border>
                         </Grid>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>

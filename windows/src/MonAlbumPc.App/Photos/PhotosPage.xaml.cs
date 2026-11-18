@@ -24,7 +24,11 @@ public partial class PhotosPage : UserControl, IRefreshable
     private List<Album> _albums = [];
     private List<LibraryItem> _all = [];
     private List<PhotoTile> _tiles = [];
-    private PhotoTile? _selected;
+    private List<string> _paths = [];
+    private Dictionary<string, PhotoTile> _byPath = [];
+    // By path, so that the selection outlives the tiles rebuilt by a refresh.
+    private readonly Selection<string> _selection = new();
+    private bool _deleting;
     private Guid? _albumFilter;
     private DateTime? _monthFilter;
     private int? _yearFilter;
@@ -117,12 +121,18 @@ public partial class PhotosPage : UserControl, IRefreshable
     private void BuildTiles()
     {
         var pixels = (int)(ThumbnailSize * VisualTreeHelper.GetDpi(this).DpiScaleX);
-        var selectedPath = _selected?.Item.Path;
         _tiles = Filtered().Select(i => new PhotoTile(i, pixels)).ToList();
-        _selected = _tiles.FirstOrDefault(t => t.Item.Path == selectedPath);
-        if (_selected is not null)
+        _paths = _tiles.Select(t => t.Item.Path).ToList();
+        _byPath = [];
+        foreach (var tile in _tiles)
         {
-            _selected.IsSelected = true;
+            _byPath.TryAdd(tile.Item.Path, tile);
+        }
+        // Filtered out of sight, a photo leaves the selection: nothing hidden gets deleted.
+        _selection.Retain(_byPath.ContainsKey);
+        foreach (var path in _selection.Items)
+        {
+            _byPath[path].IsSelected = true;
         }
         EmptyState.Visibility = _all.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         UpdateEmptyState();
@@ -190,24 +200,31 @@ public partial class PhotosPage : UserControl, IRefreshable
         {
             return;
         }
-        Select(tile);
         if (e.ClickCount == 2)
         {
+            _selection.Select(tile.Item.Path);
             OpenViewer();
+        }
+        else
+        {
+            var modifiers = Keyboard.Modifiers;
+            _selection.Click(_paths, tile.Item.Path, modifiers.HasFlag(ModifierKeys.Control), modifiers.HasFlag(ModifierKeys.Shift));
+            OnSelectionChanged();
         }
         Focus();
     }
 
     private void Select(PhotoTile? tile)
     {
-        if (_selected is not null)
+        _selection.Select(tile?.Item.Path);
+        OnSelectionChanged();
+    }
+
+    private void OnSelectionChanged()
+    {
+        foreach (var tile in _tiles)
         {
-            _selected.IsSelected = false;
-        }
-        _selected = tile;
-        if (tile is not null)
-        {
-            tile.IsSelected = true;
+            tile.IsSelected = _selection.Contains(tile.Item.Path);
         }
         ShowInfo();
         UpdateCommands();
@@ -217,12 +234,27 @@ public partial class PhotosPage : UserControl, IRefreshable
         }
     }
 
+    private void SelectAll()
+    {
+        _selection.SelectAll(_paths);
+        OnSelectionChanged();
+    }
+
+    private List<PhotoTile> SelectedTiles() => _selection.Count == 0 ? [] : _tiles.Where(t => _selection.Contains(t.Item.Path)).ToList();
+
+    /// <summary>The tile last clicked if still selected, else the first selected one (after Ctrl+A).</summary>
+    private PhotoTile? FocusedTile =>
+        _selection.Current is { } path && _selection.Contains(path) && _byPath.TryGetValue(path, out var tile)
+            ? tile
+            : SelectedTiles().FirstOrDefault();
+
     private void UpdateCommands()
     {
-        var hasSelection = _selected is not null;
-        var isPhoto = hasSelection && !_selected!.IsVideo;
-        RotateLeftButton.IsEnabled = RotateRightButton.IsEnabled = isPhoto;
-        DeleteButton.IsEnabled = ExplorerButton.IsEnabled = FullScreenButton.IsEnabled = hasSelection;
+        var count = _selection.Count;
+        RotateLeftButton.IsEnabled = RotateRightButton.IsEnabled = count == 1 && FocusedTile is { IsVideo: false };
+        DeleteButton.IsEnabled = count > 0 && !_deleting;
+        ExplorerButton.IsEnabled = count == 1;
+        FullScreenButton.IsEnabled = count > 0;
     }
 
     // ---- Information pane ----
@@ -238,16 +270,16 @@ public partial class PhotosPage : UserControl, IRefreshable
 
     private async void ShowInfo()
     {
-        if (_selected is null)
+        var selected = SelectedTiles();
+        NoSelection.Visibility = selected.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        Details.Visibility = selected.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        if (selected.Count != 1)
         {
-            NoSelection.Visibility = Visibility.Visible;
-            Details.Visibility = Visibility.Collapsed;
+            ShowSummary(selected);
             return;
         }
-        NoSelection.Visibility = Visibility.Collapsed;
-        Details.Visibility = Visibility.Visible;
-        var item = _selected.Item;
-        InfoName.Text = _selected.Name;
+        var item = selected[0].Item;
+        InfoName.Text = selected[0].Name;
         var taken = item.IsVideo ? null : TakenDateResolver.ReadMetadataDate(item.Path);
         var phone = _core.History.DeviceOf(item.Path) is { } id ? _core.Devices.Get(id)?.Name : null;
         var album = _albums.FirstOrDefault(a => a.Id == item.AlbumId)?.Name;
@@ -264,12 +296,40 @@ public partial class PhotosPage : UserControl, IRefreshable
         if (phone is null && _albums.FirstOrDefault(a => a.Id == item.AlbumId) is { } source)
         {
             var journaled = await Task.Run(() => _core.Journals.DeviceOf(source, item.Path));
-            if (journaled is not null && _selected?.Item == item)
+            if (journaled is not null && _selection.Count == 1 && _selection.Contains(item.Path))
             {
                 lines[1] = lines[1] with { Value = journaled };
                 InfoLines.ItemsSource = lines.ToList();
             }
         }
+    }
+
+    private void ShowSummary(List<PhotoTile> tiles)
+    {
+        if (tiles.Count == 0)
+        {
+            return;
+        }
+        InfoName.Text = Formatting.Plural(tiles.Count, "élément sélectionné", "éléments sélectionnés");
+        var videos = tiles.Count(t => t.IsVideo);
+        var content = new List<string>();
+        if (tiles.Count > videos)
+        {
+            content.Add(Formatting.Plural(tiles.Count - videos, "photo", "photos"));
+        }
+        if (videos > 0)
+        {
+            content.Add(Formatting.Plural(videos, "vidéo", "vidéos"));
+        }
+        // By month, as the grid: file dates are not always shooting dates.
+        var first = tiles.Min(t => t.Item.Month).ToString("MMMM yyyy", French);
+        var last = tiles.Max(t => t.Item.Month).ToString("MMMM yyyy", French);
+        InfoLines.ItemsSource = new List<InfoLine>
+        {
+            new("", "Contenu", string.Join(" · ", content)),
+            new("", "Période", first == last ? Capitalize(first) : $"De {first} à {last}"),
+            new("", "Taille totale", Size(tiles.Sum(t => t.Item.Size))),
+        };
     }
 
     private static string Dimensions(LibraryItem item)
@@ -311,7 +371,7 @@ public partial class PhotosPage : UserControl, IRefreshable
 
     private void Rotate(bool clockwise)
     {
-        if (_selected is not { IsVideo: false } tile)
+        if (_selection.Count != 1 || FocusedTile is not { IsVideo: false } tile)
         {
             return;
         }
@@ -332,61 +392,154 @@ public partial class PhotosPage : UserControl, IRefreshable
         }
     }
 
-    private void OnDelete(object sender, RoutedEventArgs e)
+    private async void OnDelete(object sender, RoutedEventArgs e)
     {
-        if (_selected is not { } tile)
+        var tiles = SelectedTiles();
+        if (tiles.Count == 0 || _deleting)
         {
             return;
         }
-        var what = tile.IsVideo ? "cette vidéo" : "cette photo";
-        var album = _albums.FirstOrDefault(a => a.Id == tile.Item.AlbumId);
         // No Recycle Bin on network shares: such files go to the trash folder of their album.
-        var inAlbumTrash = album is not null && (_window.Library is not null || AlbumTrash.IsNetworkPath(tile.Item.Path));
-        var confirmed = inAlbumTrash
-            ? Dialogs.Confirm(_window, $"Supprimer {what} ?", $"{tile.Name} sera déplacé dans la corbeille de l'album. Vous pourrez l'y récupérer.",
-                "Supprimer", AlbumTrash.Folder(album!.DestinationRoot), destructive: true)
-            : Dialogs.Confirm(_window, $"Supprimer {what} ?", $"{tile.Name} sera placé dans la Corbeille de Windows. Vous pourrez le restaurer depuis la Corbeille.",
-                "Supprimer", destructive: true);
-        if (!confirmed)
+        var targets = tiles.Select(t => new DeleteTarget(t.Item, t.Name,
+            _albums.FirstOrDefault(a => a.Id == t.Item.AlbumId) is { } album && (_window.Library is not null || AlbumTrash.IsNetworkPath(t.Item.Path))
+                ? album.DestinationRoot
+                : null)).ToList();
+        if (!ConfirmDelete(targets))
         {
             return;
         }
-        var index = _tiles.IndexOf(tile);
+        var order = _tiles;
+        var index = order.IndexOf(tiles[0]);
         ViewerVideo.Stop();
         ViewerVideo.Source = null;
         ViewerImage.Source = null;
+        _deleting = true;
+        UpdateCommands();
+        Mouse.OverrideCursor = Cursors.Wait;
+        List<DeleteFailure> failures;
         try
         {
-            if (inAlbumTrash)
-            {
-                AlbumTrash.Move(album!.DestinationRoot, tile.Item.Path);
-            }
-            else
-            {
-                FileSystem.DeleteFile(tile.Item.Path, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
-            }
+            failures = await RunOnStaThread(() => Delete(targets));
         }
-        catch (Exception ex) when (ex is IOException or OperationCanceledException or UnauthorizedAccessException)
+        finally
         {
-            Dialogs.Inform(_window, $"Impossible de supprimer {tile.Name}", ex.Message);
-            return;
+            _deleting = false;
+            Mouse.OverrideCursor = null;
         }
-        _all.RemoveAll(i => i.Path == tile.Item.Path);
-        _tiles.Remove(tile);
-        var next = _tiles.Count == 0 ? null : _tiles[Math.Min(index, _tiles.Count - 1)];
-        _selected = null;
+        var failed = failures.Select(f => f.Target.Item.Path).ToHashSet();
+        var deleted = targets.Select(t => t.Item.Path).Where(p => !failed.Contains(p)).ToHashSet();
+        _all.RemoveAll(i => deleted.Contains(i.Path));
+        var remaining = order.Where(t => !deleted.Contains(t.Item.Path)).ToList();
+        var next = remaining.Count == 0 ? null : remaining[Math.Min(index, remaining.Count - 1)];
+        _selection.Select(null);
         BuildFilters();
         BuildTiles();
-        Select(next is null ? null : _tiles.FirstOrDefault(t => t.Item.Path == next.Item.Path));
-        if (_selected is null)
+        Select(next is null ? null : _byPath.GetValueOrDefault(next.Item.Path));
+        if (FocusedTile is null)
         {
             CloseViewer();
         }
+        ReportFailures(failures, targets.Count);
     }
+
+    private bool ConfirmDelete(List<DeleteTarget> targets)
+    {
+        var toAlbums = targets.Count(t => t.AlbumRoot is not null);
+        var trashes = targets.Select(t => t.AlbumRoot).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var trash = trashes.Count == 1 ? AlbumTrash.Folder(trashes[0]) : null;
+        if (targets is [var single])
+        {
+            var title = single.Item.IsVideo ? "Supprimer cette vidéo ?" : "Supprimer cette photo ?";
+            return single.AlbumRoot is not null
+                ? Dialogs.Confirm(_window, title, $"{single.Name} sera déplacé dans la corbeille de l'album. Vous pourrez l'y récupérer.",
+                    "Supprimer", trash, destructive: true)
+                : Dialogs.Confirm(_window, title, $"{single.Name} sera placé dans la Corbeille de Windows. Vous pourrez le restaurer depuis la Corbeille.",
+                    "Supprimer", destructive: true);
+        }
+        var message = toAlbums == 0
+            ? "Ils seront placés dans la Corbeille de Windows. Vous pourrez les restaurer depuis la Corbeille."
+            : toAlbums == targets.Count
+                ? "Ils seront déplacés dans la corbeille de leur album. Vous pourrez les y récupérer."
+                : $"{Formatting.Plural(toAlbums, "élément ira", "éléments iront")} dans la corbeille de leur album, les autres dans la " +
+                  "Corbeille de Windows. Vous pourrez les récupérer.";
+        return Dialogs.Confirm(_window, $"Supprimer {Formatting.Plural(targets.Count, "élément", "éléments")} ?", message, "Supprimer",
+            trash, destructive: true);
+    }
+
+    // One file at a time, so that a file that resists does not keep the others.
+    private static List<DeleteFailure> Delete(List<DeleteTarget> targets)
+    {
+        var failures = new List<DeleteFailure>();
+        foreach (var target in targets)
+        {
+            try
+            {
+                if (target.AlbumRoot is { } root)
+                {
+                    AlbumTrash.Move(root, target.Item.Path);
+                }
+                else
+                {
+                    FileSystem.DeleteFile(target.Item.Path, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or OperationCanceledException or UnauthorizedAccessException)
+            {
+                failures.Add(new DeleteFailure(target, ex.Message));
+            }
+        }
+        return failures;
+    }
+
+    private void ReportFailures(List<DeleteFailure> failures, int total)
+    {
+        if (failures.Count == 0)
+        {
+            return;
+        }
+        if (total == 1)
+        {
+            Dialogs.Inform(_window, $"Impossible de supprimer {failures[0].Target.Name}", failures[0].Error);
+            return;
+        }
+        var lines = failures.Take(5).Select(f => $"{f.Target.Name} : {f.Error}").ToList();
+        if (failures.Count > lines.Count)
+        {
+            lines.Add($"… et {Formatting.Plural(failures.Count - lines.Count, "autre", "autres")}");
+        }
+        Dialogs.Inform(_window, "Suppression incomplète",
+            $"{Formatting.Plural(failures.Count, "élément n'a pas pu être supprimé", "éléments n'ont pas pu être supprimés")} sur {Formatting.Count(total)}.",
+            string.Join("\n", lines));
+    }
+
+    // Many files on a share take a while: off the UI thread, on an STA one as the Recycle Bin is a shell operation.
+    private static Task<T> RunOnStaThread<T>(Func<T> work)
+    {
+        var done = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                done.SetResult(work());
+            }
+            catch (Exception e)
+            {
+                done.SetException(e);
+            }
+        }) { IsBackground = true };
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        return done.Task;
+    }
+
+    /// <summary>A file to delete; <see cref="AlbumRoot"/> is the album whose trash receives it, null for the Recycle Bin.</summary>
+    private sealed record DeleteTarget(LibraryItem Item, string Name, string? AlbumRoot);
+
+    private sealed record DeleteFailure(DeleteTarget Target, string Error);
 
     private void OnOpenInExplorer(object sender, RoutedEventArgs e)
     {
-        if (_selected is { } tile)
+        if (_selection.Count == 1 && FocusedTile is { } tile)
         {
             Process.Start("explorer.exe", $"/select,\"{tile.Item.Path}\"");
         }
@@ -400,18 +553,19 @@ public partial class PhotosPage : UserControl, IRefreshable
 
     private void OpenViewer()
     {
-        if (_selected is null)
+        if (FocusedTile is not { } tile)
         {
             return;
         }
         Viewer.Visibility = Visibility.Visible;
-        ShowInViewer();
+        // One photo at a time in full screen: the commands there act on the one shown.
+        Select(tile);
         Focus();
     }
 
     private void ShowInViewer()
     {
-        if (_selected is not { } tile)
+        if (FocusedTile is not { } tile)
         {
             return;
         }
@@ -458,14 +612,24 @@ public partial class PhotosPage : UserControl, IRefreshable
 
     private void OnNext(object sender, RoutedEventArgs e) => Move(1);
 
-    private void Move(int delta)
+    /// <summary>Selects the previous or next tile; <paramref name="extend"/> (Shift) extends the selection to it instead.</summary>
+    private void Move(int delta, bool extend = false)
     {
-        if (_selected is null)
+        if (FocusedTile is not { } current)
         {
             return;
         }
-        var index = _tiles.IndexOf(_selected) + delta;
-        if (index >= 0 && index < _tiles.Count)
+        var index = _tiles.IndexOf(current) + delta;
+        if (index < 0 || index >= _tiles.Count)
+        {
+            return;
+        }
+        if (extend)
+        {
+            _selection.Click(_paths, _paths[index], toggle: false, range: true);
+            OnSelectionChanged();
+        }
+        else
         {
             Select(_tiles[index]);
         }
@@ -487,12 +651,15 @@ public partial class PhotosPage : UserControl, IRefreshable
         {
             return;
         }
+        var inViewer = Viewer.Visibility == Visibility.Visible;
+        var extend = !inViewer && Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
         switch (e.Key)
         {
-            case Key.Left: Move(-1); e.Handled = true; break;
-            case Key.Right: Move(1); e.Handled = true; break;
-            case Key.Enter when Viewer.Visibility != Visibility.Visible: OpenViewer(); e.Handled = true; break;
-            case Key.Escape when Viewer.Visibility == Visibility.Visible: CloseViewer(); e.Handled = true; break;
+            case Key.Left: Move(-1, extend); e.Handled = true; break;
+            case Key.Right: Move(1, extend); e.Handled = true; break;
+            case Key.A when !inViewer && Keyboard.Modifiers == ModifierKeys.Control: SelectAll(); e.Handled = true; break;
+            case Key.Enter when !inViewer: OpenViewer(); e.Handled = true; break;
+            case Key.Escape when inViewer: CloseViewer(); e.Handled = true; break;
             case Key.Delete: OnDelete(this, e); e.Handled = true; break;
         }
     }
