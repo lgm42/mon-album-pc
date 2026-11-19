@@ -1,0 +1,115 @@
+@using System.Globalization
+@using MonAlbumPc.Core.Media
+
+@* The « Tags » filter: the tags of the view as a tree with their counts, « Sans tag », a search box that can also create a tag. *@
+<div class="tag-filter">
+    <div class="tag-filter-head">
+        <span class="caption">Tags</span>
+        @if (!Selection.IsEmpty)
+        {
+            <button type="button" class="link-button caption" @onclick="ClearAsync">Tous</button>
+        }
+    </div>
+    <input class="tag-input tag-search" type="search" @bind="_search" @bind:event="oninput" placeholder="Rechercher ou créer un tag"
+           aria-label="Rechercher ou créer un tag" maxlength="@UserTags.MaxLength" autocomplete="off" @onkeydown="OnSearchKey" />
+    @if (Entries.Count == 0 && _search.Length == 0)
+    {
+        <div class="caption tag-filter-hint">Aucun tag pour l'instant : tapez un nom pour en créer un, ou sélectionnez des photos puis « Ajouter un tag ».</div>
+    }
+    @foreach (var entry in Shown)
+    {
+        var on = Selection.Tags.Contains(entry.Name);
+        <button type="button" class="filter-item tag-item @(on ? "active" : "") @(entry.Count == 0 ? "zero" : "")"
+                style="padding-left:@(8 + 14 * (_search.Length > 0 ? 0 : entry.Depth))px" title="@entry.Name" aria-pressed="@(on ? "true" : "false")"
+                @onclick="() => ToggleAsync(entry.Name)">
+            <span class="tag-box">@(on ? "✓" : "")</span>
+            <span class="ellipsis">@(_search.Length > 0 ? entry.Name : entry.Leaf)</span>
+            <span class="caption">@Formatting.Count(entry.Count)</span>
+        </button>
+    }
+    @if (_search.Length == 0)
+    {
+        <button type="button" class="filter-item tag-item @(Selection.Untagged ? "active" : "")" aria-pressed="@(Selection.Untagged ? "true" : "false")"
+                @onclick="ToggleUntaggedAsync">
+            <span class="tag-box">@(Selection.Untagged ? "✓" : "")</span>
+            <span class="ellipsis"><i>Sans tag</i></span>
+            <span class="caption">@Formatting.Count(Untagged)</span>
+        </button>
+    }
+    @if (Typed is { } typed && !Entries.Any(e => UserTags.Same.Equals(e.Name, typed)))
+    {
+        <button type="button" class="filter-item tag-item create" @onclick="() => CreateAsync(typed)">
+            <FluentIcon Value="@(new Icons.Regular.Size16.Add())" Color="Color.Custom" CustomColor="currentColor" />
+            <span class="ellipsis">Créer le tag « @typed »</span>
+        </button>
+    }
+</div>
+
+@code {
+    private static readonly CompareInfo French = Formatting.French.CompareInfo;
+
+    private string _search = "";
+
+    [Parameter] public IReadOnlyList<TagFilterEntry> Entries { get; set; } = [];
+
+    /// <summary>Photos of the view without any tag.</summary>
+    [Parameter] public int Untagged { get; set; }
+
+    [Parameter, EditorRequired] public TagSelection Selection { get; set; } = default!;
+
+    /// <summary>The selection changed: the page filters again.</summary>
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    /// <summary>A tag to create, typed in the search box.</summary>
+    [Parameter] public EventCallback<string> OnCreate { get; set; }
+
+    private string? Typed => UserTags.Normalize(_search);
+
+    private IEnumerable<TagFilterEntry> Shown => _search.Trim() is { Length: > 0 } text
+        ? Entries.Where(e => French.IndexOf(e.Name, text, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0)
+        : Entries;
+
+    private async Task ToggleAsync(string tag)
+    {
+        Selection.Toggle(tag);
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task ToggleUntaggedAsync()
+    {
+        Selection.Untagged = !Selection.Untagged;
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task ClearAsync()
+    {
+        Selection.Clear();
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task CreateAsync(string tag)
+    {
+        _search = "";
+        await OnCreate.InvokeAsync(tag);
+    }
+
+    private async Task OnSearchKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            _search = "";
+        }
+        else if (e.Key == "Enter" && Shown.ToList() is var shown)
+        {
+            if (shown.Count == 1)
+            {
+                _search = "";
+                await ToggleAsync(shown[0].Name);
+            }
+            else if (shown.Count == 0 && Typed is { } typed)
+            {
+                await CreateAsync(typed);
+            }
+        }
+    }
+}

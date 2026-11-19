@@ -1,0 +1,28 @@
+@* The « Tags » filter folded into a button, where there is no room for the list (phones, map). *@
+<div class="tag-filter-button">
+    <button type="button" class="tag-filter-toggle @(Selection.IsEmpty ? "" : "on")" aria-expanded="@(_open ? "true" : "false")"
+            @onclick="() => _open = !_open">
+        <FluentIcon Value="@(new Icons.Regular.Size16.Tag())" Color="Color.Custom" CustomColor="currentColor" />
+        <span class="ellipsis">@(Selection.IsEmpty ? "Tous les tags" : Selection.Describe())</span>
+        <FluentIcon Value="@(_open ? (Icon)new Icons.Regular.Size16.ChevronUp() : new Icons.Regular.Size16.ChevronDown())" Color="Color.Custom" CustomColor="currentColor" />
+    </button>
+    @if (_open)
+    {
+        <div class="tag-filter-popup card">
+            <TagFilterPanel Entries="Entries" Untagged="Untagged" Selection="Selection" OnChanged="OnChanged" OnCreate="OnCreate" />
+            <div class="tag-filter-close">
+                <FluentButton Appearance="Appearance.Stealth" OnClick="() => _open = false">Fermer</FluentButton>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool _open;
+
+    [Parameter] public IReadOnlyList<TagFilterEntry> Entries { get; set; } = [];
+    [Parameter] public int Untagged { get; set; }
+    [Parameter, EditorRequired] public TagSelection Selection { get; set; } = default!;
+    [Parameter] public EventCallback OnChanged { get; set; }
+    [Parameter] public EventCallback<string> OnCreate { get; set; }
+}

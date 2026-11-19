@@ -1,0 +1,152 @@
+@using System.Globalization
+@using MonAlbumPc.Core.Media
+@using MonAlbumPc.Core.Tags
+
+@* A tag name typed with the library's tags proposed as you type; Enter takes the highlighted one, or creates the typed name. *@
+<div class="tag-picker @Class">
+    @* @bind keeps what is typed fast: a plain value attribute would be put back by each render while the server answers. *@
+    <input @ref="_input" class="tag-input" type="text" @bind="_text" @bind:event="oninput" @bind:after="OnInput" placeholder="@Placeholder"
+           aria-label="@Placeholder" maxlength="@UserTags.MaxLength" autocomplete="off" spellcheck="false" @onkeydown="OnKey" />
+    @if (_open && (Suggestions.Count > 0 || Typed is not null))
+    {
+        <div class="tag-suggestions" role="listbox">
+            @for (var i = 0; i < Suggestions.Count; i++)
+            {
+                var index = i;
+                var tag = Suggestions[i];
+                <button type="button" role="option" class="tag-suggestion @(index == _highlight ? "active" : "")" aria-selected="@(index == _highlight ? "true" : "false")"
+                        @onclick="() => ChooseAsync(tag.Name)" @onmousedown:preventDefault="true">
+                    <span class="ellipsis">@tag.Name</span>
+                    <span class="caption">@Formatting.Plural(tag.Count, "photo", "photos")</span>
+                </button>
+            }
+            @if (Typed is { } typed && !Suggestions.Any(s => UserTags.Same.Equals(s.Name, typed)) && !IsExcluded(typed))
+            {
+                <button type="button" role="option" class="tag-suggestion create @(_highlight == Suggestions.Count ? "active" : "")"
+                        @onclick="() => ChooseAsync(typed)" @onmousedown:preventDefault="true">
+                    <FluentIcon Value="@(new Icons.Regular.Size16.Add())" Color="Color.Custom" CustomColor="currentColor" />
+                    <span class="ellipsis">Créer le tag « @typed »</span>
+                </button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private const int MaxSuggestions = 8;
+    private static readonly CompareInfo French = Formatting.French.CompareInfo;
+
+    private ElementReference _input;
+    private string _text = "";
+    private int _highlight = -1;
+    private bool _open;
+
+    /// <summary>The tags of the library to propose.</summary>
+    [Parameter] public IReadOnlyList<TagCount> Tags { get; set; } = [];
+
+    /// <summary>Tags not to propose (those already on the photo).</summary>
+    [Parameter] public IEnumerable<string> Exclude { get; set; } = [];
+
+    [Parameter] public string Placeholder { get; set; } = "Tag (« / » pour un sous-tag)";
+
+    /// <summary>Text to start from ("Bricolage/" for a new sub-tag, the current name to rename).</summary>
+    [Parameter] public string? Initial { get; set; }
+
+    /// <summary>Proposes the most used tags before anything is typed.</summary>
+    [Parameter] public bool SuggestFirst { get; set; }
+
+    [Parameter] public bool AutoFocus { get; set; } = true;
+    [Parameter] public string? Class { get; set; }
+
+    /// <summary>The tag chosen or typed, tidied (« Bricolage / ESP32 » → « Bricolage/ESP32 »).</summary>
+    [Parameter] public EventCallback<string> OnChosen { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private string? Typed => UserTags.Normalize(_text);
+
+    private List<TagCount> Suggestions
+    {
+        get
+        {
+            var text = _text.Trim();
+            if (text.Length == 0 && !SuggestFirst)
+            {
+                return [];
+            }
+            return Tags
+                .Where(t => !IsExcluded(t.Name) && (text.Length == 0 || French.IndexOf(t.Name, text, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0))
+                .OrderBy(t => text.Length > 0 && French.IsPrefix(t.Name, text, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) ? 0 : 1)
+                .ThenByDescending(t => t.Count)
+                .ThenBy(t => t.Name, TagCatalog.TagOrder.Instance)
+                .Take(MaxSuggestions)
+                .ToList();
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        _text = Initial ?? "";
+        _open = SuggestFirst || _text.Length > 0;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && AutoFocus)
+        {
+            try
+            {
+                await _input.FocusAsync();
+            }
+            catch (JSException)
+            {
+                // Gone meanwhile: nothing to focus.
+            }
+        }
+    }
+
+    private bool IsExcluded(string tag) => Exclude.Contains(tag, UserTags.Same);
+
+    private void OnInput()
+    {
+        _highlight = -1;
+        _open = true;
+    }
+
+    private async Task OnKey(KeyboardEventArgs e)
+    {
+        var suggestions = Suggestions;
+        var count = suggestions.Count + (Typed is not null ? 1 : 0);
+        switch (e.Key)
+        {
+            case "ArrowDown" when count > 0:
+                _open = true;
+                _highlight = (_highlight + 1) % count;
+                break;
+            case "ArrowUp" when count > 0:
+                _highlight = _highlight <= 0 ? count - 1 : _highlight - 1;
+                break;
+            case "Escape":
+                await OnCancel.InvokeAsync();
+                break;
+            case "Enter":
+                if (_highlight >= 0 && _highlight < suggestions.Count)
+                {
+                    await ChooseAsync(suggestions[_highlight].Name);
+                }
+                else if (Typed is { } typed)
+                {
+                    // An existing tag typed in another case keeps the library's spelling.
+                    await ChooseAsync(Tags.FirstOrDefault(t => UserTags.Same.Equals(t.Name, typed))?.Name ?? typed);
+                }
+                break;
+        }
+    }
+
+    private async Task ChooseAsync(string tag)
+    {
+        _text = "";
+        _highlight = -1;
+        _open = SuggestFirst;
+        await OnChosen.InvokeAsync(tag);
+    }
+}

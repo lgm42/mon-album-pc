@@ -35,6 +35,8 @@ public sealed class NasHost(NasOptions options, WorkBoard work, ILogger<NasHost>
         // Shooting places for a future map: indexed in the background, and again after each backup.
         Core.Sessions.Ended += _ => Core.MediaIndexer.RequestRefresh();
         Core.MediaIndexer.RequestRefresh();
+        // Tags set from a Windows viewer over the share: taken from their journals.
+        Core.Tags.StartPolling();
         // What the Windows viewers read: <photos>/.monalbumpc.
         var publisher = new LibraryPublisher(Core, options.PhotosRoot);
         publisher.Failed += (what, e) => logger.LogError(e, "Écriture impossible dans la bibliothèque partagée ({What})", what);

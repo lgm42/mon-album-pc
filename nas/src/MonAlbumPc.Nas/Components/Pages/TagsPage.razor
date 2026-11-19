@@ -1,0 +1,310 @@
+@page "/tags"
+@using MonAlbumPc.Core.Activity
+@using MonAlbumPc.Core.Media
+@using MonAlbumPc.Core.Tags
+@using MonAlbumPc.Nas.Components.Tags
+@implements IDisposable
+@inject CoreServices Core
+@inject IToastService Toasts
+
+<PageTitle>Tags · Mon Album PC</PageTitle>
+
+<div class="page tags-page">
+    <div class="page-header">
+        <h1>Tags</h1>
+        <FluentButton Appearance="Appearance.Accent" IconStart="@(new Icons.Regular.Size20.Add())" OnClick="() => StartCreate(RootKey)">
+            Nouveau tag
+        </FluentButton>
+    </div>
+    <p class="muted tags-intro">
+        Les tags sont écrits dans les photos elles-mêmes (métadonnées XMP, ou fichier .xmp à côté des vidéos) : digiKam, Lightroom
+        ou l'Explorateur de Windows les voient aussi. « / » range un tag sous un autre : Bricolage/ESP32.
+    </p>
+
+    @foreach (var running in _running)
+    {
+        <div class="card tag-work" role="status">
+            <span class="ellipsis">@WorkText.Compact(running)</span>
+            @if (running.Fraction is { } fraction)
+            {
+                <FluentProgress Min="0" Max="1000" Value="@((int)(fraction * 1000))" />
+            }
+            else
+            {
+                <FluentProgress />
+            }
+        </div>
+    }
+
+    @if (_report is { } report)
+    {
+        <FluentMessageBar Intent="@report.Intent" Title="@report.Title" OnDismissed="() => _report = null" Class="tag-report">
+            @foreach (var line in report.Lines.Take(5))
+            {
+                <div class="caption">@line</div>
+            }
+            @if (report.Lines.Count > 5)
+            {
+                <div class="caption">… et @Formatting.Count(report.Lines.Count - 5) autres.</div>
+            }
+        </FluentMessageBar>
+    }
+
+    @if (_creatingUnder == RootKey)
+    {
+        <div class="card tag-create">
+            <TagPicker Tags="_tags" Placeholder="Nom du nouveau tag (« / » pour un sous-tag)" OnChosen="CreateAsync" OnCancel="() => _creatingUnder = null" />
+        </div>
+    }
+
+    @if (_tags.Count == 0 && _creatingUnder is null)
+    {
+        <div class="empty-state">
+            <h2>Aucun tag pour l'instant.</h2>
+            <p>Créez-en un ici, ou sélectionnez des photos dans la page Photos puis « Ajouter un tag ».</p>
+        </div>
+    }
+    else if (_nodes.Count > 0)
+    {
+        <div class="card tag-tree" role="tree">
+            @foreach (var node in _nodes)
+            {
+                var indent = $"padding-left:{12 + 20 * node.Depth}px";
+                @if (_editing == node.Name)
+                {
+                    <div class="tag-row editing" style="@indent">
+                        <TagPicker Tags="_tags" Initial="@node.Name" Exclude="[node.Name]" Placeholder="Nouveau nom, ou un tag existant pour fusionner"
+                                   OnChosen="to => RenameAsync(node.Name, to)" OnCancel="() => _editing = null" />
+                    </div>
+                }
+                else
+                {
+                    <div class="tag-row" style="@indent" role="treeitem">
+                        <FluentIcon Value="@(new Icons.Regular.Size16.Tag())" Color="Color.Custom" CustomColor="var(--app-text-secondary)" />
+                        <a class="tag-name ellipsis" href="@($"photos?tag={Uri.EscapeDataString(node.Name)}")" title="Voir les photos de « @node.Name »">@node.Leaf</a>
+                        <span class="caption tag-count">@CountText(node)</span>
+                        <span class="tag-actions">
+                            <FluentButton Appearance="Appearance.Stealth" IconStart="@(new Icons.Regular.Size16.Add())" Title="Nouveau sous-tag"
+                                          OnClick="() => StartCreate(node.Name)" />
+                            <FluentButton Appearance="Appearance.Stealth" IconStart="@(new Icons.Regular.Size16.Edit())" Title="Renommer ou fusionner"
+                                          OnClick="() => StartRename(node.Name)" />
+                            <FluentButton Appearance="Appearance.Stealth" IconStart="@(new Icons.Regular.Size16.Delete())" Title="Supprimer"
+                                          OnClick="() => DeleteAsync(node.Name)" />
+                        </span>
+                    </div>
+                }
+                @if (_creatingUnder == node.Name)
+                {
+                    <div class="tag-row editing" style="padding-left:@(32 + 20 * node.Depth)px">
+                        <TagPicker Tags="_tags" Initial="@(node.Name + "/")" Placeholder="Nom du sous-tag" OnChosen="CreateAsync" OnCancel="() => _creatingUnder = null" />
+                    </div>
+                }
+            }
+        </div>
+    }
+</div>
+
+<ConfirmDialog @ref="_confirm" />
+
+@code {
+    private const string RootKey = "";
+
+    // The titles of the TagService operations, to show their progress here.
+    private static readonly string[] TagWork = ["Ajout du tag", "Retrait du tag", "Renommage du tag", "Fusion du tag", "Suppression du tag"];
+
+    private ConfirmDialog _confirm = default!;
+    private List<TagCount> _tags = [];
+    private Dictionary<string, int> _counts = new(UserTags.Same);
+    private List<TagFilterEntry> _nodes = [];
+    private List<RunningWork> _running = [];
+    private string? _creatingUnder;
+    private string? _editing;
+    private Report? _report;
+    private bool _disposed;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Core.Tags.Changed += OnTagsChanged;
+        Core.Work.Changed += OnWorkChanged;
+        UpdateRunning();
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        var tags = await Task.Run(Core.Tags.List);
+        _tags = tags;
+        _counts = tags.ToDictionary(t => t.Name, t => t.Count, UserTags.Same);
+        // Parents that are not tags themselves still show, to hold their children.
+        _nodes = TagSelection.Entries(tags.Select(t => t.Name), []);
+    }
+
+    private string CountText(TagFilterEntry node) => _counts.TryGetValue(node.Name, out var count)
+        ? Formatting.Plural(count, "photo", "photos")
+        : "groupe";
+
+    private void StartCreate(string under)
+    {
+        _editing = null;
+        _creatingUnder = under;
+    }
+
+    private void StartRename(string tag)
+    {
+        _creatingUnder = null;
+        _editing = tag;
+    }
+
+    private async Task CreateAsync(string typed)
+    {
+        _creatingUnder = null;
+        if (Core.Tags.Canonical(typed) is { } existing && _counts.ContainsKey(existing))
+        {
+            Toasts.ShowInfo($"Le tag « {existing} » existe déjà.");
+            return;
+        }
+        if (await Core.Tags.CreateAsync(typed) is { } name)
+        {
+            Toasts.ShowSuccess($"Tag « {name} » créé.");
+        }
+        await ReloadAsync();
+    }
+
+    private async Task RenameAsync(string from, string typed)
+    {
+        _editing = null;
+        if (Core.Tags.Canonical(typed) is not { } to || string.Equals(to, from, StringComparison.Ordinal))
+        {
+            return;
+        }
+        if (UserTags.IsWithin(to, from) && !UserTags.Same.Equals(to, from))
+        {
+            Toasts.ShowError($"« {to} » est sous « {from} » : un tag ne peut pas devenir son propre sous-tag.");
+            return;
+        }
+        // Counted now: photos may have been tagged since the page was shown.
+        var (count, children, already) = await Task.Run(() => (
+            Core.Tags.CountWithin(from),
+            Core.Tags.Children(from).Count,
+            !UserTags.Same.Equals(from, to) && Core.Tags.Exists(to) ? Core.Tags.CountWithin(to) : -1));
+        var merge = already >= 0;
+        var subject = children == 0 ? $"Le tag « {from} »" : $"Le tag « {from} » et {SubTags(children)}";
+        var photos = Formatting.Plural(count, "photo", "photos");
+        string line;
+        if (merge)
+        {
+            line = count == 0
+                ? $"{subject} {(children == 0 ? "sera fusionné" : "seront fusionnés")} dans « {to} »."
+                : children == 0
+                    ? $"Le tag « {from} » de {photos} sera fusionné dans « {to} » (déjà posé sur {Formatting.Plural(already, "photo", "photos")})."
+                    : $"{subject}, posés sur {photos}, seront fusionnés dans « {to} » (déjà posé sur {Formatting.Plural(already, "photo", "photos")}).";
+        }
+        else
+        {
+            line = count == 0
+                ? $"{subject} {(children == 0 ? "sera renommé" : "seront renommés")} en « {to} »."
+                : children == 0
+                    ? $"Le tag « {from} » de {photos} sera renommé en « {to} »."
+                    : $"{subject}, posés sur {photos}, seront renommés en « {to} ».";
+        }
+        List<string> lines = [line];
+        if (count > 0)
+        {
+            lines.Add("Les fichiers sont modifiés en arrière-plan ; l'avancement s'affiche ici et dans Activité.");
+        }
+        if (!await _confirm.AskAsync(merge ? $"Fusionner « {from} » dans « {to} » ?" : $"Renommer « {from} » ?", lines,
+                merge ? "Fusionner" : "Renommer"))
+        {
+            return;
+        }
+        await RunAsync(Core.Tags.RenameAsync(from, to));
+    }
+
+    private async Task DeleteAsync(string tag)
+    {
+        _editing = null;
+        _creatingUnder = null;
+        var (count, children) = await Task.Run(() => (Core.Tags.CountWithin(tag), Core.Tags.Children(tag).Count));
+        var photos = Formatting.Plural(count, "photo", "photos");
+        List<string> lines = children == 0
+            ? [count == 0 ? "Ce tag n'est posé sur aucune photo." : $"Ce tag est posé sur {photos}. Voulez-vous le supprimer ?"]
+            : [count == 0
+                ? $"« {tag} » et {SubTags(children)} ne sont posés sur aucune photo. Voulez-vous les supprimer ?"
+                : $"« {tag} » et {SubTags(children)} sont posés sur {photos}. Voulez-vous les supprimer ?"];
+        if (count > 0)
+        {
+            lines.Add(children == 0
+                ? "Il sera retiré des fichiers ; les photos elles-mêmes sont conservées."
+                : "Ils seront retirés des fichiers ; les photos elles-mêmes sont conservées.");
+        }
+        if (!await _confirm.AskAsync($"Supprimer le tag « {tag} » ?", lines, "Supprimer", destructive: true))
+        {
+            return;
+        }
+        await RunAsync(Core.Tags.DeleteAsync(tag));
+    }
+
+    private static string SubTags(int children) => children == 1 ? "son sous-tag" : $"ses {children} sous-tags";
+
+    /// <summary>Waits for an operation running in the background, then tells how it went.</summary>
+    private async Task RunAsync(Task<TagRunResult> operation)
+    {
+        TagRunResult result;
+        try
+        {
+            result = await operation;
+        }
+        catch (Exception e)
+        {
+            if (!_disposed)
+            {
+                _report = new Report(MessageIntent.Error, "L'opération sur les tags a échoué", [e.Message]);
+                StateHasChanged();
+            }
+            return;
+        }
+        if (_disposed)
+        {
+            return;
+        }
+        if (result.Failures.Count == 0)
+        {
+            Toasts.ShowSuccess(result.Summary + ".");
+        }
+        else
+        {
+            _report = new Report(MessageIntent.Warning, result.Summary, [.. result.Failures.Select(f => $"{f.Name} : {f.Reason}")]);
+        }
+        await ReloadAsync();
+        StateHasChanged();
+    }
+
+    private void UpdateRunning() =>
+        _running = [.. Core.Work.Running.Where(w => TagWork.Any(prefix => w.Title.StartsWith(prefix, StringComparison.Ordinal)))];
+
+    // Both raised on server threads.
+    private void OnTagsChanged() => _ = InvokeAsync(async () =>
+    {
+        await ReloadAsync();
+        StateHasChanged();
+    });
+
+    private void OnWorkChanged() => _ = InvokeAsync(() =>
+    {
+        var before = _running.Count;
+        UpdateRunning();
+        if (before > 0 || _running.Count > 0)
+        {
+            StateHasChanged();
+        }
+    });
+
+    public void Dispose()
+    {
+        _disposed = true;
+        Core.Tags.Changed -= OnTagsChanged;
+        Core.Work.Changed -= OnWorkChanged;
+    }
+
+    private sealed record Report(MessageIntent Intent, string Title, IReadOnlyList<string> Lines);
+}

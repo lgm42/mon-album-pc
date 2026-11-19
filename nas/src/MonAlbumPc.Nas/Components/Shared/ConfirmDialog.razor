@@ -1,0 +1,90 @@
+@* A question before an action, with a red button when it destroys something; « Annuler » has the focus. *@
+<FluentDialog @onkeydown="OnDialogKey" Hidden="@(_answer is null)" HiddenChanged="OnHiddenChanged" Modal="true" TrapFocus="true" PreventScroll="true"
+              AriaLabel="@_title" Class="app-dialog" Style="--dialog-width: 480px;">
+    @if (_answer is not null)
+    {
+        <div class="dlg-content">
+            <div class="dlg-header">
+                <h2>@_title</h2>
+            </div>
+            <div class="dlg-body confirm-body">
+                @foreach (var line in _lines)
+                {
+                    <p>@line</p>
+                }
+            </div>
+            <div class="dlg-footer">
+                <FluentButton Appearance="Appearance.Accent" Class="@(_destructive ? "danger-button" : "")" OnClick="() => Close(true)">@_action</FluentButton>
+                <FluentButton @ref="_cancel" Autofocus="true" OnClick="() => Close(false)">Annuler</FluentButton>
+            </div>
+        </div>
+    }
+</FluentDialog>
+
+@code {
+    private TaskCompletionSource<bool>? _answer;
+    private FluentButton? _cancel;
+    private bool _focusCancel;
+    private string _title = "";
+    private IReadOnlyList<string> _lines = [];
+    private string _action = "";
+    private bool _destructive;
+
+    public bool IsOpen => _answer is not null;
+
+    /// <summary>Shows the question; true when <paramref name="action"/> was chosen.</summary>
+    public Task<bool> AskAsync(string title, IReadOnlyList<string> lines, string action, bool destructive = false)
+    {
+        _answer?.TrySetResult(false);
+        _answer = new TaskCompletionSource<bool>();
+        _title = title;
+        _lines = lines;
+        _action = action;
+        _destructive = destructive;
+        _focusCancel = true;
+        StateHasChanged();
+        return _answer.Task;
+    }
+
+    // The dialog traps the focus on its first button: a slip of the Enter key must not delete.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusCancel && _cancel?.Element is { } cancel)
+        {
+            _focusCancel = false;
+            await Task.Delay(50);
+            try
+            {
+                await cancel.FocusAsync();
+            }
+            catch (JSException)
+            {
+                // Closed meanwhile.
+            }
+        }
+    }
+
+    private void Close(bool confirmed)
+    {
+        var answer = _answer;
+        _answer = null;
+        answer?.TrySetResult(confirmed);
+    }
+
+    // fluent-dialog does not close itself on Escape when used inline.
+    private void OnDialogKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            Close(false);
+        }
+    }
+
+    private void OnHiddenChanged(bool hidden)
+    {
+        if (hidden)
+        {
+            Close(false);
+        }
+    }
+}

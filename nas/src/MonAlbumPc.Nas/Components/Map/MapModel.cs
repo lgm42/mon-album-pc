@@ -2,7 +2,9 @@ using MonAlbumPc.Core;
 using MonAlbumPc.Core.Media;
 using MonAlbumPc.Core.Model;
 using MonAlbumPc.Nas.Components.Photos;
+using MonAlbumPc.Core.Tags;
 using MonAlbumPc.Nas.Components.Shared;
+using MonAlbumPc.Nas.Components.Tags;
 
 namespace MonAlbumPc.Nas.Components.Map;
 
@@ -18,6 +20,7 @@ public sealed class MapModel
     private List<LocatedMedia> _all = [];
     private Dictionary<Guid, Album> _albums = [];
     private PhotoEntry?[] _entries = [];
+    private Dictionary<string, IReadOnlyList<string>> _tags = [];
 
     public IReadOnlyList<Album> Albums { get; private set; } = [];
     public IReadOnlyList<LocatedMedia> Points { get; private set; } = [];
@@ -29,6 +32,38 @@ public sealed class MapModel
         Albums = core.Albums.List();
         _albums = Albums.ToDictionary(a => a.Id);
         _all = core.Media.ListLocated().Where(m => _albums.ContainsKey(m.AlbumId)).ToList();
+        LoadTags(core);
+    }
+
+    /// <summary>Every tag of the library, sorted as a tree.</summary>
+    public IReadOnlyList<TagCount> AllTags { get; private set; } = [];
+
+    /// <summary>Takes the tags from the index again, after tagging here or on another server.</summary>
+    public void LoadTags(CoreServices core)
+    {
+        var byFile = core.Tags.ByFile();
+        _tags = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var point in _all)
+        {
+            if (byFile.TryGetValue((point.AlbumId, AlbumMediaPath.Relative(_albums[point.AlbumId].DestinationRoot, point.Path)), out var tags))
+            {
+                _tags[point.Path] = tags;
+            }
+        }
+        foreach (var entry in _entries.OfType<PhotoEntry>())
+        {
+            entry.Tags = TagsOf(entry.Path);
+        }
+        AllTags = core.Tags.List();
+    }
+
+    public IReadOnlyList<string> TagsOf(string path) => _tags.GetValueOrDefault(path) ?? [];
+
+    /// <summary>The tags of the located photos of the album and period, with "Sans tag".</summary>
+    public (List<TagFilterEntry> Tags, int Untagged) TagFilters(Guid? albumId, PhotoFilter? date)
+    {
+        var points = InAlbum(albumId).Where(m => InPeriod(m, date)).ToList();
+        return (TagSelection.Entries(AllTags.Select(t => t.Name), points.Select(m => TagsOf(m.Path))), points.Count(m => TagsOf(m.Path).Count == 0));
     }
 
     public IReadOnlyList<PhotoFilter> AlbumFilters() =>
@@ -37,11 +72,11 @@ public sealed class MapModel
         .. Albums.Select(a => new PhotoFilter(a.Id.ToString("N"), a.Name, _all.Count(m => m.AlbumId == a.Id), a.Color, a.Id)),
     ];
 
-    /// <summary>Years, each followed by its months, newest first, for the points of <paramref name="albumId"/>.</summary>
-    public IReadOnlyList<PhotoFilter> DateFilters(Guid? albumId)
+    /// <summary>Years, each followed by its months, newest first, for the points of <paramref name="albumId"/> and the tags.</summary>
+    public IReadOnlyList<PhotoFilter> DateFilters(Guid? albumId, TagSelection? tags = null)
     {
         var dates = new List<PhotoFilter>();
-        foreach (var year in InAlbum(albumId).GroupBy(m => m.TakenAt.Year).OrderByDescending(g => g.Key))
+        foreach (var year in InAlbum(albumId).Where(m => tags?.Matches(TagsOf(m.Path)) ?? true).GroupBy(m => m.TakenAt.Year).OrderByDescending(g => g.Key))
         {
             dates.Add(new PhotoFilter($"{year.Key}", $"{year.Key}", year.Count(), Year: year.Key));
             dates.AddRange(year.GroupBy(m => MonthOf(m)).OrderByDescending(g => g.Key).Select(m =>
@@ -50,14 +85,17 @@ public sealed class MapModel
         return dates;
     }
 
-    /// <summary>Keeps the points of the album and period; the ids change.</summary>
-    public void Filter(Guid? albumId, PhotoFilter? date)
+    /// <summary>Keeps the points of the album, period and tags; the ids change.</summary>
+    public void Filter(Guid? albumId, PhotoFilter? date, TagSelection? tags = null)
     {
         Points = InAlbum(albumId)
-            .Where(m => date is null || (date.Year is { } y ? m.TakenAt.Year == y : MonthOf(m) == date.Month))
+            .Where(m => InPeriod(m, date) && (tags?.Matches(TagsOf(m.Path)) ?? true))
             .ToList();
         _entries = new PhotoEntry?[Points.Count];
     }
+
+    private static bool InPeriod(LocatedMedia media, PhotoFilter? date) =>
+        date is null || (date.Year is { } y ? media.TakenAt.Year == y : MonthOf(media) == date.Month);
 
     /// <summary>The ids of the points inside <paramref name="bounds"/> (all of them without bounds), newest first.</summary>
     public List<int> Inside(GeoBounds? bounds)
@@ -83,7 +121,7 @@ public sealed class MapModel
         var point = Points[id];
         var item = new LibraryItem(point.Path, point.AlbumId, MonthOf(point), point.TakenAt, point.IsVideo, point.Size,
             _albums[point.AlbumId].DestinationRoot);
-        return _entries[id] = new PhotoEntry(item, _albums[point.AlbumId]);
+        return _entries[id] = new PhotoEntry(item, _albums[point.AlbumId]) { Tags = TagsOf(point.Path) };
     }
 
     /// <summary>

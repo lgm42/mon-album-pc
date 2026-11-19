@@ -1,4 +1,5 @@
 @using MonAlbumPc.Nas.Components.Photos
+@using MonAlbumPc.Nas.Components.Tags
 
 @* The full-screen viewer of the Photos and Map pages; the page owns the list, the keyboard and the swipes. *@
 <div class="lightbox" role="dialog" aria-modal="true" aria-label="@Entry.Name">
@@ -61,6 +62,33 @@
                 {
                     <FluentProgressRing Width="20px" />
                 }
+                @if (OnAddTag.HasDelegate)
+                {
+                    <div class="lb-line">
+                        <span class="lb-label">Tags</span>
+                        <div class="tag-chips">
+                            @foreach (var tag in Entry.Tags)
+                            {
+                                <span class="tag-chip" title="@tag">
+                                    <span class="ellipsis">@tag</span>
+                                    <button type="button" class="tag-chip-remove" title="Retirer le tag « @tag »" aria-label="Retirer le tag « @tag »"
+                                            @onclick="() => OnRemoveTag.InvokeAsync(tag)">×</button>
+                                </span>
+                            }
+                            @if (!_adding)
+                            {
+                                <button type="button" class="tag-chip add" title="Ajouter un tag" @onclick="() => _adding = true">
+                                    <FluentIcon Value="@(new Icons.Regular.Size16.Add())" Color="Color.Custom" CustomColor="currentColor" />
+                                    <span>Ajouter</span>
+                                </button>
+                            }
+                        </div>
+                        @if (_adding)
+                        {
+                            <TagPicker Tags="AllTags" Exclude="Entry.Tags" Class="dark" OnChosen="AddTagAsync" OnCancel="() => _adding = false" />
+                        }
+                    </div>
+                }
             </aside>
         }
     </div>
@@ -91,4 +119,29 @@
 
     /// <summary>No delete button when unset.</summary>
     [Parameter] public EventCallback OnDelete { get; set; }
+
+    /// <summary>The tags of the library, proposed when adding one.</summary>
+    [Parameter] public IReadOnlyList<MonAlbumPc.Core.Tags.TagCount> AllTags { get; set; } = [];
+
+    /// <summary>No tag section when unset.</summary>
+    [Parameter] public EventCallback<string> OnAddTag { get; set; }
+    [Parameter] public EventCallback<string> OnRemoveTag { get; set; }
+
+    private bool _adding;
+    private PhotoEntry? _shown;
+
+    protected override void OnParametersSet()
+    {
+        if (_shown != Entry)
+        {
+            _shown = Entry;
+            _adding = false;
+        }
+    }
+
+    private async Task AddTagAsync(string tag)
+    {
+        _adding = false;
+        await OnAddTag.InvokeAsync(tag);
+    }
 }

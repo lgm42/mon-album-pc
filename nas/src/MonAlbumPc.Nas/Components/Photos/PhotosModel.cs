@@ -1,7 +1,9 @@
 using MonAlbumPc.Core;
 using MonAlbumPc.Core.Media;
 using MonAlbumPc.Core.Model;
+using MonAlbumPc.Core.Tags;
 using MonAlbumPc.Nas.Components.Shared;
+using MonAlbumPc.Nas.Components.Tags;
 using MonAlbumPc.Nas.Media;
 
 namespace MonAlbumPc.Nas.Components.Photos;
@@ -23,6 +25,9 @@ public sealed class PhotoEntry(LibraryItem item, Album album, MediaSource? sourc
     public string ViewUrl => MediaEndpoints.Url("view", Album.Id, Relative, Item.Date.Ticks);
     public string OriginalUrl => MediaEndpoints.Url("original", Album.Id, Relative, Item.Date.Ticks);
     public string DownloadUrl => OriginalUrl + "&download=true";
+
+    /// <summary>Its user tags, as indexed (updated by the page as soon as it tags).</summary>
+    public IReadOnlyList<string> Tags { get; set; } = [];
 }
 
 /// <summary>An entry of the album, provenance or date filter, with its number of items.</summary>
@@ -63,6 +68,28 @@ public sealed class PhotosModel
             .ThenByDescending(e => e.Item.Date)
             .ToList();
         Albums = albums;
+        LoadTags(core);
+    }
+
+    /// <summary>Every tag of the library (those without photos too), sorted as a tree.</summary>
+    public IReadOnlyList<TagCount> AllTags { get; private set; } = [];
+
+    /// <summary>Takes the tags from the index again (a query: no file is opened), after tagging or news from another server.</summary>
+    public void LoadTags(CoreServices core)
+    {
+        var byFile = core.Tags.ByFile();
+        foreach (var entry in _all)
+        {
+            entry.Tags = byFile.GetValueOrDefault((entry.Album.Id, entry.Relative)) ?? [];
+        }
+        AllTags = core.Tags.List();
+    }
+
+    /// <summary>The tags of the items of the album, period and provenance, with "Sans tag".</summary>
+    public (List<TagFilterEntry> Tags, int Untagged) TagFilters(Guid? albumId, PhotoFilter? date, MediaSourceKind? source)
+    {
+        var items = InAlbum(albumId).Where(e => InPeriod(e, date) && (source is null || e.Source?.Kind == source)).ToList();
+        return (TagSelection.Entries(AllTags.Select(t => t.Name), items.Select(e => e.Tags)), items.Count(e => e.Tags.Count == 0));
     }
 
     public void Remove(IEnumerable<PhotoEntry> entries)
@@ -78,9 +105,9 @@ public sealed class PhotosModel
     ];
 
     /// <summary>Toutes, Appareil photo, WhatsApp, Captures d'écran, Autres, for the items of the album and period.</summary>
-    public IReadOnlyList<PhotoFilter> SourceFilters(Guid? albumId, PhotoFilter? date)
+    public IReadOnlyList<PhotoFilter> SourceFilters(Guid? albumId, PhotoFilter? date, TagSelection? tags = null)
     {
-        var items = InAlbum(albumId).Where(e => InPeriod(e, date)).ToList();
+        var items = InAlbum(albumId).Where(e => InPeriod(e, date) && (tags?.Matches(e.Tags) ?? true)).ToList();
         return
         [
             new(AllSourcesKey, "Toutes", items.Count),
@@ -90,10 +117,10 @@ public sealed class PhotosModel
     }
 
     /// <summary>Years, each followed by its months, newest first, for the items of <paramref name="albumId"/>.</summary>
-    public IReadOnlyList<PhotoFilter> DateFilters(Guid? albumId, MediaSourceKind? source = null)
+    public IReadOnlyList<PhotoFilter> DateFilters(Guid? albumId, MediaSourceKind? source = null, TagSelection? tags = null)
     {
         var dates = new List<PhotoFilter>();
-        foreach (var year in InAlbum(albumId).Where(e => source is null || e.Source?.Kind == source)
+        foreach (var year in InAlbum(albumId).Where(e => (source is null || e.Source?.Kind == source) && (tags?.Matches(e.Tags) ?? true))
                      .GroupBy(e => e.Item.Month.Year).OrderByDescending(g => g.Key))
         {
             dates.Add(new PhotoFilter($"{year.Key}", $"{year.Key}", year.Count(), Year: year.Key));
@@ -103,8 +130,8 @@ public sealed class PhotosModel
         return dates;
     }
 
-    public List<PhotoEntry> View(Guid? albumId, PhotoFilter? date, MediaSourceKind? source = null) => InAlbum(albumId)
-        .Where(e => InPeriod(e, date) && (source is null || e.Source?.Kind == source))
+    public List<PhotoEntry> View(Guid? albumId, PhotoFilter? date, MediaSourceKind? source = null, TagSelection? tags = null) => InAlbum(albumId)
+        .Where(e => InPeriod(e, date) && (source is null || e.Source?.Kind == source) && (tags?.Matches(e.Tags) ?? true))
         .ToList();
 
     private static bool InPeriod(PhotoEntry entry, PhotoFilter? date) =>
