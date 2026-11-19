@@ -1,6 +1,6 @@
-using System.Diagnostics;
 using System.Threading.Channels;
 using MonAlbumPc.Core;
+using MonAlbumPc.Core.Activity;
 using MonAlbumPc.Core.Media;
 
 namespace MonAlbumPc.Nas;
@@ -61,15 +61,13 @@ public sealed class ThumbnailKeeper(CoreServices core, ILogger<ThumbnailKeeper> 
     /// <summary>One pass over <paramref name="only"/> these albums, or all of them when null.</summary>
     private void Sweep(HashSet<Guid>? only, CancellationToken stoppingToken)
     {
-        var clock = Stopwatch.StartNew();
+        using var job = core.Work.Start(ThumbnailSweepResult.Title, only is null ? "Tous les albums" : "Albums de la dernière sauvegarde");
         try
         {
             var albums = core.Albums.List().Where(a => only is null || only.Contains(a.Id)).ToList();
-            var result = _sweeper.Sweep(albums, stoppingToken);
-            logger.Log(result.Failed > 0 ? LogLevel.Warning : LogLevel.Information,
-                "Miniatures de {Albums} album(s) en {Seconds:0} s : {Made} créées, {Removed} supprimées, {Ready} déjà prêtes, {Failed} en échec{FirstError}",
-                albums.Count, clock.Elapsed.TotalSeconds, result.Made, result.Removed, result.Ready, result.Failed,
-                result.FirstError is null ? "" : $" (premier : {result.FirstError})");
+            var result = _sweeper.Sweep(albums, stoppingToken, job);
+            // The hourly pass that finds everything ready goes to the logs only.
+            job.Finish(result.Summary(job.Elapsed), result.Failed > 0 ? WorkLevel.Warning : WorkLevel.Info, note: result.Changed);
         }
         catch (OperationCanceledException)
         {
@@ -78,7 +76,7 @@ public sealed class ThumbnailKeeper(CoreServices core, ILogger<ThumbnailKeeper> 
         catch (Exception e)
         {
             // An exception leaving a background service stops the whole server: the phones matter more than thumbnails.
-            logger.LogError(e, "Miniatures : passage interrompu");
+            job.Finish($"{ThumbnailSweepResult.Title} : passage interrompu ({e.Message})", WorkLevel.Error, error: e);
         }
     }
 

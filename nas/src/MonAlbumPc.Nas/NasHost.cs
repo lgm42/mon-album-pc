@@ -1,17 +1,20 @@
 using System.Net;
 using System.Text.Json;
 using MonAlbumPc.Core;
+using MonAlbumPc.Core.Activity;
 using MonAlbumPc.Core.Library;
 using MonAlbumPc.Server;
 
 namespace MonAlbumPc.Nas;
 
 /// <summary>Runs the phone-facing server (protocol API, download page, mDNS) for the life of the container.</summary>
-public sealed class NasHost(NasOptions options, ILogger<NasHost> logger, ILoggerFactory loggers) : IHostedService, IAsyncDisposable
+public sealed class NasHost(NasOptions options, WorkBoard work, ILogger<NasHost> logger, ILoggerFactory loggers)
+    : IHostedService, IAsyncDisposable
 {
     private MonAlbumServer? _server;
+    private WorkLog? _workLog;
 
-    public CoreServices Core { get; } = CreateCore(options);
+    public CoreServices Core { get; } = CreateCore(options, work);
 
     /// <summary>The Android app shipped in the image, if any.</summary>
     public ApkFile? Apk { get; } = FindApk(options.ApkDirectory);
@@ -26,6 +29,8 @@ public sealed class NasHost(NasOptions options, ILogger<NasHost> logger, ILogger
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        // Start and end of each background task in the container logs.
+        _workLog = new WorkLog(Core.Work, loggers.CreateLogger(WorkLog.Category));
         Directory.CreateDirectory(options.PhotosRoot);
         // Shooting places for a future map: indexed in the background, and again after each backup.
         Core.Sessions.Ended += _ => Core.MediaIndexer.RequestRefresh();
@@ -39,8 +44,7 @@ public sealed class NasHost(NasOptions options, ILogger<NasHost> logger, ILogger
             // Its own web host: without the provider, its errors would never reach the container logs.
             _server = new MonAlbumServer(Core, new ServerOptions { Apk = Apk }, new ForwardingLoggerProvider(loggers));
             await _server.StartAsync(cancellationToken);
-            logger.LogInformation("Serveur prêt : API {Api}, téléchargement {Download}, administration {Admin}",
-                _server.ApiPort, _server.DownloadPort, options.AdminPort);
+            Core.Work.Info($"Serveur prêt : API {_server.ApiPort}, téléchargement {_server.DownloadPort}, administration {options.AdminPort}");
         }
         catch (Exception e) when (e is IOException or System.Net.Sockets.SocketException or InvalidOperationException)
         {
@@ -63,12 +67,13 @@ public sealed class NasHost(NasOptions options, ILogger<NasHost> logger, ILogger
         {
             await _server.DisposeAsync();
         }
+        _workLog?.Dispose();
         Core.Dispose();
     }
 
-    private static CoreServices CreateCore(NasOptions options)
+    private static CoreServices CreateCore(NasOptions options, WorkBoard work)
     {
-        var core = CoreServices.Create(options.ConfigDirectory);
+        var core = CoreServices.Create(options.ConfigDirectory, work: work);
         core.PcName = options.ServerName;
         return core;
     }

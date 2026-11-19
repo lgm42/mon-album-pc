@@ -1,0 +1,129 @@
+@page "/activity"
+@using MonAlbumPc.Core.Activity
+@implements IDisposable
+@inject CoreServices Core
+
+<PageTitle>Activité · Mon Album PC</PageTitle>
+
+<div class="page activity-page">
+    <div class="page-header">
+        <h1>Activité</h1>
+    </div>
+
+    <h2 class="section-title">En cours</h2>
+    @if (_running.Count == 0)
+    {
+        <div class="activity-empty muted">
+            Aucune tâche en arrière-plan pour l'instant. Les miniatures, l'index des positions et les autres travaux du serveur
+            apparaîtront ici pendant qu'ils tournent.
+        </div>
+    }
+    <div class="work-list">
+        @foreach (var work in _running)
+        {
+            <div @key="work.Id" class="work-row">
+                <div class="work-head">
+                    <FluentIcon Value="@(new Icons.Regular.Size20.ArrowSync())" Color="Color.Accent" />
+                    <b>@work.Title</b>
+                    @if (work.Step is not null)
+                    {
+                        <span class="muted ellipsis">· @work.Step</span>
+                    }
+                </div>
+                @if (work.Fraction is { } fraction)
+                {
+                    <FluentProgress Min="0" Max="1000" Value="@((int)(fraction * 1000))" />
+                }
+                else
+                {
+                    <FluentProgress />
+                }
+                <div class="work-pace caption">
+                    <span>@WorkText.Pace(work, _now)</span>
+                    @if (work.Item is not null)
+                    {
+                        <span class="mono ellipsis" title="@work.Item">@work.Item</span>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="events-head">
+        <h2 class="section-title">Événements récents</h2>
+        <FluentSwitch @bind-Value="_problemsOnly" Label="Avertissements et erreurs uniquement" />
+    </div>
+    @{
+        var events = _events.Where(e => !_problemsOnly || e.Level != WorkLevel.Info).ToList();
+    }
+    @if (events.Count == 0)
+    {
+        <div class="activity-empty muted">
+            @(_events.Count == 0 ? "Rien pour l'instant depuis le démarrage du serveur." : "Aucun avertissement ni erreur depuis le démarrage du serveur.")
+        </div>
+    }
+    <div class="event-list">
+        @foreach (var e in events)
+        {
+            <div class="event-row @Level(e.Level)">
+                <span class="event-time">@WorkText.Time(e.At, _now)</span>
+                @switch (e.Level)
+                {
+                    case WorkLevel.Error:
+                        <FluentIcon Value="@(new Icons.Filled.Size16.ErrorCircle())" Color="Color.Custom" CustomColor="var(--app-critical)" />
+                        break;
+                    case WorkLevel.Warning:
+                        <FluentIcon Value="@(new Icons.Filled.Size16.Warning())" Color="Color.Custom" CustomColor="var(--app-caution)" />
+                        break;
+                    default:
+                        <FluentIcon Value="@(new Icons.Regular.Size16.Info())" Color="Color.Custom" CustomColor="var(--app-text-secondary)" />
+                        break;
+                }
+                <span class="event-text">@e.Text</span>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private IReadOnlyList<RunningWork> _running = [];
+    private IReadOnlyList<WorkEvent> _events = [];
+    private DateTimeOffset _now;
+    private bool _problemsOnly;
+    private Timer? _clock;
+
+    protected override void OnInitialized()
+    {
+        Load();
+        Core.Work.Changed += OnChanged;
+        // Elapsed and remaining times move even when a task is quiet.
+        _clock = new Timer(_ => OnChanged(), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    private void Load()
+    {
+        _running = Core.Work.Running;
+        _events = Core.Work.Events;
+        _now = Core.Clock.GetLocalNow();
+    }
+
+    // Raised on server threads.
+    private void OnChanged() => _ = InvokeAsync(() =>
+    {
+        Load();
+        StateHasChanged();
+    });
+
+    private static string Level(WorkLevel level) => level switch
+    {
+        WorkLevel.Error => "error",
+        WorkLevel.Warning => "warning",
+        _ => "",
+    };
+
+    public void Dispose()
+    {
+        _clock?.Dispose();
+        Core.Work.Changed -= OnChanged;
+    }
+}

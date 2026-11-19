@@ -5,13 +5,19 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.FluentUI.AspNetCore.Components;
+using MonAlbumPc.Core.Activity;
 using MonAlbumPc.Nas;
 using MonAlbumPc.Nas.Components;
 using MonAlbumPc.Nas.Media;
+using MonAlbumPc.Server;
 
 var options = NasOptions.FromEnvironment();
 var builder = WebApplication.CreateBuilder(args);
 
+// Before anything logs: the warnings and errors of the whole server show in the administration (page Activité).
+var work = new WorkBoard(TimeProvider.System);
+builder.Logging.AddProvider(new WorkBoardLoggerProvider(work));
+builder.Services.AddSingleton(work);
 builder.Services.AddSingleton(options);
 builder.Services.AddSingleton<NasHost>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<NasHost>());

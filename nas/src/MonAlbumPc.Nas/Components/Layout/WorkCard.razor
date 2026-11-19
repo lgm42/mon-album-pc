@@ -1,0 +1,48 @@
+@using MonAlbumPc.Core.Activity
+@implements IDisposable
+@inject CoreServices Core
+
+@* Under the status card: what the server does besides backups (thumbnails, index…), one line each. *@
+@if (_running.Count > 0)
+{
+    <a class="work-card" href="activity" title="Voir l'activité">
+        @foreach (var work in _running.Take(MaxShown))
+        {
+            var line = WorkText.Compact(work);
+            <div class="work-line" title="@line">@line</div>
+            @if (work.Fraction is { } fraction)
+            {
+                <FluentProgress Min="0" Max="1000" Value="@((int)(fraction * 1000))" />
+            }
+            else
+            {
+                <FluentProgress />
+            }
+        }
+        @if (_running.Count > MaxShown)
+        {
+            <div class="work-line">et @(_running.Count - MaxShown) autre(s)…</div>
+        }
+    </a>
+}
+
+@code {
+    private const int MaxShown = 3;
+
+    private IReadOnlyList<RunningWork> _running = [];
+
+    protected override void OnInitialized()
+    {
+        _running = Core.Work.Running;
+        Core.Work.Changed += OnChanged;
+    }
+
+    // Raised on server threads, at most twice a second.
+    private void OnChanged() => _ = InvokeAsync(() =>
+    {
+        _running = Core.Work.Running;
+        StateHasChanged();
+    });
+
+    public void Dispose() => Core.Work.Changed -= OnChanged;
+}
