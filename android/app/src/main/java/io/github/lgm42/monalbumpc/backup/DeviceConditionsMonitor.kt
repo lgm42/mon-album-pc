@@ -36,8 +36,13 @@ object DeviceConditionsMonitor {
             awaitClose {}
             return@callbackFlow
         }
+        // Like WorkManager's network constraint: a network with Internet that Android validated.
         fun of(caps: NetworkCapabilities?): Pair<Boolean, Boolean> {
-            if (caps == null || !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) return false to false
+            if (caps == null || !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) ||
+                !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            ) {
+                return false to false
+            }
             return true to caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
         }
         trySend(of(manager.getNetworkCapabilities(manager.activeNetwork)))

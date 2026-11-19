@@ -193,7 +193,8 @@ fun BackupScreen(
     }
 
     // Index of the list chips, to scroll there from the counters.
-    val chipsIndex = 3 + (if (backgroundUnrestricted) 0 else 1) + 1 + data.folders.size.coerceAtLeast(1) +
+    val folderItems = if (summary == null) 0 else data.folders.size.coerceAtLeast(1)
+    val chipsIndex = 3 + (if (backgroundUnrestricted) 0 else 1) + 1 + folderItems +
         (if (data.untracked.isEmpty()) 0 else 1)
     val showList: (BackupList) -> Unit = { list ->
         selected = list
@@ -235,7 +236,8 @@ fun BackupScreen(
             item(key = "folders-title", contentType = "section") {
                 SectionTitle(stringResource(R.string.backup_folders_title))
             }
-            if (data.folders.isEmpty()) {
+            // Before MediaStore is read, nothing is known: no "no folder" flash.
+            if (summary != null && data.folders.isEmpty()) {
                 item(key = "folders-none", contentType = "note") {
                     Note(stringResource(R.string.backup_folders_none))
                 }
