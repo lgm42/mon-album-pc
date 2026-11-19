@@ -111,7 +111,8 @@ public static class UserTags
     public static TagWrite Change(string path, IEnumerable<string> add, IEnumerable<string> remove, string? keep = null)
     {
         var adding = add.Select(Normalize).OfType<string>().Distinct(Same).ToList();
-        var removing = remove.Select(Normalize).OfType<string>().Where(r => !adding.Contains(r, Same)).Distinct(Same).ToList();
+        // "boulot" → "Boulot" removes and adds the same tag: only an exact match cancels a removal.
+        var removing = remove.Select(Normalize).OfType<string>().Where(r => !adding.Contains(r, StringComparer.Ordinal)).Distinct(Same).ToList();
         if (!File.Exists(path))
         {
             throw new FileNotFoundException("Fichier supprimé ou déplacé entre-temps.", path);

@@ -5,6 +5,7 @@ using MonAlbumPc.Core.Import;
 using MonAlbumPc.Core.Media;
 using MonAlbumPc.Core.Pairing;
 using MonAlbumPc.Core.Storage;
+using MonAlbumPc.Core.Tags;
 
 namespace MonAlbumPc.Core;
 
@@ -28,8 +29,11 @@ public sealed class CoreServices : IDisposable
         History = new ImportHistory(Database);
         Journals = new AlbumJournals(Albums, Devices, Identity.PcId, clock);
         History.Journals = Journals;
-        Media = new MediaIndex(Database, Journals);
+        var tagCatalog = new TagCatalog(Database);
+        var tagJournals = new TagJournals(Albums, tagCatalog, Identity.PcId);
+        Media = new MediaIndex(Database, Journals, History, tagJournals);
         MediaIndexer = new MediaIndexer(Albums, Media, Work);
+        Tags = new TagService(Albums, History, tagCatalog, tagJournals, Work);
         Import = new ImportService(Albums, History, clock, Media);
         Pairing = new PairingService(Albums, Devices, clock);
         Authenticator = new DeviceAuthenticator(Devices);
@@ -69,6 +73,9 @@ public sealed class CoreServices : IDisposable
 
     /// <summary>Background refresh of <see cref="Media"/>, started by the hosts (app, NAS).</summary>
     public MediaIndexer MediaIndexer { get; }
+
+    /// <summary>User tags of the photos: in the files, indexed here, shared with the other servers.</summary>
+    public TagService Tags { get; }
     public PairingService Pairing { get; }
     public DeviceAuthenticator Authenticator { get; }
     public UploadStore Uploads { get; }
@@ -84,6 +91,7 @@ public sealed class CoreServices : IDisposable
 
     public void Dispose()
     {
+        Tags.StopPolling();
         MediaIndexer.Dispose();
         Certificate.Dispose();
         Work.Dispose();

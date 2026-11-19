@@ -3,6 +3,7 @@ using Microsoft.Data.Sqlite;
 using MonAlbumPc.Core.Import;
 using MonAlbumPc.Core.Model;
 using MonAlbumPc.Core.Storage;
+using MonAlbumPc.Core.Tags;
 
 namespace MonAlbumPc.Core.Media;
 
@@ -16,19 +17,23 @@ public sealed record LocatedMedia(Guid AlbumId, string Path, DateTime TakenAt, d
 /// </summary>
 public readonly record struct MediaIndexProgress(string AlbumName, int Done, int Total, string? Item = null);
 
-/// <summary>What a refresh changed in the catalog, out of <paramref name="Files"/> media files in the album folder.</summary>
-public readonly record struct MediaIndexResult(int Read, int Removed, int Files = 0)
+/// <summary>
+/// What a refresh changed in the catalog, out of <paramref name="Files"/> media files in the album folder;
+/// <paramref name="Tagged"/> files got their tags from the journals of other servers.
+/// </summary>
+public readonly record struct MediaIndexResult(int Read, int Removed, int Files = 0, int Tagged = 0)
 {
-    public bool Changed => Read > 0 || Removed > 0;
+    public bool Changed => Read > 0 || Removed > 0 || Tagged > 0;
 }
 
 /// <summary>
-/// Metadata of every media file found in the album folders (shooting date, GPS position), cached in the <c>media</c>
-/// table so that the map and the viewer do not open each file again. Files are read again only when their size or
-/// modification date changes. What the album journals of other servers already say is taken from them: opening
-/// thousands of files over a network share is slow.
+/// Metadata of every media file found in the album folders (shooting date, GPS position, user tags), cached in the
+/// <c>media</c> and <c>media_tags</c> tables so that the map and the viewer do not open each file again. Files are read
+/// again only when their size, modification date or tag sidecar changes. What the album journals of other servers already
+/// say is taken from them: opening thousands of files over a network share is slow. Tags written by another server
+/// without changing the size of the file come from the tag journals (<see cref="TagJournals"/>).
 /// </summary>
-public sealed class MediaIndex(Database database, AlbumJournals? journals = null)
+public sealed class MediaIndex(Database database, AlbumJournals? journals = null, ImportHistory? history = null, TagJournals? tagJournals = null)
 {
     private const string WallClock = "yyyy-MM-dd'T'HH:mm:ss";
     private const int BatchSize = 100;
@@ -47,7 +52,8 @@ public sealed class MediaIndex(Database database, AlbumJournals? journals = null
         var known = Known(album.Id);
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var toRead = new List<FileInfo>();
-        foreach (var file in Walk(album.DestinationRoot))
+        var (files, sidecars) = Walk(album.DestinationRoot);
+        foreach (var file in files)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var relative = Relative(album.DestinationRoot, file.FullName);
@@ -56,7 +62,8 @@ public sealed class MediaIndex(Database database, AlbumJournals? journals = null
             {
                 progress?.Report(new MediaIndexProgress(album.Name, seen.Count, 0, file.Name));
             }
-            if (!known.TryGetValue(relative, out var state) || state.Size != file.Length || state.ModifiedAt != Modified(file))
+            if (!known.TryGetValue(relative, out var state) || state.Size != file.Length || state.ModifiedAt != Modified(file)
+                || !state.TagsRead || state.Sidecar != SidecarOf(file.FullName, sidecars))
             {
                 toRead.Add(file);
             }
@@ -71,27 +78,43 @@ public sealed class MediaIndex(Database database, AlbumJournals? journals = null
                 {
                     connection.Execute("DELETE FROM media WHERE album_id = $album AND path = $path",
                         ("$album", album.Id.ToString()), ("$path", path));
+                    connection.Execute("DELETE FROM media_tags WHERE album_id = $album AND path = $path",
+                        ("$album", album.Id.ToString()), ("$path", path));
                 }
             });
         }
 
         var done = 0;
+        AlbumProvenance? provenance = null;
         progress?.Report(new MediaIndexProgress(album.Name, 0, toRead.Count));
         foreach (var chunk in toRead.Chunk(BatchSize / 4))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var entries = new List<(FileInfo File, MediaInfo Info)>();
+            var entries = new List<(FileInfo File, MediaInfo Info, List<string> Tags, string? Sidecar)>();
             foreach (var file in chunk)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 try
                 {
                     file.Refresh();
-                    if (file.Exists)
+                    if (!file.Exists)
                     {
-                        var relative = Relative(album.DestinationRoot, file.FullName);
-                        entries.Add((file, FromJournals(album.Id, relative, file.Length) ?? MediaMetadata.Read(file.FullName)));
+                        continue;
                     }
+                    var relative = Relative(album.DestinationRoot, file.FullName);
+                    // Only the tags to read again (first refresh with tags, sidecar changed): the rest is still valid.
+                    var info = known.TryGetValue(relative, out var state) && state.Size == file.Length && state.ModifiedAt == Modified(file)
+                        ? state.Info
+                        : FromJournals(album.Id, relative, file.Length) ?? MediaMetadata.Read(file.FullName);
+                    var sidecar = SidecarOf(file.FullName, sidecars);
+                    List<string> tags = [];
+                    if (sidecar is not null || !IsAsImported(album.Id, relative, file.Length))
+                    {
+                        provenance ??= history is null ? null : AlbumProvenance.Load(history, album);
+                        var keyword = (provenance?.Of(file.FullName) ?? MediaSource.Classify(null, file.FullName)).Keyword;
+                        tags = UserTags.Read(file.FullName, keyword);
+                    }
+                    entries.Add((file, info, tags, sidecar));
                 }
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException)
                 {
@@ -100,17 +123,27 @@ public sealed class MediaIndex(Database database, AlbumJournals? journals = null
             }
             Write(connection =>
             {
-                foreach (var (file, info) in entries)
+                foreach (var (file, info, tags, sidecar) in entries)
                 {
                     var taken = info.TakenAt ?? TakenDateResolver.ParseFileName(file.Name) ?? Truncate(file.LastWriteTime);
-                    Upsert(connection, album.Id, Relative(album.DestinationRoot, file.FullName), file, taken, info.Location);
+                    var relative = Relative(album.DestinationRoot, file.FullName);
+                    Upsert(connection, album.Id, relative, file, taken, info.Location, sidecar);
+                    TagCatalog.Store(connection, album.Id, relative, tags);
                 }
             });
             done += chunk.Length;
             progress?.Report(new MediaIndexProgress(album.Name, done, toRead.Count, chunk[^1].Name));
         }
-        return new MediaIndexResult(toRead.Count, removed.Count, seen.Count);
+        var tagged = tagJournals?.Sync(album) ?? 0;
+        return new MediaIndexResult(toRead.Count, removed.Count, seen.Count, tagged);
     }
+
+    /// <summary>
+    /// True when another server journaled this very file at import, with this size: it then has no user tag yet (tagging
+    /// it would have changed its size, or given it a sidecar), and it needs not be opened over the network.
+    /// </summary>
+    private bool IsAsImported(Guid albumId, string relativePath, long size) =>
+        journals?.FindByPath(albumId, relativePath) is { } entry && entry.Size == size;
 
     /// <summary>What another server journaled about this very file, when that includes its position.</summary>
     private MediaInfo? FromJournals(Guid albumId, string relativePath, long size)
@@ -133,7 +166,12 @@ public sealed class MediaIndex(Database database, AlbumJournals? journals = null
         {
             return;
         }
-        Write(connection => Upsert(connection, album.Id, Relative(album.DestinationRoot, fullPath), file, takenAt, location));
+        var relative = Relative(album.DestinationRoot, fullPath);
+        Write(connection =>
+        {
+            Upsert(connection, album.Id, relative, file, takenAt, location, null);
+            TagCatalog.Store(connection, album.Id, relative, []);
+        });
     }
 
     /// <summary>Photos and videos with a shooting place, newest first, in one album or all of them.</summary>
@@ -186,28 +224,57 @@ public sealed class MediaIndex(Database database, AlbumJournals? journals = null
             ("$album", album.Id.ToString()), ("$path", Relative(album.DestinationRoot, fullPath))).Cast<MediaInfo?>().SingleOrDefault();
     }
 
-    /// <summary>Media files of an album folder, with the same rules as <see cref="PhotoLibrary"/>.</summary>
-    private static IEnumerable<FileInfo> Walk(string root)
+    /// <summary>
+    /// Media files of an album folder, with the same rules as <see cref="PhotoLibrary"/>, and the XMP sidecars found along
+    /// (by full path), listed at the same time: a second walk of a network share would take as long again.
+    /// </summary>
+    private static (List<FileInfo> Media, Dictionary<string, FileInfo> Sidecars) Walk(string root)
     {
         var options = new EnumerationOptions
         {
             RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = FileAttributes.Hidden | FileAttributes.System,
         };
         var work = Path.Combine(root, DestinationLayout.WorkFolderName);
-        return new DirectoryInfo(root)
-            .EnumerateFiles("*", options)
-            .Where(f => MediaTypes.IsMedia(f.Name) && !f.FullName.StartsWith(work, StringComparison.OrdinalIgnoreCase));
+        var media = new List<FileInfo>();
+        var sidecars = new Dictionary<string, FileInfo>(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in new DirectoryInfo(root).EnumerateFiles("*", options))
+        {
+            if (file.FullName.StartsWith(work, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+            if (MediaTypes.IsMedia(file.Name))
+            {
+                media.Add(file);
+            }
+            else if (file.Extension.Equals(".xmp", StringComparison.OrdinalIgnoreCase))
+            {
+                sidecars[file.FullName] = file;
+            }
+        }
+        return (media, sidecars);
     }
 
-    private Dictionary<string, (long Size, DateTimeOffset ModifiedAt)> Known(Guid albumId)
+    /// <summary>The state of the sidecar of a media file among those listed, as <see cref="UserTags.FindSidecar"/> picks it.</summary>
+    private static string? SidecarOf(string mediaPath, Dictionary<string, FileInfo> sidecars) =>
+        sidecars.TryGetValue(UserTags.SidecarPath(mediaPath), out var full) ? TagCatalog.SidecarState(full)
+        : sidecars.TryGetValue(Path.ChangeExtension(mediaPath, ".xmp"), out var shortName) ? TagCatalog.SidecarState(shortName)
+        : null;
+
+    private Dictionary<string, KnownFile> Known(Guid albumId)
     {
         using var connection = database.Open();
         return connection
-            .Query("SELECT path, size, modified_at FROM media WHERE album_id = $album",
-                r => (Path: r.GetString(0), Size: r.GetInt64(1), Modified: SqliteExtensions.ParseDate(r.GetString(2))),
+            .Query("SELECT path, size, modified_at, sidecar, tags_read, taken_at, latitude, longitude FROM media WHERE album_id = $album",
+                r => (Path: r.GetString(0), File: new KnownFile(r.GetInt64(1), SqliteExtensions.ParseDate(r.GetString(2)), r.GetNullableString(3),
+                    r.GetInt64(4) != 0, new MediaInfo(
+                        r.IsDBNull(5) ? null : DateTime.ParseExact(r.GetString(5), WallClock, CultureInfo.InvariantCulture),
+                        r.IsDBNull(6) || r.IsDBNull(7) ? null : new GeoPoint(r.GetDouble(6), r.GetDouble(7))))),
                 ("$album", albumId.ToString()))
-            .ToDictionary(e => e.Path, e => (e.Size, e.Modified), StringComparer.OrdinalIgnoreCase);
+            .ToDictionary(e => e.Path, e => e.File, StringComparer.OrdinalIgnoreCase);
     }
+
+    private sealed record KnownFile(long Size, DateTimeOffset ModifiedAt, string? Sidecar, bool TagsRead, MediaInfo Info);
 
     private void Write(Action<SqliteConnection> action)
     {
@@ -217,18 +284,21 @@ public sealed class MediaIndex(Database database, AlbumJournals? journals = null
         transaction.Commit();
     }
 
-    private static void Upsert(SqliteConnection connection, Guid albumId, string path, FileInfo file, DateTime takenAt, GeoPoint? location) =>
+    // Tags read from the file itself: no journal date to weigh them against (tags_at).
+    private static void Upsert(SqliteConnection connection, Guid albumId, string path, FileInfo file, DateTime takenAt, GeoPoint? location,
+        string? sidecar) =>
         connection.Execute(
             """
-            INSERT INTO media (album_id, path, size, modified_at, taken_at, latitude, longitude, is_video)
-            VALUES ($album, $path, $size, $modified, $taken, $lat, $lon, $video)
+            INSERT INTO media (album_id, path, size, modified_at, taken_at, latitude, longitude, is_video, sidecar, tags_read, tags_at)
+            VALUES ($album, $path, $size, $modified, $taken, $lat, $lon, $video, $sidecar, 1, NULL)
             ON CONFLICT (album_id, path) DO UPDATE SET
                 size = excluded.size, modified_at = excluded.modified_at, taken_at = excluded.taken_at,
-                latitude = excluded.latitude, longitude = excluded.longitude, is_video = excluded.is_video
+                latitude = excluded.latitude, longitude = excluded.longitude, is_video = excluded.is_video,
+                sidecar = excluded.sidecar, tags_read = 1, tags_at = NULL
             """,
             ("$album", albumId.ToString()), ("$path", path), ("$size", file.Length), ("$modified", Modified(file).ToDb()),
             ("$taken", takenAt.ToString(WallClock, CultureInfo.InvariantCulture)), ("$lat", location?.Latitude),
-            ("$lon", location?.Longitude), ("$video", MediaTypes.IsVideo(file.Name) ? 1 : 0));
+            ("$lon", location?.Longitude), ("$video", MediaTypes.IsVideo(file.Name) ? 1 : 0), ("$sidecar", sidecar));
 
     private static DateTimeOffset Modified(FileInfo file) => new(file.LastWriteTimeUtc, TimeSpan.Zero);
 

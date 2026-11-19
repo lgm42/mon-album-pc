@@ -81,7 +81,8 @@ public sealed class MediaIndexer(AlbumStore albums, MediaIndex index, WorkBoard?
                         }
                         var result = index.Refresh(album, progress, _stop.Token);
                         changed |= result.Changed;
-                        total = new MediaIndexResult(total.Read + result.Read, total.Removed + result.Removed, total.Files + result.Files);
+                        total = new MediaIndexResult(total.Read + result.Read, total.Removed + result.Removed, total.Files + result.Files,
+                            total.Tagged + result.Tagged);
                     }
                     catch (Exception e) when (e is IOException or UnauthorizedAccessException or SqliteException)
                     {
@@ -125,6 +126,10 @@ public sealed class MediaIndexer(AlbumStore albums, MediaIndex index, WorkBoard?
         if (total.Removed > 0)
         {
             changes.Add(WorkText.Plural(total.Removed, "retiré", "retirés"));
+        }
+        if (total.Tagged > 0)
+        {
+            changes.Add($"tags de {WorkText.Plural(total.Tagged, "fichier repris", "fichiers repris")} d'un autre serveur");
         }
         var detail = changes.Count == 0 ? "" : $" ({string.Join(", ", changes)})";
         return $"{Title} à jour : {WorkText.Plural(total.Files, "fichier", "fichiers")}{detail} en {WorkText.Duration(elapsed)}";

@@ -96,6 +96,23 @@ public sealed class Database
         """
         ALTER TABLE imports ADD COLUMN original_size INTEGER;
         """,
+        """
+        ALTER TABLE media ADD COLUMN tags_read INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE media ADD COLUMN sidecar TEXT;
+        ALTER TABLE media ADD COLUMN tags_at TEXT;
+        CREATE TABLE media_tags (
+            album_id TEXT NOT NULL,
+            path TEXT NOT NULL,
+            tag TEXT NOT NULL COLLATE NOCASE,
+            PRIMARY KEY (album_id, path, tag)
+        );
+        CREATE INDEX ix_media_tags_tag ON media_tags(tag);
+        CREATE TABLE tag_names (
+            name TEXT PRIMARY KEY COLLATE NOCASE,
+            declared INTEGER NOT NULL,
+            at TEXT NOT NULL
+        );
+        """,
     ];
 
     private readonly string _connectionString;
