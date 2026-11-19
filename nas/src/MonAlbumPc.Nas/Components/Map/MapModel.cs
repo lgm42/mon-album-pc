@@ -4,7 +4,6 @@ using MonAlbumPc.Core.Model;
 using MonAlbumPc.Nas.Components.Photos;
 using MonAlbumPc.Core.Tags;
 using MonAlbumPc.Nas.Components.Shared;
-using MonAlbumPc.Nas.Components.Tags;
 
 namespace MonAlbumPc.Nas.Components.Map;
 

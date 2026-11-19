@@ -3,7 +3,6 @@ using MonAlbumPc.Core.Media;
 using MonAlbumPc.Core.Model;
 using MonAlbumPc.Core.Tags;
 using MonAlbumPc.Nas.Components.Shared;
-using MonAlbumPc.Nas.Components.Tags;
 using MonAlbumPc.Nas.Media;
 
 namespace MonAlbumPc.Nas.Components.Photos;

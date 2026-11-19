@@ -1,8 +1,7 @@
+using MonAlbumPc.Core.Activity;
 using MonAlbumPc.Core.Media;
-using MonAlbumPc.Core.Tags;
-using MonAlbumPc.Nas.Components.Shared;
 
-namespace MonAlbumPc.Nas.Components.Tags;
+namespace MonAlbumPc.Core.Tags;
 
 /// <summary>A line of the tag filter: a tag, shown by its last name under its parent, and its photos in view.</summary>
 public sealed record TagFilterEntry(string Name, int Count)
@@ -56,7 +55,7 @@ public sealed class TagSelection
         {
             parts.Add("Sans tag");
         }
-        return parts.Count <= 2 ? string.Join(", ", parts) : Formatting.Plural(parts.Count, "tag", "tags");
+        return parts.Count <= 2 ? string.Join(", ", parts) : WorkText.Plural(parts.Count, "tag", "tags");
     }
 
     /// <summary>
