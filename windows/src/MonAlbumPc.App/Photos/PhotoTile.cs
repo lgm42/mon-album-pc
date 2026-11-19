@@ -57,6 +57,16 @@ public sealed record MonthRow(string Title, string Count) : GridRow;
 
 public sealed record TilesRow(IReadOnlyList<PhotoTile> Tiles, double Size) : GridRow;
 
+/// <summary>A line of the « Tags » filter: a tag under its parent, or « Sans tag ».</summary>
+public sealed record TagFilterRow(string Name, string Label, int Count, int Depth, bool IsChecked, bool IsUntagged = false)
+{
+    public string CountText => Formatting.Count(Count);
+    public System.Windows.Thickness Indent => new(4 + 16 * Depth, 1, 4, 1);
+}
+
+/// <summary>A tag of the selection with how many of its items carry it.</summary>
+public sealed record SelectionTag(string Name, string CountText);
+
 /// <summary>An entry of the left filter pane.</summary>
 public sealed record FilterEntry(string Label, int Count, Brush? Dot, Guid? AlbumId, DateTime? Month, bool IsYear,
     MediaSourceKind? Source = null)

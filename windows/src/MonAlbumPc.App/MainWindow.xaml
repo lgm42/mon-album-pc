@@ -57,6 +57,12 @@
                         <TextBlock Margin="16,0,0,0" Text="Carte" VerticalAlignment="Center" />
                     </StackPanel>
                 </ListBoxItem>
+                <ListBoxItem Tag="tags">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource Icon}" Text="&#xE8EC;" />
+                        <TextBlock Margin="16,0,0,0" Text="Tags" VerticalAlignment="Center" />
+                    </StackPanel>
+                </ListBoxItem>
                 <ListBoxItem Tag="albums">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Style="{StaticResource Icon}" Text="&#xE8EA;" />

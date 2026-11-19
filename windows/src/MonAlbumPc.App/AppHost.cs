@@ -26,6 +26,8 @@ public sealed class AppHost : IAsyncDisposable
         _log = new FileLoggerProvider(Path.Combine(Core.DataDirectory, "server.log"));
         _workLog = new WorkLog(Core.Work, _log.CreateLogger(WorkLog.Category));
         Library = Settings.IsViewer ? new LibraryViewer(Core, Settings.LibraryRoot!) : null;
+        // Tags set by the NAS or another viewer of the same albums: taken from their journals.
+        Core.Tags.StartPolling();
     }
 
     public string DataRoot { get; }

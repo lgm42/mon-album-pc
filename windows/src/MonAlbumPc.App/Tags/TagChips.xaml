@@ -1,0 +1,37 @@
+<UserControl x:Class="MonAlbumPc.App.Tags.TagChips"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:MonAlbumPc.App.Tags">
+    <!-- The tags of a photo (or of a selection, with how many items carry each): × removes one, + adds one. -->
+    <StackPanel>
+        <ItemsControl x:Name="Chips" Focusable="False">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type local:TagChip}">
+                    <Border CornerRadius="13" Padding="10,0,2,0" Margin="0,0,6,6" MinHeight="26"
+                            Background="{Binding ChipBackground, RelativeSource={RelativeSource AncestorType=local:TagChips}}" ToolTip="{Binding Name}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" MaxWidth="200" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding CountText}" Margin="6,0,0,0" VerticalAlignment="Center" Opacity="0.7" FontSize="12" />
+                            <Button Style="{StaticResource IconButton}" Width="22" Height="22" FontSize="9" Margin="2,0,0,0" Content="&#xE711;"
+                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=local:TagChips}}"
+                                    ToolTip="{Binding RemoveText}" Tag="{Binding Name}" Click="OnRemove" />
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <Button x:Name="AddButton" HorizontalAlignment="Left" Padding="10,2" MinHeight="26" Click="OnAdd" ToolTip="Ajouter un tag"
+                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=local:TagChips}}" Background="Transparent">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Style="{StaticResource Icon}" FontSize="11" Text="&#xE710;" Margin="0,0,6,0" />
+                <TextBlock x:Name="AddLabel" Text="Ajouter un tag" />
+            </StackPanel>
+        </Button>
+        <local:TagBox x:Name="Box" Visibility="Collapsed" Margin="0,2,0,0" />
+    </StackPanel>
+</UserControl>

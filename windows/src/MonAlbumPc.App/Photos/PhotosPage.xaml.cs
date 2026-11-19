@@ -10,6 +10,7 @@ using MonAlbumPc.Core.Import;
 using MonAlbumPc.Core.Library;
 using MonAlbumPc.Core.Media;
 using MonAlbumPc.Core.Model;
+using MonAlbumPc.Core.Tags;
 
 namespace MonAlbumPc.App.Photos;
 
@@ -40,12 +41,38 @@ public partial class PhotosPage : UserControl, IRefreshable
     private int _columns;
     private bool _updatingFilters;
 
+    // Tags of the files by full path, and the tags of the library (those without photos too).
+    private Dictionary<string, IReadOnlyList<string>> _tags = new(StringComparer.OrdinalIgnoreCase);
+    private IReadOnlyList<TagCount> _library = [];
+    private readonly TagSelection _tagFilter = new();
+
     public PhotosPage(CoreServices core, MainWindow window)
     {
         _core = core;
         _window = window;
         InitializeComponent();
         UpdateCommands();
+        InfoTags.Added += tag => ApplyTag(SelectedTiles().Select(t => t.Item).ToList(), tag, add: true);
+        InfoTags.Removed += tag => ApplyTag(SelectedTiles().Select(t => t.Item).ToList(), tag, add: false);
+        ViewerTags.Added += tag => ApplyTag(FocusedTile is { } tile ? [tile.Item] : [], tag, add: true);
+        ViewerTags.Removed += tag => ApplyTag(FocusedTile is { } tile ? [tile.Item] : [], tag, add: false);
+        AddTagBox.Chosen += tag =>
+        {
+            AddTagPopup.IsOpen = false;
+            ApplyTag(SelectedTiles().Select(t => t.Item).ToList(), tag, add: true);
+        };
+        AddTagBox.Cancelled += () => AddTagPopup.IsOpen = false;
+        // Tags set elsewhere (the NAS, another viewer, the Tags page): raised from a background thread.
+        _core.Tags.Changed += () => Dispatcher.BeginInvoke(ReloadTags);
+    }
+
+    /// <summary>Shows the photos carrying <paramref name="tag"/> (from the Tags page).</summary>
+    public void ShowTag(string tag)
+    {
+        _tagFilter.Clear();
+        _tagFilter.Tags.Add(tag);
+        BuildFilters();
+        BuildTiles();
     }
 
     public async void Refresh()
@@ -61,7 +88,7 @@ public partial class PhotosPage : UserControl, IRefreshable
             Caption.Text = "Lecture des albums et des provenances…";
         }
         // Walking big album folders takes a while, as reading the journals of a NAS album: keep the window responsive.
-        var (all, sources) = await Task.Run(() =>
+        var (all, sources, tags) = await Task.Run(() =>
         {
             var sources = new Dictionary<string, MediaSource>(StringComparer.OrdinalIgnoreCase);
             var items = albums.SelectMany(album =>
@@ -74,10 +101,11 @@ public partial class PhotosPage : UserControl, IRefreshable
                 }
                 return scanned;
             }).ToList();
-            return (items, sources);
+            return (items, sources, LoadTags(albums));
         });
         _all = all;
         _sources = sources;
+        (_tags, _library) = tags;
         BuildFilters();
         BuildTiles();
         UpdateTrash();
@@ -97,13 +125,38 @@ public partial class PhotosPage : UserControl, IRefreshable
         _updatingFilters = false;
         BuildSourceFilters();
         BuildDateFilters();
+        BuildTagFilters();
     }
 
-    /// <summary>Toutes, Appareil photo, WhatsApp…, counted in the album and period chosen.</summary>
+    /// <summary>The tags as a tree, counted in the album, period and provenance chosen, with « Sans tag ».</summary>
+    private void BuildTagFilters()
+    {
+        var items = InAlbum().Where(InPeriod).Where(InSource).ToList();
+        var entries = TagSelection.Entries(_library.Select(t => t.Name), items.Select(TagsOf));
+        _tagFilter.Retain(entries.Select(e => e.Name));
+        var search = TagSearch.Text.Trim();
+        var searching = search.Length > 0;
+        List<TagFilterRow> rows = [.. entries
+            .Where(e => !searching || French.CompareInfo.IndexOf(e.Name, search, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0)
+            .Select(e => new TagFilterRow(e.Name, searching ? e.Name : e.Leaf, e.Count, searching ? 0 : e.Depth, _tagFilter.Tags.Contains(e.Name)))];
+        if (!searching)
+        {
+            rows.Add(new TagFilterRow("", "Sans tag", items.Count(i => TagsOf(i).Count == 0), 0, _tagFilter.Untagged, IsUntagged: true));
+        }
+        TagFilterList.ItemsSource = rows;
+        var typed = UserTags.Normalize(search);
+        CreateTagText.Text = $"+  Créer le tag « {typed} »";
+        CreateTagButton.Visibility = typed is not null && !entries.Any(e => UserTags.Same.Equals(e.Name, typed)) ? Visibility.Visible : Visibility.Collapsed;
+        NoTagHint.Visibility = entries.Count == 0 && !searching ? Visibility.Visible : Visibility.Collapsed;
+        ClearTagsButton.Visibility = _tagFilter.IsEmpty ? Visibility.Collapsed : Visibility.Visible;
+        TagSearchHint.Visibility = TagSearch.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>Toutes, Appareil photo, WhatsApp…, counted in the album, period and tags chosen.</summary>
     private void BuildSourceFilters()
     {
         _updatingFilters = true;
-        var items = InAlbum().Where(InPeriod).ToList();
+        var items = InAlbum().Where(InPeriod).Where(InTags).ToList();
         var sources = new List<FilterEntry> { new("Toutes", items.Count, null, null, null, false) };
         sources.AddRange(Enum.GetValues<MediaSourceKind>().Select(kind =>
             new FilterEntry(MediaSource.KindLabel(kind), items.Count(i => SourceOf(i).Kind == kind), null, null, null, false, kind)));
@@ -117,7 +170,7 @@ public partial class PhotosPage : UserControl, IRefreshable
     {
         _updatingFilters = true;
         var dates = new List<FilterEntry>();
-        foreach (var year in InAlbum().Where(InSource).GroupBy(i => i.Month.Year).OrderByDescending(g => g.Key))
+        foreach (var year in InAlbum().Where(InSource).Where(InTags).GroupBy(i => i.Month.Year).OrderByDescending(g => g.Key))
         {
             dates.Add(new FilterEntry(year.Key.ToString(), year.Count(), null, null, new DateTime(year.Key, 1, 1), true));
             dates.AddRange(year.GroupBy(i => i.Month).OrderByDescending(g => g.Key).Select(m =>
@@ -139,7 +192,83 @@ public partial class PhotosPage : UserControl, IRefreshable
     private MediaSource SourceOf(LibraryItem item) =>
         _sources.GetValueOrDefault(item.Path) ?? MediaSource.Classify(null, item.Path);
 
-    private IEnumerable<LibraryItem> Filtered() => InAlbum().Where(InPeriod).Where(InSource);
+    private IEnumerable<LibraryItem> Filtered() => InAlbum().Where(InPeriod).Where(InSource).Where(InTags);
+
+    private bool InTags(LibraryItem item) => _tagFilter.Matches(TagsOf(item));
+
+    private IReadOnlyList<string> TagsOf(LibraryItem item) => _tags.GetValueOrDefault(item.Path) ?? [];
+
+    private void OnTagFilterClick(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not TagFilterRow row)
+        {
+            return;
+        }
+        if (row.IsUntagged)
+        {
+            _tagFilter.Untagged = !_tagFilter.Untagged;
+        }
+        else
+        {
+            _tagFilter.Toggle(row.Name);
+        }
+        OnTagFilterChanged();
+    }
+
+    private void OnClearTagFilter(object sender, RoutedEventArgs e)
+    {
+        _tagFilter.Clear();
+        OnTagFilterChanged();
+    }
+
+    private void OnTagFilterChanged()
+    {
+        BuildSourceFilters();
+        BuildDateFilters();
+        // The period chosen may have nothing with these tags: show them all rather than an empty grid.
+        if (DateList.SelectedItem is null && (_monthFilter is not null || _yearFilter is not null))
+        {
+            _monthFilter = null;
+            _yearFilter = null;
+            BuildSourceFilters();
+        }
+        BuildTagFilters();
+        BuildTiles();
+    }
+
+    private void OnTagSearch(object sender, TextChangedEventArgs e) => BuildTagFilters();
+
+    private void OnTagSearchKey(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            TagSearch.Text = "";
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Enter && TagFilterList.ItemsSource is List<TagFilterRow> rows)
+        {
+            var tags = rows.Where(r => !r.IsUntagged).ToList();
+            if (tags is [var only])
+            {
+                TagSearch.Text = "";
+                _tagFilter.Toggle(only.Name);
+                OnTagFilterChanged();
+            }
+            else if (tags.Count == 0 && CreateTagButton.Visibility == Visibility.Visible)
+            {
+                OnCreateTagFromFilter(sender, e);
+            }
+            e.Handled = true;
+        }
+    }
+
+    private async void OnCreateTagFromFilter(object sender, RoutedEventArgs e)
+    {
+        var typed = TagSearch.Text;
+        TagSearch.Text = "";
+        await _core.Tags.CreateAsync(typed);
+        ReloadTags();
+    }
 
     private void OnAlbumFilter(object sender, SelectionChangedEventArgs e)
     {
@@ -165,6 +294,7 @@ public partial class PhotosPage : UserControl, IRefreshable
         _yearFilter = entry is { IsYear: true } ? entry.Month!.Value.Year : null;
         _monthFilter = entry is { IsYear: false } ? entry.Month : null;
         BuildSourceFilters();
+        BuildTagFilters();
         BuildTiles();
     }
 
@@ -183,6 +313,7 @@ public partial class PhotosPage : UserControl, IRefreshable
             _yearFilter = null;
             BuildSourceFilters();
         }
+        BuildTagFilters();
         BuildTiles();
     }
 
@@ -211,7 +342,8 @@ public partial class PhotosPage : UserControl, IRefreshable
         var album = _albums.FirstOrDefault(a => a.Id == _albumFilter)?.Name ?? "Tous les albums";
         var period = _monthFilter is { } m ? " · " + Capitalize(m.ToString("MMMM yyyy", French)) : _yearFilter is { } y ? $" · {y}" : "";
         var source = _sourceFilter is { } kind ? $" · {MediaSource.KindLabel(kind)}" : "";
-        Caption.Text = $"{album}{source}{period} · {Formatting.Plural(_tiles.Count, "élément", "éléments")}";
+        var tags = _tagFilter.IsEmpty ? "" : $" · {_tagFilter.Describe()}";
+        Caption.Text = $"{album}{source}{tags}{period} · {Formatting.Plural(_tiles.Count, "élément", "éléments")}";
         _columns = 0;
         LayoutRows();
         ShowInfo();
@@ -329,6 +461,8 @@ public partial class PhotosPage : UserControl, IRefreshable
         EmptyTrashButton.IsEnabled = _trashes.Any(t => t.Files > 0) && !_busy;
         ExplorerButton.IsEnabled = count == 1;
         FullScreenButton.IsEnabled = count > 0;
+        AddTagButton.IsEnabled = count > 0;
+        RemoveTagButton.IsEnabled = count > 0 && SelectedTiles().Any(t => TagsOf(t.Item).Count > 0);
     }
 
     // ---- Information pane ----
@@ -370,6 +504,7 @@ public partial class PhotosPage : UserControl, IRefreshable
             new("", "Album · dossier", $"{album} · {Path.GetDirectoryName(item.Path)}{Path.DirectorySeparatorChar}"),
         };
         InfoLines.ItemsSource = lines;
+        InfoTags.Show([.. TagsOf(item).Select(t => (t, 1))], _library);
 
         // Not imported by this PC: the journals of the album may know, but reading them can take a moment over the network.
         if (phone is null && _albums.FirstOrDefault(a => a.Id == item.AlbumId) is { } source)
@@ -405,7 +540,17 @@ public partial class PhotosPage : UserControl, IRefreshable
             new("", "Période", first == last ? Capitalize(first) : $"De {first} à {last}"),
             new("", "Taille totale", Size(tiles.Sum(t => t.Item.Size))),
         };
+        InfoTags.Show(SelectionTags(tiles), _library, tiles.Count);
     }
+
+    /// <summary>The tags carried by <paramref name="tiles"/>, with how many carry each.</summary>
+    private List<(string Tag, int Count)> SelectionTags(IEnumerable<PhotoTile> tiles) =>
+    [
+        .. tiles.SelectMany(t => TagsOf(t.Item))
+            .GroupBy(t => t, UserTags.Same)
+            .Select(g => (g.First(), g.Count()))
+            .OrderBy(t => t.Item1, TagCatalog.TagOrder.Instance),
+    ];
 
     private static string Dimensions(LibraryItem item)
     {
@@ -614,6 +759,128 @@ public partial class PhotosPage : UserControl, IRefreshable
 
     private sealed record DeleteFailure(DeleteTarget Target, string Error);
 
+    // ---- Tags ----
+
+    /// <summary>The tags of the index by full path (a query: no file is opened), and the tag list of the library.</summary>
+    private (Dictionary<string, IReadOnlyList<string>>, IReadOnlyList<TagCount>) LoadTags(IReadOnlyList<Album> albums)
+    {
+        var roots = albums.ToDictionary(a => a.Id, a => a.DestinationRoot);
+        var byPath = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var ((albumId, relative), tags) in _core.Tags.ByFile())
+        {
+            if (roots.TryGetValue(albumId, out var root))
+            {
+                byPath[Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar))] = tags;
+            }
+        }
+        return (byPath, _core.Tags.List());
+    }
+
+    /// <summary>Takes the tags from the index again; the grid is rebuilt only when the tag filter is in use.</summary>
+    private async void ReloadTags()
+    {
+        var albums = _albums;
+        try
+        {
+            (_tags, _library) = await Task.Run(() => LoadTags(albums));
+        }
+        catch (Microsoft.Data.Sqlite.SqliteException)
+        {
+            return; // the catalog is busy: the next change brings them
+        }
+        AfterTagsChanged();
+    }
+
+    private void AfterTagsChanged()
+    {
+        if (_tagFilter.IsEmpty)
+        {
+            BuildTagFilters();
+            ShowInfo();
+            UpdateCommands();
+            if (Viewer.Visibility == Visibility.Visible && FocusedTile is { } tile)
+            {
+                ViewerTags.Show([.. TagsOf(tile.Item).Select(t => (t, 1))], _library);
+            }
+        }
+        else
+        {
+            OnTagFilterChanged();
+        }
+    }
+
+    private void OnAddTagClick(object sender, RoutedEventArgs e)
+    {
+        var count = _selection.Count;
+        AddTagCaption.Text = $"Ajouter un tag à {Formatting.Plural(count, "élément", "éléments")}";
+        AddTagBox.Tags = _library;
+        AddTagBox.Exclude = SelectionTags(SelectedTiles()).Where(t => t.Count == count).Select(t => t.Tag).ToList();
+        AddTagPopup.IsOpen = true;
+        AddTagBox.Start();
+    }
+
+    private void OnRemoveTagClick(object sender, RoutedEventArgs e)
+    {
+        var count = _selection.Count;
+        RemoveTagList.ItemsSource = SelectionTags(SelectedTiles()).Select(t => new SelectionTag(t.Tag, $"{Formatting.Count(t.Count)} sur {Formatting.Count(count)}")).ToList();
+        RemoveTagPopup.IsOpen = true;
+    }
+
+    private void OnRemoveTagChosen(object sender, RoutedEventArgs e)
+    {
+        RemoveTagPopup.IsOpen = false;
+        if (sender is FrameworkElement { Tag: string tag })
+        {
+            ApplyTag(SelectedTiles().Select(t => t.Item).ToList(), tag, add: false);
+        }
+    }
+
+    /// <summary>
+    /// Adds or removes a tag: shown at once, while the files are rewritten in the background (the activity board and the
+    /// status card tell how far it got). Only failures are told at the end.
+    /// </summary>
+    private async void ApplyTag(IReadOnlyList<LibraryItem> items, string tag, bool add)
+    {
+        var name = add ? _core.Tags.Canonical(tag) ?? tag : tag;
+        var albums = _albums.ToDictionary(a => a.Id);
+        var targets = items.Where(i => TagsOf(i).Contains(name, UserTags.Same) != add && albums.ContainsKey(i.AlbumId)).ToList();
+        if (targets.Count == 0)
+        {
+            return;
+        }
+        foreach (var item in targets)
+        {
+            _tags[item.Path] = add ? [.. TagsOf(item), name] : [.. TagsOf(item).Where(t => !UserTags.Same.Equals(t, name))];
+        }
+        if (add && !_library.Any(t => UserTags.Same.Equals(t.Name, name)))
+        {
+            _library = [.. _library, new TagCount(name, targets.Count)];
+        }
+        AfterTagsChanged();
+        var files = targets.Select(i => new TagTarget(albums[i.AlbumId], i.Path)).ToList();
+        TagRunResult result;
+        try
+        {
+            result = await (add ? _core.Tags.AddAsync(files, name) : _core.Tags.RemoveAsync(files, name));
+        }
+        catch (Exception e)
+        {
+            ReloadTags();
+            Dialogs.Inform(_window, add ? $"Impossible d'ajouter le tag « {name} »" : $"Impossible de retirer le tag « {name} »", e.Message);
+            return;
+        }
+        ReloadTags();
+        if (result.Failures.Count > 0)
+        {
+            var lines = result.Failures.Take(5).Select(f => $"{f.Name} : {f.Reason}").ToList();
+            if (result.Failures.Count > lines.Count)
+            {
+                lines.Add($"… et {Formatting.Plural(result.Failures.Count - lines.Count, "autre", "autres")}");
+            }
+            Dialogs.Inform(_window, add ? "Tag ajouté en partie" : "Tag retiré en partie", result.Summary + ".", string.Join("\n", lines));
+        }
+    }
+
     // ---- Album trash ----
 
     /// <summary>Measures the trash of the albums in view, on the network for most of them: off the UI thread.</summary>
@@ -741,6 +1008,7 @@ public partial class PhotosPage : UserControl, IRefreshable
         ViewerName.Text = tile.Name;
         var taken = tile.IsVideo ? null : TakenDateResolver.ReadMetadataDate(tile.Item.Path);
         ViewerPosition.Text = $"{(taken ?? tile.Item.Date).ToString("d MMMM yyyy", French)} · {index + 1} sur {_tiles.Count}";
+        ViewerTags.Show([.. TagsOf(tile.Item).Select(t => (t, 1))], _library);
         PreviousButton.Opacity = index > 0 ? 1 : 0.3;
         NextButton.Opacity = index < _tiles.Count - 1 ? 1 : 0.3;
 

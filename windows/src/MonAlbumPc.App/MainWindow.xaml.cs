@@ -63,6 +63,13 @@ public partial class MainWindow : Window
         Navigate(dialog.PairedAlbumId is null ? CurrentTag : "albums");
     }
 
+    /// <summary>The Photos page, filtered on a tag (from the Tags page).</summary>
+    public void ShowTag(string tag)
+    {
+        Navigate("photos");
+        (_pages.GetValueOrDefault("photos") as Photos.PhotosPage)?.ShowTag(tag);
+    }
+
     public void Navigate(string tag)
     {
         _syncingSelection = true;
@@ -93,6 +100,7 @@ public partial class MainWindow : Window
             page = tag switch
             {
                 "map" => new Map.MapPage(_host.Core),
+                "tags" => new Tags.TagsPage(_host.Core, this),
                 "albums" => new AlbumsPage(_host, this),
                 "history" => new HistoryPage(_host.Core),
                 "activity" => new Activity.ActivityPage(_host.Core, _host.IsViewer),
