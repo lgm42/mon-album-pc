@@ -94,8 +94,8 @@ public sealed class TagCatalog(Database database)
     }
 
     /// <summary>
-    /// The new tags of a file this server just wrote, with its new size and sidecar: the index needs not read it again.
-    /// Nothing happens for a file the index does not know yet (its first reading will see the tags).
+    /// The new tags of a file this server just wrote, with its new size and sidecar: the index needs not read it again. A
+    /// file the index has not met yet (album just added) gets its tags all the same, for the filters.
     /// </summary>
     public void Set(Guid albumId, string relativePath, string fullPath, IReadOnlyList<string> tags, DateTimeOffset at)
     {
@@ -106,17 +106,8 @@ public sealed class TagCatalog(Database database)
         }
         using var connection = database.Open();
         using var transaction = connection.BeginTransaction();
-        if (connection.Execute(
-                """
-                UPDATE media SET size = $size, modified_at = $modified, sidecar = $sidecar, tags_read = 1, tags_at = $at
-                WHERE album_id = $album AND path = $path
-                """,
-                ("$album", albumId.ToString()), ("$path", relativePath), ("$size", file.Length),
-                ("$modified", new DateTimeOffset(file.LastWriteTimeUtc, TimeSpan.Zero).ToDb()),
-                ("$sidecar", SidecarState(fullPath)), ("$at", at.ToDb())) > 0)
-        {
-            Store(connection, albumId, relativePath, tags);
-        }
+        Update(connection, albumId, relativePath, file, at);
+        Store(connection, albumId, relativePath, tags);
         transaction.Commit();
     }
 
@@ -139,24 +130,28 @@ public sealed class TagCatalog(Database database)
         using var connection = database.Open();
         var row = connection.Query("SELECT tags_at FROM media WHERE album_id = $album AND path = $path",
             r => r.GetNullableDate(0), ("$album", albumId.ToString()), ("$path", relative)).ToList();
-        if (row is not [var taggedAt] || taggedAt >= entry.At)
+        if (row is [var taggedAt] && taggedAt >= entry.At)
         {
             return false;
         }
         var before = Of(albumId, relative);
         using var transaction = connection.BeginTransaction();
+        Update(connection, albumId, relative, file, entry.At);
+        Store(connection, albumId, relative, tags);
+        transaction.Commit();
+        return !before.Order(UserTags.Same).SequenceEqual(tags.Order(UserTags.Same), UserTags.Same);
+    }
+
+    // Size, date and sidecar of the file as now written, so that the next refresh does not read it again.
+    private static void Update(SqliteConnection connection, Guid albumId, string relativePath, FileInfo file, DateTimeOffset at) =>
         connection.Execute(
             """
             UPDATE media SET size = $size, modified_at = $modified, sidecar = $sidecar, tags_read = 1, tags_at = $at
             WHERE album_id = $album AND path = $path
             """,
-            ("$album", albumId.ToString()), ("$path", relative), ("$size", file.Length),
+            ("$album", albumId.ToString()), ("$path", relativePath), ("$size", file.Length),
             ("$modified", new DateTimeOffset(file.LastWriteTimeUtc, TimeSpan.Zero).ToDb()),
-            ("$sidecar", SidecarState(full)), ("$at", entry.At.ToDb()));
-        Store(connection, albumId, relative, tags);
-        transaction.Commit();
-        return !before.Order(UserTags.Same).SequenceEqual(tags.Order(UserTags.Same), UserTags.Same);
-    }
+            ("$sidecar", SidecarState(file.FullName)), ("$at", at.ToDb()));
 
     /// <summary>What the index remembers of the sidecar of a file, to notice when another program changes it.</summary>
     public static string? SidecarState(string mediaPath) =>

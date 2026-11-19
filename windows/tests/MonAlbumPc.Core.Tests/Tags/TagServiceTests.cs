@@ -213,6 +213,19 @@ public sealed class TagServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task A_file_not_indexed_yet_shows_its_tags_at_once_and_forgets_them_once_deleted()
+    {
+        var photo = Photo("IMG_1.jpg");
+
+        await _nas.Tags.AddAsync([new TagTarget(_album, photo)], "boulot");
+        Assert.Equal(["boulot"], TagsOf(_nas, photo));
+
+        File.Delete(photo);
+        _nas.Media.Refresh(_album);
+        Assert.Empty(_nas.Tags.ByFile());
+    }
+
+    [Fact]
     public void Files_indexed_before_tags_existed_are_read_once_for_their_tags()
     {
         var photo = Photo("IMG_1.jpg");

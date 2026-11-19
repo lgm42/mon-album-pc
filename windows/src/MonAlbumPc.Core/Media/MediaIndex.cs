@@ -69,7 +69,8 @@ public sealed class MediaIndex(Database database, AlbumJournals? journals = null
             }
         }
 
-        var removed = known.Keys.Where(path => !seen.Contains(path)).ToList();
+        // Tags may be known of files never indexed (tagged right after their album was added): those gone go too.
+        var removed = known.Keys.Concat(TaggedPaths(album.Id)).Where(path => !seen.Contains(path)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         foreach (var chunk in removed.Chunk(BatchSize))
         {
             Write(connection =>
@@ -272,6 +273,12 @@ public sealed class MediaIndex(Database database, AlbumJournals? journals = null
                         r.IsDBNull(6) || r.IsDBNull(7) ? null : new GeoPoint(r.GetDouble(6), r.GetDouble(7))))),
                 ("$album", albumId.ToString()))
             .ToDictionary(e => e.Path, e => e.File, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private List<string> TaggedPaths(Guid albumId)
+    {
+        using var connection = database.Open();
+        return connection.Query("SELECT DISTINCT path FROM media_tags WHERE album_id = $album", r => r.GetString(0), ("$album", albumId.ToString()));
     }
 
     private sealed record KnownFile(long Size, DateTimeOffset ModifiedAt, string? Sidecar, bool TagsRead, MediaInfo Info);
