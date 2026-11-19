@@ -58,7 +58,8 @@ public sealed record MonthRow(string Title, string Count) : GridRow;
 public sealed record TilesRow(IReadOnlyList<PhotoTile> Tiles, double Size) : GridRow;
 
 /// <summary>An entry of the left filter pane.</summary>
-public sealed record FilterEntry(string Label, int Count, Brush? Dot, Guid? AlbumId, DateTime? Month, bool IsYear)
+public sealed record FilterEntry(string Label, int Count, Brush? Dot, Guid? AlbumId, DateTime? Month, bool IsYear,
+    MediaSourceKind? Source = null)
 {
     public string CountText => Formatting.Count(Count);
     public bool HasDot => Dot is not null;

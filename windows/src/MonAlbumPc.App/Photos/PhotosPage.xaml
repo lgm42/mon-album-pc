@@ -137,6 +137,9 @@
                                 <TextBlock Text="Vider la corbeille" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                             </DockPanel>
                         </Button>
+                        <TextBlock Style="{StaticResource Caption}" Text="Provenance" Margin="8,20,0,6" />
+                        <ListBox x:Name="SourceList" Style="{StaticResource NavList}" ItemContainerStyle="{StaticResource FilterItem}"
+                                 ItemTemplate="{StaticResource FilterTemplate}" SelectionChanged="OnSourceFilter" />
                         <TextBlock Style="{StaticResource Caption}" Text="Dates" Margin="8,20,0,6" />
                         <ListBox x:Name="DateList" Style="{StaticResource NavList}" ItemContainerStyle="{StaticResource FilterItem}"
                                  ItemTemplate="{StaticResource FilterTemplate}" SelectionChanged="OnDateFilter" />

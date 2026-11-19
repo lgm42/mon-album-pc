@@ -23,6 +23,7 @@ public partial class PhotosPage : UserControl, IRefreshable
     private readonly MainWindow _window;
     private List<Album> _albums = [];
     private List<LibraryItem> _all = [];
+    private Dictionary<string, MediaSource> _sources = [];
     private List<PhotoTile> _tiles = [];
     private List<string> _paths = [];
     private Dictionary<string, PhotoTile> _byPath = [];
@@ -35,6 +36,7 @@ public partial class PhotosPage : UserControl, IRefreshable
     private Guid? _albumFilter;
     private DateTime? _monthFilter;
     private int? _yearFilter;
+    private MediaSourceKind? _sourceFilter;
     private int _columns;
     private bool _updatingFilters;
 
@@ -54,8 +56,28 @@ public partial class PhotosPage : UserControl, IRefreshable
         }
         _albums = _core.Albums.List();
         var albums = _albums;
-        // Walking big album folders takes a while: keep the window responsive.
-        _all = await Task.Run(() => albums.SelectMany(PhotoLibrary.Scan).ToList());
+        if (_all.Count == 0)
+        {
+            Caption.Text = "Lecture des albums et des provenances…";
+        }
+        // Walking big album folders takes a while, as reading the journals of a NAS album: keep the window responsive.
+        var (all, sources) = await Task.Run(() =>
+        {
+            var sources = new Dictionary<string, MediaSource>(StringComparer.OrdinalIgnoreCase);
+            var items = albums.SelectMany(album =>
+            {
+                var provenance = AlbumProvenance.Load(_core.History, album);
+                var scanned = PhotoLibrary.Scan(album);
+                foreach (var item in scanned)
+                {
+                    sources[item.Path] = provenance.Of(item.Path);
+                }
+                return scanned;
+            }).ToList();
+            return (items, sources);
+        });
+        _all = all;
+        _sources = sources;
         BuildFilters();
         BuildTiles();
         UpdateTrash();
@@ -72,10 +94,30 @@ public partial class PhotosPage : UserControl, IRefreshable
         AlbumList.ItemsSource = albums;
         AlbumList.SelectedItem = albums.FirstOrDefault(a => a.AlbumId == _albumFilter) ?? albums[0];
         _albumFilter = ((FilterEntry)AlbumList.SelectedItem).AlbumId;
+        _updatingFilters = false;
+        BuildSourceFilters();
+        BuildDateFilters();
+    }
 
-        var inAlbum = InAlbum().ToList();
+    /// <summary>Toutes, Appareil photo, WhatsApp…, counted in the album and period chosen.</summary>
+    private void BuildSourceFilters()
+    {
+        _updatingFilters = true;
+        var items = InAlbum().Where(InPeriod).ToList();
+        var sources = new List<FilterEntry> { new("Toutes", items.Count, null, null, null, false) };
+        sources.AddRange(Enum.GetValues<MediaSourceKind>().Select(kind =>
+            new FilterEntry(MediaSource.KindLabel(kind), items.Count(i => SourceOf(i).Kind == kind), null, null, null, false, kind)));
+        SourceList.ItemsSource = sources;
+        SourceList.SelectedItem = sources.FirstOrDefault(s => s.Source == _sourceFilter) ?? sources[0];
+        _updatingFilters = false;
+    }
+
+    /// <summary>Years, each followed by its months, counted in the album and provenance chosen.</summary>
+    private void BuildDateFilters()
+    {
+        _updatingFilters = true;
         var dates = new List<FilterEntry>();
-        foreach (var year in inAlbum.GroupBy(i => i.Month.Year).OrderByDescending(g => g.Key))
+        foreach (var year in InAlbum().Where(InSource).GroupBy(i => i.Month.Year).OrderByDescending(g => g.Key))
         {
             dates.Add(new FilterEntry(year.Key.ToString(), year.Count(), null, null, new DateTime(year.Key, 1, 1), true));
             dates.AddRange(year.GroupBy(i => i.Month).OrderByDescending(g => g.Key).Select(m =>
@@ -89,9 +131,15 @@ public partial class PhotosPage : UserControl, IRefreshable
 
     private IEnumerable<LibraryItem> InAlbum() => _all.Where(i => _albumFilter is null || i.AlbumId == _albumFilter);
 
-    private IEnumerable<LibraryItem> Filtered() => InAlbum()
-        .Where(i => _monthFilter is null || i.Month == _monthFilter)
-        .Where(i => _yearFilter is null || i.Month.Year == _yearFilter);
+    private bool InPeriod(LibraryItem item) =>
+        (_monthFilter is null || item.Month == _monthFilter) && (_yearFilter is null || item.Month.Year == _yearFilter);
+
+    private bool InSource(LibraryItem item) => _sourceFilter is null || SourceOf(item).Kind == _sourceFilter;
+
+    private MediaSource SourceOf(LibraryItem item) =>
+        _sources.GetValueOrDefault(item.Path) ?? MediaSource.Classify(null, item.Path);
+
+    private IEnumerable<LibraryItem> Filtered() => InAlbum().Where(InPeriod).Where(InSource);
 
     private void OnAlbumFilter(object sender, SelectionChangedEventArgs e)
     {
@@ -116,6 +164,25 @@ public partial class PhotosPage : UserControl, IRefreshable
         var entry = DateList.SelectedItem as FilterEntry;
         _yearFilter = entry is { IsYear: true } ? entry.Month!.Value.Year : null;
         _monthFilter = entry is { IsYear: false } ? entry.Month : null;
+        BuildSourceFilters();
+        BuildTiles();
+    }
+
+    private void OnSourceFilter(object sender, SelectionChangedEventArgs e)
+    {
+        if (_updatingFilters || SourceList.SelectedItem is not FilterEntry entry)
+        {
+            return;
+        }
+        _sourceFilter = entry.Source;
+        BuildDateFilters();
+        // The period chosen may have nothing of this provenance: show them all rather than an empty grid.
+        if (DateList.SelectedItem is null && (_monthFilter is not null || _yearFilter is not null))
+        {
+            _monthFilter = null;
+            _yearFilter = null;
+            BuildSourceFilters();
+        }
         BuildTiles();
     }
 
@@ -143,7 +210,8 @@ public partial class PhotosPage : UserControl, IRefreshable
         UpdateEmptyState();
         var album = _albums.FirstOrDefault(a => a.Id == _albumFilter)?.Name ?? "Tous les albums";
         var period = _monthFilter is { } m ? " · " + Capitalize(m.ToString("MMMM yyyy", French)) : _yearFilter is { } y ? $" · {y}" : "";
-        Caption.Text = $"{album}{period} · {Formatting.Plural(_tiles.Count, "élément", "éléments")}";
+        var source = _sourceFilter is { } kind ? $" · {MediaSource.KindLabel(kind)}" : "";
+        Caption.Text = $"{album}{source}{period} · {Formatting.Plural(_tiles.Count, "élément", "éléments")}";
         _columns = 0;
         LayoutRows();
         ShowInfo();
@@ -297,6 +365,7 @@ public partial class PhotosPage : UserControl, IRefreshable
         {
             new("", "Prise de vue", (taken ?? item.Date).ToString("d MMMM yyyy 'à' HH:mm", French)),
             new("", "Téléphone d'origine", phone ?? "Inconnu (copiée à la main)"),
+            new("", "Provenance", SourceOf(item).Label),
             new("", "Dimensions · taille", $"{Dimensions(item)}{Size(item.Size)}"),
             new("", "Album · dossier", $"{album} · {Path.GetDirectoryName(item.Path)}{Path.DirectorySeparatorChar}"),
         };
