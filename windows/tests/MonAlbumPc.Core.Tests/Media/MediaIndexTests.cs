@@ -43,6 +43,23 @@ public sealed class MediaIndexTests : IDisposable
     }
 
     [Fact]
+    public void Counts_media_without_a_place_by_album_and_period()
+    {
+        Write(@"2024\2024-05\paris.jpg", TestImages.GeotaggedJpeg(48.8584, 2.2945, "2024:05:12 10:30:15"));
+        Write(@"2024\2024-05\a.jpg", TestImages.Jpeg("2024:05:31 23:59:59", seed: 1));
+        Write(@"2024\2024-06\b.jpg", TestImages.Jpeg("2024:06:01 00:00:00", seed: 2));
+        Write(@"2025\2025-01\c.jpg", TestImages.Jpeg("2025:01:03 08:00:00", seed: 3));
+        _index.Refresh(_album);
+
+        Assert.Equal(3, _index.CountUnlocated());
+        Assert.Equal(3, _index.CountUnlocated(_album.Id));
+        Assert.Equal(0, _index.CountUnlocated(Guid.NewGuid()));
+        Assert.Equal(2, _index.CountUnlocated(from: new DateTime(2024, 1, 1), until: new DateTime(2025, 1, 1)));
+        Assert.Equal(1, _index.CountUnlocated(_album.Id, new DateTime(2024, 5, 1), new DateTime(2024, 6, 1)));
+        Assert.Equal(1, _index.CountUnlocated(from: new DateTime(2025, 1, 1)));
+    }
+
+    [Fact]
     public void Unchanged_files_are_not_read_again()
     {
         Write(@"2024\2024-05\a.jpg", TestImages.GeotaggedJpeg(48.8584, 2.2945, seed: 1));

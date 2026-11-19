@@ -144,6 +144,25 @@ public sealed class MediaIndex(Database database, AlbumJournals? journals = null
             ("$album", albumId?.ToString()));
     }
 
+    /// <summary>
+    /// Indexed photos and videos without a shooting place, in one album or all of them, taken from <paramref name="from"/>
+    /// (included) until <paramref name="until"/> (excluded) when given.
+    /// </summary>
+    public int CountUnlocated(Guid? albumId = null, DateTime? from = null, DateTime? until = null)
+    {
+        using var connection = database.Open();
+        // Wall-clock dates are stored as sortable text: they compare as strings.
+        return Convert.ToInt32(connection.Scalar(
+            """
+            SELECT COUNT(*) FROM media m JOIN albums a ON a.id = m.album_id
+            WHERE (m.latitude IS NULL OR m.longitude IS NULL) AND ($album IS NULL OR m.album_id = $album)
+              AND ($from IS NULL OR m.taken_at >= $from) AND ($until IS NULL OR m.taken_at < $until)
+            """,
+            ("$album", albumId?.ToString()),
+            ("$from", from?.ToString(WallClock, CultureInfo.InvariantCulture)),
+            ("$until", until?.ToString(WallClock, CultureInfo.InvariantCulture))), CultureInfo.InvariantCulture);
+    }
+
     /// <summary>The cached entry of a file, or null when it has not been indexed yet.</summary>
     public MediaInfo? Get(Album album, string fullPath)
     {
