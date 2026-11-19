@@ -431,7 +431,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
         publishProgress()
         if (uploadedPhotos + uploadedVideos > 0) {
             prefs.setLastBackup(now)
-            notifications.notifyDone(uploadedPhotos, uploadedVideos, pc.pcName)
+            notifications.notifyDone(uploadedPhotos, uploadedVideos, dao.countPending(), dao.countErrors(), pc.pcName)
         }
         return when (outcome) {
             RunOutcome.Completed -> {

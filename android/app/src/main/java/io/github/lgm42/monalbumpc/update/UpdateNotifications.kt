@@ -13,6 +13,9 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import io.github.lgm42.monalbumpc.MainActivity
 import io.github.lgm42.monalbumpc.R
+import io.github.lgm42.monalbumpc.backup.ContextTextSource
+import io.github.lgm42.monalbumpc.backup.NotificationTexts
+import io.github.lgm42.monalbumpc.backup.setWords
 
 /** "Mise à jour disponible", posted from the background when the update needs the user. */
 class UpdateNotifications(context: Context) {
@@ -33,12 +36,9 @@ class UpdateNotifications(context: Context) {
     fun notifyAvailable(versionName: String): Boolean {
         if (!canNotify()) return false
         ensureChannel()
-        val text = context.getString(R.string.notif_update_text, versionName)
         val notification = NotificationCompat.Builder(context, CHANNEL_UPDATES)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(context.getString(R.string.notif_update_title))
-            .setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setWords(NotificationTexts.update(ContextTextSource(context), versionName))
             .setContentIntent(openAppToInstall())
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)

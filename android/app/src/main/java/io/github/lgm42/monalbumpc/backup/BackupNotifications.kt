@@ -38,43 +38,19 @@ class BackupNotifications(context: Context) {
         manager.createNotificationChannel(alerts)
     }
 
+    private val texts = ContextTextSource(context)
+
     /**
-     * Shown by the foreground worker, with both levels of progress: "Envoi vers NAS · VID-….mp4" over "4 / 20 · 45 Mo /
-     * 120 Mo · 2,1 Mo/s" and the bar of the file being sent (a video takes minutes: the count alone would look stuck);
-     * expanded, the whole run ("Total : 12 / 52 fichiers · 340 Mo / 1,2 Go"). Before sending, what the run is doing.
+     * Shown by the foreground worker, with both levels of progress and readable without expanding (see
+     * [NotificationTexts]): "Sauvegarde · 4 / 20" over "IMG_1234.jpg · 45 Mo / 120 Mo", the bar of the file being sent
+     * (a video takes minutes: the count alone would look stuck), the server in the header; expanded, the pace and the
+     * whole run. Before sending, what the run is doing.
      */
     fun progressInfo(done: Int, total: Int, pcName: String, activity: RunActivity?, run: RunTotals? = null): ForegroundInfo {
         ensureChannels()
-        val position = if (total > 0) (done + 1).coerceAtMost(total) else 0
-        val uploading = activity?.phase == BackupPhase.UPLOADING && total > 0
-        val title = when {
-            uploading && activity?.fileName != null -> context.getString(R.string.notif_sending_file, pcName, activity.fileName)
-            uploading -> context.getString(R.string.notif_sending, position, total, pcName)
-            activity?.phase == BackupPhase.PREPARING && total > 0 ->
-                context.getString(R.string.notif_preparing_files, position, total, pcName)
-            activity != null -> TransferText.title(context, done, total, activity, pcName)
-            total > 0 -> context.getString(R.string.notif_progress, done, total, pcName)
-            else -> context.getString(R.string.notif_progress_preparing, pcName)
-        }
-        val text = when {
-            uploading && activity != null -> listOfNotNull(
-                context.getString(R.string.notif_position, position, total),
-                TransferText.bytes(context, activity),
-            ).joinToString(" · ")
-            else -> activity?.fileName
-        }
-        val expanded = listOfNotNull(
-            text,
-            run?.takeIf { uploading }?.let { totals ->
-                context.getString(
-                    R.string.notif_total,
-                    listOfNotNull(TransferText.run(context, totals), TransferText.runLeft(context, totals)).joinToString(" · "),
-                )
-            },
-        ).joinToString("\n").takeIf { it.isNotEmpty() }
+        val words = NotificationTexts.progress(texts, done, total, pcName, activity, run)
         val builder = NotificationCompat.Builder(context, CHANNEL_PROGRESS)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(title)
             .setContentIntent(openApp())
             .setOnlyAlertOnce(true)
             .setOngoing(true)
@@ -82,8 +58,7 @@ class BackupNotifications(context: Context) {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .addAction(R.drawable.ic_notification, context.getString(R.string.notif_action_pause), pauseIntent())
-        if (text != null) builder.setContentText(text)
-        if (expanded != null) builder.setStyle(NotificationCompat.BigTextStyle().bigText(expanded))
+            .setWords(words)
         val fileFraction = activity?.fileFraction
         if (fileFraction != null) {
             builder.setProgress(PROGRESS_MAX, (fileFraction * PROGRESS_MAX).toInt(), false)
@@ -100,40 +75,28 @@ class BackupNotifications(context: Context) {
             ForegroundInfo(ID_PROGRESS, notification)
         }
 
-    /** "52 photos et 3 vidéos sauvegardées sur PC-SALON". */
-    fun notifyDone(photos: Int, videos: Int, pcName: String) {
+    /** "Tout est sauvegardé" over "52 photos et 3 vidéos envoyées"; [pending] and [failed] are what is left. */
+    fun notifyDone(photos: Int, videos: Int, pending: Int, failed: Int, pcName: String) {
         if (photos + videos <= 0) return
-        val res = context.resources
-        val parts = buildList {
-            if (photos > 0) add(res.getQuantityString(R.plurals.notif_photos, photos, photos))
-            if (videos > 0) add(res.getQuantityString(R.plurals.notif_videos, videos, videos))
-        }
-        val what = parts.joinToString(context.getString(R.string.notif_and))
-        val text = res.getQuantityString(R.plurals.notif_done, photos + videos, what, pcName)
         val notification = NotificationCompat.Builder(context, CHANNEL_PROGRESS)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(text)
             .setContentIntent(openApp())
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setWords(NotificationTexts.done(texts, photos, videos, pending, failed, pcName))
             .build()
         notify(ID_DONE, notification)
     }
 
-    /** "Sauvegarde impossible : le disque du PC est plein." */
+    /** "Disque de NAS plein" over "Les photos attendent de la place". */
     fun notifyIssue(issue: BackupIssue, pcName: String) {
-        val text = when (issue) {
-            BackupIssue.DISK_FULL -> context.getString(R.string.notif_error_disk_full)
-            BackupIssue.DESTINATION_UNAVAILABLE -> context.getString(R.string.notif_error_destination, pcName)
-            else -> return
-        }
+        val words = NotificationTexts.issue(texts, issue, pcName) ?: return
         val notification = NotificationCompat.Builder(context, CHANNEL_ALERTS)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setContentIntent(openApp())
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setWords(words)
             .build()
         notify(ID_ERROR, notification)
     }
@@ -187,4 +150,13 @@ class BackupNotifications(context: Context) {
         const val ID_ERROR = 1003
         private const val PROGRESS_MAX = 1000
     }
+}
+
+/** Title and text read collapsed, the details when expanded, the server in the header. */
+fun NotificationCompat.Builder.setWords(words: NotificationText): NotificationCompat.Builder {
+    setContentTitle(words.title)
+    words.text?.let { setContentText(it) }
+    words.subText?.let { setSubText(it) }
+    words.expanded?.let { setStyle(NotificationCompat.BigTextStyle().bigText(it)) }
+    return this
 }

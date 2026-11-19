@@ -382,12 +382,10 @@
     <!-- Notifications -->
     <string name="notif_channel_backup">Sauvegarde</string>
     <string name="notif_channel_alerts">Problèmes de sauvegarde</string>
-    <string name="notif_progress">Sauvegarde en cours · %1$d / %2$d · %3$s</string>
-    <string name="notif_progress_preparing">Préparation de la sauvegarde · %1$s</string>
-    <string name="notif_sending">Envoi %1$d / %2$d · %3$s</string>
-    <string name="notif_preparing_files">Préparation %1$d / %2$d · %3$s</string>
-    <string name="notif_sending_file">Envoi vers %1$s · %2$s</string>
-    <string name="notif_position">%1$d / %2$d</string>
+    <string name="notif_title_run">Sauvegarde · %1$d / %2$d</string>
+    <string name="notif_title_preparing">Préparation · %1$d / %2$d</string>
+    <string name="notif_title_starting">Préparation de la sauvegarde</string>
+    <string name="notif_to">Vers %1$s</string>
     <string name="notif_total">Total : %1$s</string>
     <string name="notif_action_pause">Mettre en pause</string>
     <plurals name="notif_photos">
@@ -399,12 +397,25 @@
         <item quantity="other">%d vidéos</item>
     </plurals>
     <string name="notif_and">" et "</string>
+    <string name="notif_done_all">Tout est sauvegardé</string>
+    <plurals name="notif_done_pending">
+        <item quantity="one">%d fichier en attente</item>
+        <item quantity="other">%d fichiers en attente</item>
+    </plurals>
+    <plurals name="notif_done_sent">
+        <item quantity="one">%1$s envoyée</item>
+        <item quantity="other">%1$s envoyées</item>
+    </plurals>
     <plurals name="notif_done">
         <item quantity="one">%1$s sauvegardée sur %2$s</item>
         <item quantity="other">%1$s sauvegardées sur %2$s</item>
     </plurals>
-    <string name="notif_error_disk_full">Sauvegarde impossible : le disque du PC est plein.</string>
-    <string name="notif_error_destination">Sauvegarde impossible : le disque de destination de %1$s est débranché.</string>
+    <string name="notif_error_disk_full">Sauvegarde impossible : le disque de %1$s est plein. Les photos attendront qu\'il y ait de la place.</string>
+    <string name="notif_error_destination">Sauvegarde impossible : le disque de destination de %1$s est débranché. La sauvegarde reprendra toute seule quand il sera rebranché.</string>
+    <string name="notif_disk_full_title">Disque de %1$s plein</string>
+    <string name="notif_disk_full_text">Les photos attendent de la place</string>
+    <string name="notif_destination_title">Disque débranché</string>
+    <string name="notif_destination_text">Rebranchez-le sur %1$s</string>
     <string name="unpair_title">Dissocier ce téléphone ?</string>
     <string name="unpair_body">Les photos de ce téléphone ne seront plus sauvegardées sur %1$s.</string>
     <string name="unpair_note">Rien n\'est supprimé : ni sur le téléphone, ni sur le PC.</string>
@@ -426,4 +437,5 @@
     <string name="notif_channel_updates">Mises à jour</string>
     <string name="notif_update_title">Mise à jour disponible</string>
     <string name="notif_update_text">Touchez pour installer Mon Album PC %1$s.</string>
+    <string name="notif_update_short">Touchez pour installer la %1$s</string>
 </resources>

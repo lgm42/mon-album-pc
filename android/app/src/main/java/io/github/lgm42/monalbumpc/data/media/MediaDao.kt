@@ -25,6 +25,13 @@ interface MediaDao {
     )
     suspend fun unsavedNewestFirst(): List<MediaEntity>
 
+    /** Files still to send (not in error). */
+    @Query("SELECT COUNT(*) FROM media WHERE state = 'PENDING' OR state = 'UPLOADING'")
+    suspend fun countPending(): Int
+
+    @Query("SELECT COUNT(*) FROM media WHERE state = 'ERROR'")
+    suspend fun countErrors(): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(items: List<MediaEntity>)
 
