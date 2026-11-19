@@ -27,6 +27,7 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.PauseCircle
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material.icons.outlined.WifiOff
@@ -62,8 +63,8 @@ import io.github.lgm42.monalbumpc.backup.TransferText
 import io.github.lgm42.monalbumpc.ui.components.MediaThumbnail
 import io.github.lgm42.monalbumpc.ui.theme.LocalExtendedColors
 
-/** A button of the status card; the first one is the primary action. */
-data class StatusAction(val label: String, val onClick: () -> Unit)
+/** A button of the status card or a list row; [primary] is the filled one. */
+data class StatusAction(val label: String, val primary: Boolean = true, val onClick: () -> Unit)
 
 /**
  * Big state of the backup (what runs, what blocks, what waits), the live run with its two bars (the file being sent,
@@ -143,12 +144,12 @@ fun BackupStatusCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    actions.forEachIndexed { index, action ->
+                    actions.forEach { action ->
                         Button(
                             onClick = action.onClick,
                             shape = CircleShape,
                             modifier = Modifier.heightIn(min = 48.dp),
-                            colors = if (index == 0) {
+                            colors = if (action.primary) {
                                 ButtonDefaults.buttonColors()
                             } else {
                                 ButtonDefaults.buttonColors(
@@ -300,6 +301,11 @@ private data class HeadlineTexts(val icon: ImageVector, val title: String, val d
 private fun headlineTexts(headline: BackupHeadline?, pcName: String, nowMs: Long): HeadlineTexts = when (headline) {
     null -> HeadlineTexts(Icons.Outlined.Schedule, stringResource(R.string.backup_title), stringResource(R.string.backup_reading))
     is BackupHeadline.Running -> HeadlineTexts(Icons.Outlined.CloudUpload, stringResource(R.string.backup_running_title), null)
+    BackupHeadline.Paused -> HeadlineTexts(
+        Icons.Outlined.PauseCircle,
+        stringResource(R.string.backup_paused_title),
+        stringResource(R.string.backup_paused_detail),
+    )
     is BackupHeadline.WaitingNetwork -> if (headline.mobileDataAllowed) {
         HeadlineTexts(Icons.Outlined.WifiOff, stringResource(R.string.backup_network_title), stringResource(R.string.backup_network_detail))
     } else {

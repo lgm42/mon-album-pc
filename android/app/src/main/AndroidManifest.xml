@@ -60,6 +60,11 @@
             android:name=".update.UpdateResultReceiver"
             android:exported="false" />
 
+        <!-- "Mettre en pause" from the backup notification. -->
+        <receiver
+            android:name=".backup.BackupActionReceiver"
+            android:exported="false" />
+
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"
             android:foregroundServiceType="dataSync"

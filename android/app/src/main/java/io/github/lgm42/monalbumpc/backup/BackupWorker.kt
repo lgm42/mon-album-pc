@@ -98,12 +98,18 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
     }
 
     override suspend fun doWork(): Result {
+        // Paused by the user: no run, and no successor either until "Reprendre" schedules them again.
+        if (prefs.current().paused) return Result.success()
         // Periodic, content-triggered and manual runs never upload at the same time.
         val result = runLock.withLock {
             _running.value = true
             try {
+                // The pause may have come while this run waited for the previous one.
+                if (prefs.current().paused) return@withLock Result.success()
                 runBackup()
             } catch (e: CancellationException) {
+                // Stopped (pause, system): the file being sent is pending again, resumed later from the server's offset.
+                withContext(NonCancellable) { dao.resetUploading() }
                 throw e
             } catch (e: Exception) {
                 dao.resetUploading()
@@ -139,7 +145,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
     }
 
     private suspend fun rearmContentTrigger() {
-        if (pairingStore.paired.first() == null) return
+        if (pairingStore.paired.first() == null || prefs.current().paused) return
         val conditions = prefs.current().conditions
         // The content-triggered work queues its successor; the others only make sure one exists.
         val policy = if (tags.contains(BackupScheduler.TAG_CONTENT)) {
@@ -398,6 +404,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
         get() = tags.contains(BackupScheduler.TAG_CATCH_UP)
 
     private suspend fun catchUpLater() {
+        if (prefs.current().paused) return
         val attempt = inputData.getInt(BackupScheduler.KEY_ATTEMPT, 0)
         BackupScheduler.scheduleCatchUp(applicationContext, attempt, prefs.current().conditions, isCatchUp)
     }

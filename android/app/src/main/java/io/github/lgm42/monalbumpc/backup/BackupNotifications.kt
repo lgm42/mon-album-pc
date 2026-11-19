@@ -81,6 +81,7 @@ class BackupNotifications(context: Context) {
             .setSilent(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+            .addAction(R.drawable.ic_notification, context.getString(R.string.notif_action_pause), pauseIntent())
         if (text != null) builder.setContentText(text)
         if (expanded != null) builder.setStyle(NotificationCompat.BigTextStyle().bigText(expanded))
         val fileFraction = activity?.fileFraction
@@ -159,6 +160,12 @@ class BackupNotifications(context: Context) {
             return false
         }
         return NotificationManagerCompat.from(context).areNotificationsEnabled()
+    }
+
+    /** "Mettre en pause": handled by [BackupActionReceiver], without opening the app. */
+    private fun pauseIntent(): PendingIntent {
+        val intent = Intent(context, BackupActionReceiver::class.java).setAction(BackupActionReceiver.ACTION_PAUSE)
+        return PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     }
 
     private fun openApp(): PendingIntent {

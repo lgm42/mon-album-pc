@@ -125,6 +125,7 @@ sealed interface BannerState {
             get() = if (total > 0) (done + 1).coerceAtMost(total) else 0
     }
     data object DestinationUnavailable : BannerState
+    data object Paused : BannerState
     data object DiskFull : BannerState
     data class PcUnreachable(val sinceMs: Long?, val address: String? = null) : BannerState
     data class Errors(val count: Int, val latest: FailedFile? = null) : BannerState
@@ -149,7 +150,9 @@ object BannerLogic {
         issueDetail: String? = null,
         latestError: FailedFile? = null,
         checkedMs: Long? = null,
+        paused: Boolean = false,
     ): BannerState {
+        if (paused) return BannerState.Paused
         if (running && activity != null) return BannerState.Running(done.coerceIn(0, total.coerceAtLeast(0)), total, activity)
         val waiting = pending + errors > 0
         if (waiting) {

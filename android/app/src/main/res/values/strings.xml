@@ -134,6 +134,9 @@
     <string name="transfer_run_left_minutes">environ %1$d min restantes</string>
     <string name="transfer_run_left_hours">environ %1$d h %2$02d restantes</string>
     <string name="status_errors_link">Voir</string>
+    <string name="status_paused_title">Sauvegarde en pause</string>
+    <string name="status_paused_detail">rien n\'est envoyé</string>
+    <string name="status_paused_link">Reprendre</string>
     <string name="status_empty_title">Aucune photo à sauvegarder</string>
     <string name="status_empty_detail">pour l\'instant</string>
 
@@ -221,6 +224,12 @@
     <string name="backup_title">Sauvegarde</string>
     <string name="backup_running_title">Sauvegarde en cours</string>
     <string name="backup_reading">Lecture des photos du téléphone…</string>
+    <string name="backup_paused_title">En pause</string>
+    <string name="backup_paused_detail">Rien n\'est envoyé tant que vous ne reprenez pas la sauvegarde.</string>
+    <string name="backup_pause">Mettre en pause</string>
+    <string name="backup_resume">Reprendre</string>
+    <string name="snackbar_paused">Sauvegarde en pause : rien ne sera envoyé avant que vous la repreniez.</string>
+    <string name="snackbar_resumed">Sauvegarde reprise vers %1$s.</string>
     <string name="backup_wifi_title">En attente du Wi-Fi</string>
     <string name="backup_wifi_detail">La sauvegarde partira dès que le téléphone sera sur le Wi-Fi.</string>
     <string name="backup_network_title">En attente d\'une connexion</string>
@@ -350,6 +359,7 @@
     <string name="notif_sending_file">Envoi vers %1$s · %2$s</string>
     <string name="notif_position">%1$d / %2$d</string>
     <string name="notif_total">Total : %1$s</string>
+    <string name="notif_action_pause">Mettre en pause</string>
     <plurals name="notif_photos">
         <item quantity="one">%d photo</item>
         <item quantity="other">%d photos</item>

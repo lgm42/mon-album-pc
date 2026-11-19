@@ -30,6 +30,7 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.PauseCircle
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Button
@@ -105,6 +106,7 @@ fun PhotosScreen(
     onTrackFolder: (String) -> Unit,
     onOpenFolders: () -> Unit,
     onOpenBackup: () -> Unit,
+    onResume: () -> Unit,
     update: UpdateUiState,
     onUpdate: () -> Unit,
     onAllowInstall: () -> Unit,
@@ -167,6 +169,7 @@ fun PhotosScreen(
                             BannerState.DestinationUnavailable -> help = HelpDialog.Destination
                             is BannerState.Errors -> onFilterChange(GalleryFilter.ERRORS)
                             is BannerState.Running -> onOpenBackup()
+                            BannerState.Paused -> onResume()
                             else -> Unit
                         }
                     },
@@ -354,6 +357,11 @@ private fun StatusBanner(
             pluralStringResource(R.plurals.status_errors_title, banner.count, banner.count),
             failureDetail(banner.latest, pcName),
         )
+        BannerState.Paused -> Triple(
+            Icons.Outlined.PauseCircle,
+            stringResource(R.string.status_paused_title),
+            stringResource(R.string.status_paused_detail),
+        )
         BannerState.Empty -> Triple(
             Icons.Outlined.Image,
             stringResource(R.string.status_empty_title),
@@ -365,6 +373,7 @@ private fun StatusBanner(
         BannerState.DestinationUnavailable -> stringResource(R.string.status_destination_link)
         is BannerState.Errors -> stringResource(R.string.status_errors_link)
         is BannerState.Running -> stringResource(R.string.backup_details)
+        BannerState.Paused -> stringResource(R.string.status_paused_link)
         else -> null
     }
 

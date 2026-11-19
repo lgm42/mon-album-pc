@@ -27,6 +27,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -93,6 +94,8 @@ fun BackupScreen(
     onRetry: (Long) -> Unit,
     onRetryAll: (onDone: (Int) -> Unit) -> Unit,
     onOpenFolders: () -> Unit,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
     modifier: Modifier = Modifier,
     backgroundUnrestricted: Boolean = rememberBackgroundUnrestricted(),
 ) {
@@ -111,6 +114,7 @@ fun BackupScreen(
             total = progress.total,
             activity = progress.activity,
             run = progress.run,
+            paused = backup.paused,
             conditions = conditions,
             chargingOnly = backup.chargingOnly,
             mobileData = backup.mobileData,
@@ -123,10 +127,11 @@ fun BackupScreen(
     }
     val data = summary ?: BackupSummary()
 
-    fun say(message: String) {
+    fun say(message: String, actionLabel: String? = null, onAction: () -> Unit = {}) {
         scope.launch {
             snackbarHostState.currentSnackbarData?.dismiss()
-            snackbarHostState.showSnackbar(message)
+            val result = snackbarHostState.showSnackbar(message, actionLabel)
+            if (result == SnackbarResult.ActionPerformed) onAction()
         }
     }
 
@@ -135,6 +140,17 @@ fun BackupScreen(
     val networkMessage = stringResource(R.string.snackbar_backup_network)
     val destinationMessage = stringResource(R.string.snackbar_destination)
     val noFailureMessage = stringResource(R.string.snackbar_retry_none)
+    val pausedMessage = stringResource(R.string.snackbar_paused)
+    val resumedMessage = stringResource(R.string.snackbar_resumed, pcName)
+    val resumeLabel = stringResource(R.string.backup_resume)
+    val resume = {
+        onResume()
+        say(resumedMessage)
+    }
+    val pause = {
+        onPause()
+        say(pausedMessage, resumeLabel, resume)
+    }
     val backupNow = {
         onBackupNow()
         say(
@@ -162,11 +178,15 @@ fun BackupScreen(
     }
 
     val actions = buildList {
-        if (headline != null && headline !is BackupHeadline.Running) {
-            add(StatusAction(stringResource(R.string.backup_now), backupNow))
-        }
-        if (data.failed.count > 0 && headline !is BackupHeadline.Running) {
-            add(StatusAction(stringResource(R.string.backup_retry_failures), retryAll))
+        when (headline) {
+            null -> Unit
+            BackupHeadline.Paused -> add(StatusAction(resumeLabel, onClick = resume))
+            is BackupHeadline.Running -> add(StatusAction(stringResource(R.string.backup_pause), primary = false, onClick = pause))
+            else -> {
+                add(StatusAction(stringResource(R.string.backup_now), onClick = backupNow))
+                if (data.failed.count > 0) add(StatusAction(stringResource(R.string.backup_retry_failures), primary = false, onClick = retryAll))
+                add(StatusAction(stringResource(R.string.backup_pause), primary = false, onClick = pause))
+            }
         }
     }
 
@@ -522,7 +542,7 @@ private fun LazyListScope.failureItems(
             name = entry.name,
             line = failureReason(entry, pcName),
             secondLine = nextAttempt(entry.retryAfterMs, nowMs),
-            action = StatusAction(stringResource(R.string.backup_retry)) { onRetry(entry) },
+            action = StatusAction(stringResource(R.string.backup_retry), onClick = { onRetry(entry) }),
         )
     }
 }
@@ -641,6 +661,8 @@ private fun BackupScreenRunningPreview() {
             onRetry = {},
             onRetryAll = {},
             onOpenFolders = {},
+            onPause = {},
+            onResume = {},
             backgroundUnrestricted = true,
         )
     }
@@ -664,6 +686,8 @@ private fun BackupScreenUnreachablePreview() {
             onRetry = {},
             onRetryAll = {},
             onOpenFolders = {},
+            onPause = {},
+            onResume = {},
             backgroundUnrestricted = true,
         )
     }

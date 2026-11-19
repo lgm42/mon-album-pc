@@ -8,6 +8,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import io.github.lgm42.monalbumpc.backup.BackupControl
 import io.github.lgm42.monalbumpc.backup.BackupNotifications
 import io.github.lgm42.monalbumpc.backup.BackupScheduler
 import io.github.lgm42.monalbumpc.backup.BackupWorker
@@ -147,7 +148,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** On app start and after each pairing (this view model outlives an unpairing). */
     fun ensureScheduled() {
         viewModelScope.launch {
-            BackupScheduler.schedule(app, prefs.current().conditions)
+            // Paused: "Reprendre" schedules the runs again.
+            val backup = prefs.current()
+            if (!backup.paused) BackupScheduler.schedule(app, backup.conditions)
         }
     }
 
@@ -172,8 +175,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** "Sauvegarder maintenant" is an explicit wish to back up: it lifts a pause too. */
     fun backupNow() {
-        viewModelScope.launch { BackupScheduler.backupNow(app, prefs.current().conditions) }
+        viewModelScope.launch {
+            val backup = prefs.current()
+            if (backup.paused) BackupControl.resume(app) else BackupScheduler.backupNow(app, backup.conditions)
+        }
+    }
+
+    fun pause() {
+        viewModelScope.launch { BackupControl.pause(app) }
+    }
+
+    fun resume() {
+        viewModelScope.launch { BackupControl.resume(app) }
     }
 
     fun retry(mediaId: Long) {
@@ -195,15 +210,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setChargingOnly(value: Boolean) {
         viewModelScope.launch {
             prefs.setChargingOnly(value)
-            BackupScheduler.schedule(app, prefs.current().conditions, replace = true)
+            reschedule()
         }
     }
 
     fun setMobileData(value: Boolean) {
         viewModelScope.launch {
             prefs.setMobileData(value)
-            BackupScheduler.schedule(app, prefs.current().conditions, replace = true)
+            reschedule()
         }
+    }
+
+    /** New conditions for the scheduled runs; none while paused ("Reprendre" uses the new ones). */
+    private suspend fun reschedule() {
+        val backup = prefs.current()
+        if (!backup.paused) BackupScheduler.schedule(app, backup.conditions, replace = true)
     }
 
     private class Sources(
@@ -250,6 +271,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             issueDetail = sources.backup.issueDetail,
             latestError = BannerLogic.latestError(sources.index),
             checkedMs = sources.backup.lastCheckMs,
+            paused = sources.backup.paused,
         )
         return MainUiState(
             loaded = true,

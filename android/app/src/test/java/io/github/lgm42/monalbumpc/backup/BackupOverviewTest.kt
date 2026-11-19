@@ -132,6 +132,7 @@ class BackupOverviewTest {
         chargingOnly: Boolean = false,
         mobileData: Boolean = false,
         issue: BackupIssue = BackupIssue.NONE,
+        paused: Boolean = false,
     ): BackupHeadline {
         val saved = tracked - pending - failed
         val summary = BackupSummary(
@@ -147,6 +148,7 @@ class BackupOverviewTest {
             total = 5,
             activity = activity,
             run = null,
+            paused = paused,
             conditions = conditions,
             chargingOnly = chargingOnly,
             mobileData = mobileData,
@@ -164,6 +166,9 @@ class BackupOverviewTest {
         val offline = DeviceConditions(connected = false, unmetered = false)
         val mobile = DeviceConditions(connected = true, unmetered = false)
 
+        // The pause wins, even over a run that is still stopping.
+        assertEquals(BackupHeadline.Paused, headline(pending = 3, running = true, activity = sending, paused = true))
+        assertEquals(BackupHeadline.Paused, headline(paused = true))
         assertEquals(BackupHeadline.Running(2, 5, sending, null), headline(pending = 3, running = true, activity = sending, issue = BackupIssue.DISK_FULL))
         // Reading the phone's photos is a run worth showing only when something waits.
         assertEquals(BackupHeadline.Running(2, 5, null, null), headline(pending = 3, running = true))

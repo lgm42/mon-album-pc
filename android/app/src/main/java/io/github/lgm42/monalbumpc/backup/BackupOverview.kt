@@ -121,6 +121,8 @@ sealed interface BackupHeadline {
         val position: Int
             get() = if (total > 0) (done + 1).coerceAtMost(total) else 0
     }
+    /** "Mettre en pause": nothing runs until "Reprendre". */
+    data object Paused : BackupHeadline
     /** No usable network: Wi-Fi only, or any connection when [mobileDataAllowed]. */
     data class WaitingNetwork(val mobileDataAllowed: Boolean) : BackupHeadline
     data object WaitingCharging : BackupHeadline
@@ -230,6 +232,7 @@ object BackupOverview {
         total: Int,
         activity: RunActivity?,
         run: RunTotals?,
+        paused: Boolean,
         conditions: DeviceConditions,
         chargingOnly: Boolean,
         mobileData: Boolean,
@@ -239,6 +242,8 @@ object BackupOverview {
         checkedMs: Long?,
         nextRunMs: Long?,
     ): BackupHeadline {
+        // Even a run that is still stopping: the pause is what the user asked for.
+        if (paused) return BackupHeadline.Paused
         val waiting = summary.pending.count + summary.failed.count
         // A run that only reads the phone's photos is shown when there is something to send, not at every check.
         if (running && (activity != null || waiting > 0)) return BackupHeadline.Running(done, total, activity, run)

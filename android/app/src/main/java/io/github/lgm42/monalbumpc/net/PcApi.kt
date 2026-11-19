@@ -3,8 +3,13 @@ package io.github.lgm42.monalbumpc.net
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerializationException
@@ -199,18 +204,40 @@ class PcApi(host: String, port: Int, expectedFingerprint: String?) {
 
     private class RawResponse(val code: Int, val body: String, val uploadOffset: Long?)
 
-    private suspend fun call(request: Request, httpClient: OkHttpClient): RawResponse = withContext(Dispatchers.IO) {
-        try {
-            httpClient.newCall(request).execute().use { response ->
-                RawResponse(
-                    code = response.code,
-                    body = response.body?.string().orEmpty(),
-                    uploadOffset = response.header("Upload-Offset")?.trim()?.toLongOrNull(),
-                )
+    /**
+     * Cancelling the caller aborts the request at once, even in the middle of an upload ("Mettre en pause"):
+     * the blocked thread cannot notice, so a sibling coroutine closes the call.
+     */
+    private suspend fun call(request: Request, httpClient: OkHttpClient): RawResponse = coroutineScope {
+        val call = httpClient.newCall(request)
+        val finished = AtomicBoolean(false)
+        val canceller = launch(start = CoroutineStart.UNDISPATCHED) {
+            try {
+                awaitCancellation()
+            } finally {
+                if (!finished.get()) call.cancel()
             }
-        } catch (e: IOException) {
-            val error = if (trust.mismatchDetected) ApiError.CertificateMismatch else ApiError.Network(e.message)
-            throw ApiException(error)
+        }
+        try {
+            withContext(Dispatchers.IO) {
+                try {
+                    call.execute().use { response ->
+                        RawResponse(
+                            code = response.code,
+                            body = response.body?.string().orEmpty(),
+                            uploadOffset = response.header("Upload-Offset")?.trim()?.toLongOrNull(),
+                        )
+                    }
+                } catch (e: IOException) {
+                    // Aborted by a cancellation: not a network failure.
+                    ensureActive()
+                    val error = if (trust.mismatchDetected) ApiError.CertificateMismatch else ApiError.Network(e.message)
+                    throw ApiException(error)
+                }
+            }
+        } finally {
+            finished.set(true)
+            canceller.cancel()
         }
     }
 

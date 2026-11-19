@@ -133,6 +133,10 @@ class BackupLogicTest {
         assertEquals(BannerState.Pending(4), banner(pending = 4))
         assertEquals(BannerState.Empty, banner(tracked = 0))
         assertEquals(BannerState.AllSaved(500L), banner())
+        assertEquals(
+            BannerState.Paused,
+            BannerLogic.compute(true, 3, 9, BackupIssue.NONE, null, 0, 5, 10, null, activity = RunActivity(BackupPhase.UPLOADING), paused = true),
+        )
         // Nothing waiting: an old issue does not hide "everything is saved".
         assertEquals(BannerState.AllSaved(500L), banner(issue = BackupIssue.PC_UNREACHABLE))
     }

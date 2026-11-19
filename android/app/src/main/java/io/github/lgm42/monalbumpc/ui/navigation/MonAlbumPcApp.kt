@@ -88,6 +88,8 @@ fun MonAlbumPcApp(pc: PairedPc, onUnpair: () -> Unit) {
                     onRetry = mainViewModel::retry,
                     onRetryAll = mainViewModel::retryAll,
                     onOpenFolders = { navController.navigateToTab(TopLevelDestination.Folders) },
+                    onPause = mainViewModel::pause,
+                    onResume = mainViewModel::resume,
                 )
             }
             composable(TopLevelDestination.Photos.route) {
@@ -101,6 +103,7 @@ fun MonAlbumPcApp(pc: PairedPc, onUnpair: () -> Unit) {
                     onTrackFolder = { key -> mainViewModel.setFolderTracked(key, true) },
                     onOpenFolders = { navController.navigateToTab(TopLevelDestination.Folders) },
                     onOpenBackup = { navController.navigateToTab(TopLevelDestination.Backup) },
+                    onResume = mainViewModel::resume,
                     update = update,
                     onUpdate = onUpdate,
                     onAllowInstall = onAllowInstall,

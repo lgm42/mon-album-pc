@@ -36,6 +36,8 @@ data class BackupState(
     val lastCheckMs: Long? = null,
     /** Last time the server answered. */
     val lastContactMs: Long? = null,
+    /** "Mettre en pause": no run until "Reprendre". */
+    val paused: Boolean = false,
 ) {
     val conditions: BackupConditions
         get() = BackupConditions(chargingOnly, mobileData)
@@ -58,6 +60,7 @@ class BackupPrefs(context: Context) {
                 issueDetail = p[ISSUE_DETAIL],
                 lastCheckMs = p[LAST_CHECK],
                 lastContactMs = p[LAST_CONTACT],
+                paused = p[PAUSED] ?: false,
             )
         }
         .distinctUntilChanged()
@@ -78,6 +81,10 @@ class BackupPrefs(context: Context) {
 
     suspend fun setLastCheck(timeMs: Long) {
         dataStore.edit { it[LAST_CHECK] = timeMs }
+    }
+
+    suspend fun setPaused(value: Boolean) {
+        dataStore.edit { it[PAUSED] = value }
     }
 
     suspend fun setLastContact(timeMs: Long) {
@@ -103,7 +110,7 @@ class BackupPrefs(context: Context) {
         dataStore.edit { it[NOTIFIED_ISSUE] = issue.name }
     }
 
-    /** After unpairing; the charging setting is kept. */
+    /** After unpairing; the charging setting is kept, a pause is lifted. */
     suspend fun clearRun() {
         dataStore.edit { p ->
             p.remove(LAST_BACKUP)
@@ -113,6 +120,7 @@ class BackupPrefs(context: Context) {
             p.remove(ISSUE_DETAIL)
             p.remove(LAST_CHECK)
             p.remove(LAST_CONTACT)
+            p.remove(PAUSED)
         }
     }
 
@@ -129,5 +137,6 @@ class BackupPrefs(context: Context) {
         val ISSUE_DETAIL = stringPreferencesKey("issue_detail")
         val LAST_CHECK = longPreferencesKey("last_check")
         val LAST_CONTACT = longPreferencesKey("last_contact")
+        val PAUSED = booleanPreferencesKey("paused")
     }
 }
