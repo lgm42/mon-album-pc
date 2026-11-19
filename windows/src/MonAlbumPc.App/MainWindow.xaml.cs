@@ -6,6 +6,7 @@ using MonAlbumPc.App.Albums;
 using MonAlbumPc.App.History;
 using MonAlbumPc.App.Pages;
 using MonAlbumPc.App.Phones;
+using MonAlbumPc.Core.Activity;
 using MonAlbumPc.Core.Import;
 using MonAlbumPc.Core.Library;
 
@@ -40,6 +41,8 @@ public partial class MainWindow : Window
         MainNav.SelectedIndex = 0;
         _host.Core.Sessions.Changed += OnSessionsChanged;
         _host.Core.Sessions.Ended += OnSessionEnded;
+        // Raised at most twice a second, also at each look at the shared library ("vérifiée à 00:12").
+        _host.Core.Work.Changed += OnWorkChanged;
         IsVisibleChanged += (_, _) =>
         {
             if (IsVisible && _pageOutdated)
@@ -92,6 +95,7 @@ public partial class MainWindow : Window
                 "map" => new Map.MapPage(_host.Core),
                 "albums" => new AlbumsPage(_host, this),
                 "history" => new HistoryPage(_host.Core),
+                "activity" => new Activity.ActivityPage(_host.Core, _host.IsViewer),
                 "settings" => new SettingsPage(_host),
                 _ => new Photos.PhotosPage(_host.Core, this),
             };
@@ -106,6 +110,47 @@ public partial class MainWindow : Window
     }
 
     private void OnSessionsChanged() => Dispatcher.BeginInvoke(UpdateStatus);
+
+    private void OnWorkChanged() => Dispatcher.BeginInvoke(UpdateStatus);
+
+    private void OnWorkLinesClick(object sender, System.Windows.Input.MouseButtonEventArgs e) => Navigate("activity");
+
+    /// <summary>"Index des positions · 1 240 / 7 018 · IMG_1234.jpg" and its bar, for each task in progress.</summary>
+    private void ShowWork()
+    {
+        WorkLines.Children.Clear();
+        var running = _host.Core.Work.Running;
+        foreach (var work in running.Take(3))
+        {
+            var line = WorkText.Compact(work);
+            WorkLines.Children.Add(new TextBlock
+            {
+                Text = line,
+                ToolTip = line,
+                Style = (Style)FindResource("Caption"),
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Margin = new Thickness(0, 4, 0, 0),
+            });
+            WorkLines.Children.Add(new ProgressBar
+            {
+                Height = 3,
+                Margin = new Thickness(0, 4, 0, 0),
+                Maximum = 1,
+                Value = work.Fraction ?? 0,
+                IsIndeterminate = work.Fraction is null,
+            });
+        }
+        if (running.Count > 3)
+        {
+            WorkLines.Children.Add(new TextBlock
+            {
+                Text = $"et {running.Count - 3} autre(s)…",
+                Style = (Style)FindResource("Caption"),
+                Margin = new Thickness(0, 4, 0, 0),
+            });
+        }
+        WorkLines.Visibility = running.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+    }
 
     // A finished backup changes counts and history: reload the visible page.
     private void OnSessionEnded(Core.Storage.BackupSession session) => Dispatcher.BeginInvoke(RefreshPage);
@@ -135,6 +180,7 @@ public partial class MainWindow : Window
         SetLine(FileTransfer, null);
         SetLine(StatusCounts, null);
         SetLine(StatusError, null);
+        ShowWork();
         if (_host.Library is { } library)
         {
             ShowLibraryStatus(library);
@@ -204,6 +250,21 @@ public partial class MainWindow : Window
         StatusTitle.Text = title;
         StatusDetail.Text = library.Root;
         StatusDetail.ToolTip = library.Root;
+        var now = _host.Core.Clock.GetLocalNow();
+        var checkedAt = library.LastChecked is { } at ? WorkText.Time(at, now) : null;
+        if (library.State == LibraryState.Unavailable)
+        {
+            var since = library.UnavailableSince is { } from ? $"Injoignable depuis {WorkText.Time(from, now)}" : "Injoignable";
+            SetLine(StatusCounts, checkedAt is null ? since : $"{since} · nouvel essai chaque minute, dernier à {checkedAt}");
+        }
+        else if (checkedAt is not null)
+        {
+            SetLine(StatusCounts, $"Bibliothèque à jour · vérifiée à {checkedAt}");
+        }
+        if (library.LastNews is { } news)
+        {
+            SetLine(FileTransfer, $"{WorkText.Time(news.At, now)} · {news.Notification.Title} : {news.Notification.Message}");
+        }
     }
 
     // Closing the window keeps the app running in the notification area.

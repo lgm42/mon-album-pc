@@ -2,6 +2,7 @@ using System.Windows.Controls;
 using System.Windows.Media.Imaging;
 using H.NotifyIcon;
 using H.NotifyIcon.Core;
+using MonAlbumPc.Core.Activity;
 using MonAlbumPc.Core.Import;
 using MonAlbumPc.Core.Library;
 using MonAlbumPc.Core.Storage;
@@ -53,12 +54,19 @@ internal sealed class TrayIcon : IDisposable
         {
             host.Core.Sessions.Changed += OnSessionsChanged;
         }
+        host.Core.Work.Changed += OnSessionsChanged;
     }
 
-    // Hovering the icon tells what is arriving without opening the window.
+    // Hovering the icon tells what is arriving, and what runs in the background, without opening the window.
     private void OnSessionsChanged() => _icon.Dispatcher.BeginInvoke(() =>
     {
-        var text = _host.Core.Sessions.Active.Count == 0 ? "Mon Album PC" : StatusText();
+        List<string> lines = [];
+        if (_host.Library is null ? _host.Core.Sessions.Active.Count > 0 : _host.Library.State == LibraryState.Unavailable)
+        {
+            lines.Add(StatusText());
+        }
+        lines.AddRange(_host.Core.Work.Running.Select(WorkText.Compact));
+        var text = lines.Count == 0 ? "Mon Album PC" : string.Join("\n", lines);
         // The notification area cuts tooltips at 127 characters.
         _icon.ToolTipText = text.Length <= MaxTooltip ? text : text[..(MaxTooltip - 1)] + "…";
     });
@@ -104,6 +112,7 @@ internal sealed class TrayIcon : IDisposable
     public void Dispose()
     {
         _host.Core.Sessions.Changed -= OnSessionsChanged;
+        _host.Core.Work.Changed -= OnSessionsChanged;
         _icon.Dispose();
     }
 
@@ -111,7 +120,14 @@ internal sealed class TrayIcon : IDisposable
     {
         if (_host.Library is { } library)
         {
-            return library.State == LibraryState.Unavailable ? "Bibliothèque indisponible" : "Bibliothèque connectée";
+            var now = _host.Core.Clock.GetLocalNow();
+            return library switch
+            {
+                { State: LibraryState.Unavailable, UnavailableSince: { } since } => $"Bibliothèque injoignable depuis {WorkText.Time(since, now)}",
+                { State: LibraryState.Unavailable } => "Bibliothèque injoignable",
+                { LastChecked: { } at } => $"Bibliothèque à jour · vérifiée à {WorkText.Time(at, now)}",
+                _ => "Connexion à la bibliothèque…",
+            };
         }
         if (_host.Core.Sessions.Active.FirstOrDefault() is { } active)
         {

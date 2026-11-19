@@ -14,11 +14,17 @@ public sealed class AppHost : IAsyncDisposable
 {
     private MonAlbumServer? _server;
 
+    private readonly FileLoggerProvider _log;
+    private readonly WorkLog _workLog;
+
     public AppHost(string dataRoot)
     {
         DataRoot = dataRoot;
         Settings = AppSettings.Load(dataRoot);
         Core = CoreServices.Create(Settings.CatalogDirectory(dataRoot));
+        // Start and end of each background task in server.log, in both modes.
+        _log = new FileLoggerProvider(Path.Combine(Core.DataDirectory, "server.log"));
+        _workLog = new WorkLog(Core.Work, _log.CreateLogger(WorkLog.Category));
         Library = Settings.IsViewer ? new LibraryViewer(Core, Settings.LibraryRoot!) : null;
     }
 
@@ -53,15 +59,17 @@ public sealed class AppHost : IAsyncDisposable
         Core.MediaIndexer.RequestRefresh();
         try
         {
-            _server = new MonAlbumServer(Core, new ServerOptions { Apk = Apk },
-                new FileLoggerProvider(Path.Combine(Core.DataDirectory, "server.log")));
+            // Its warnings and errors also show in the Activité page.
+            _server = new MonAlbumServer(Core, new ServerOptions { Apk = Apk }, new WorkBoardLoggerProvider(Core.Work, _log));
             await _server.StartAsync();
             ServerError = null;
+            Core.Work.Info($"Prêt à recevoir les photos : API {_server.ApiPort}, téléchargement {_server.DownloadPort}");
             SystemEvents.PowerModeChanged += OnPowerModeChanged;
         }
         catch (Exception e) when (e is IOException or System.Net.Sockets.SocketException or InvalidOperationException)
         {
             ServerError = "Les téléphones ne peuvent pas joindre ce PC : le port réseau est déjà utilisé par une autre application.";
+            Core.Work.Error($"{ServerError} ({e.Message})");
             await DisposeServerAsync();
         }
     }
@@ -80,6 +88,7 @@ public sealed class AppHost : IAsyncDisposable
         SystemEvents.PowerModeChanged -= OnPowerModeChanged;
         Library?.Dispose();
         await DisposeServerAsync();
+        _workLog.Dispose();
         Core.Dispose();
     }
 

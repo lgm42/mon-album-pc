@@ -38,6 +38,9 @@
                     <TextBlock x:Name="StatusError" Style="{StaticResource Caption}" Margin="22,4,0,0" TextWrapping="Wrap" Visibility="Collapsed"
                                Foreground="{DynamicResource SystemFillColorCriticalBrush}" />
                     <ProgressBar x:Name="StatusProgress" Height="3" Margin="22,8,0,0" IsIndeterminate="True" Visibility="Collapsed" />
+                    <!-- Background tasks besides backups (index, library…), one line each; a click opens the Activité page. -->
+                    <StackPanel x:Name="WorkLines" Margin="22,4,0,0" Cursor="Hand" Background="Transparent"
+                                ToolTip="Voir l'activité" MouseLeftButtonUp="OnWorkLinesClick" />
                 </StackPanel>
             </Border>
 
@@ -64,6 +67,12 @@
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Style="{StaticResource Icon}" Text="&#xE81C;" />
                         <TextBlock Margin="16,0,0,0" Text="Historique" VerticalAlignment="Center" />
+                    </StackPanel>
+                </ListBoxItem>
+                <ListBoxItem Tag="activity">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource Icon}" Text="&#xE9D9;" />
+                        <TextBlock Margin="16,0,0,0" Text="Activité" VerticalAlignment="Center" />
                     </StackPanel>
                 </ListBoxItem>
             </ListBox>
