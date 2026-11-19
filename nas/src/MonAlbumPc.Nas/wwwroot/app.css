@@ -1016,6 +1016,20 @@ fluent-dialog.app-dialog::part(control) {
     font-weight: 400;
 }
 
+.settings-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-left: 36px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.settings-problems {
+    margin: 0;
+    padding-left: 18px;
+}
+
 .password-form {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));

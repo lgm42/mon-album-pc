@@ -1,9 +1,13 @@
 @page "/settings"
 @using System.Reflection
+@using MonAlbumPc.Core.Media
+@implements IDisposable
 @inject NasHost Host
 @inject NasOptions Options
 @inject AdminPassword Password
 @inject NavigationManager Navigation
+@inject ProvenanceMarker Marker
+@inject IDialogService Dialogs
 
 <PageTitle>Réglages · Mon Album PC</PageTitle>
 
@@ -51,6 +55,87 @@
                 ce dossier à travers le partage réseau.
             </div>
         </div>
+    </div>
+
+    <h2 class="section-title">Photos</h2>
+    <div class="settings-card column">
+        <div class="settings-row">
+            <FluentIcon Value="@(new Icons.Regular.Size20.Tag())" Color="Color.Custom" CustomColor="currentColor" />
+            <div class="settings-text">
+                <div class="settings-title">Marquer la provenance des fichiers existants</div>
+                <div class="caption">
+                    Ajoute aux photos déjà rangées le mot-clé « WhatsApp », « Capture d'écran » ou le nom de l'application
+                    d'origine, comme le fait maintenant chaque sauvegarde. Il apparaît dans les « Mots clés » de l'Explorateur
+                    Windows et dans les logiciels photo. L'image n'est pas réenregistrée et le fichier garde sa date.
+                </div>
+            </div>
+            @switch (Marker.State)
+            {
+                case ProvenanceMarkerState.Idle or ProvenanceMarkerState.Done or ProvenanceMarkerState.Failed:
+                    <FluentButton IconStart="@(new Icons.Regular.Size20.Search())" OnClick="Marker.Prepare">
+                        @(Marker.State == ProvenanceMarkerState.Idle ? "Analyser les photos" : "Analyser à nouveau")
+                    </FluentButton>
+                    break;
+                case ProvenanceMarkerState.Planned:
+                    <FluentButton OnClick="Marker.Reset">Annuler</FluentButton>
+                    <FluentButton Appearance="Appearance.Accent" Disabled="@(Marker.Plan?.Files.Count is null or 0)" OnClick="ConfirmMarking">
+                        Marquer…
+                    </FluentButton>
+                    break;
+                default:
+                    <FluentButton OnClick="Marker.Cancel">Arrêter</FluentButton>
+                    break;
+            }
+        </div>
+        @if (Marker.IsBusy)
+        {
+            var progress = Marker.Progress;
+            <div class="settings-detail">
+                <div>@ProgressText(progress)</div>
+                @if (progress.Total > 0)
+                {
+                    <FluentProgress Min="0" Max="@progress.Total" Value="@progress.Done" />
+                }
+                else
+                {
+                    <FluentProgress />
+                }
+                <div class="caption">@TimeText()</div>
+            </div>
+        }
+        else if (Marker.State == ProvenanceMarkerState.Planned && Marker.Plan is { } plan)
+        {
+            <div class="settings-detail">
+                <FluentMessageBar Intent="MessageIntent.Info" AllowDismiss="false">@plan.Description</FluentMessageBar>
+            </div>
+        }
+        else if (Marker.State == ProvenanceMarkerState.Done && Marker.Summary is { } summary)
+        {
+            <div class="settings-detail">
+                <FluentMessageBar Intent="@(summary.Problems.Count == 0 ? MessageIntent.Success : MessageIntent.Warning)" AllowDismiss="false">
+                    Terminé en @Duration(summary.Duration) : @summary.Description
+                </FluentMessageBar>
+                @if (summary.Problems.Count > 0)
+                {
+                    <ul class="settings-problems caption">
+                        @foreach (var problem in summary.Problems.Take(MaxProblems))
+                        {
+                            <li><span class="mono">@Path.GetFileName(problem.Path)</span> : @problem.Reason</li>
+                        }
+                        @if (summary.Problems.Count > MaxProblems)
+                        {
+                            <li>… et @Formatting.Plural(summary.Problems.Count - MaxProblems, "autre", "autres") (voir le journal du conteneur)</li>
+                        }
+                    </ul>
+                }
+            </div>
+        }
+        else if (Marker.State == ProvenanceMarkerState.Failed)
+        {
+            <div class="settings-detail">
+                <FluentMessageBar Intent="MessageIntent.Error" AllowDismiss="false">Marquage interrompu : @Marker.Error</FluentMessageBar>
+            </div>
+        }
     </div>
 
     <h2 class="section-title">Application Android</h2>
@@ -153,6 +238,82 @@
     }
 
     private void ShowDownloadQr() => _qrOpen = _focusQr = DownloadUrl is not null;
+
+    private const int MaxProblems = 20;
+    private static readonly TimeSpan RefreshEvery = TimeSpan.FromMilliseconds(250);
+    private DateTime _lastRefresh;
+    private ProvenanceMarkerState _shownState;
+
+    private Timer? _clock;
+
+    protected override void OnInitialized()
+    {
+        _shownState = Marker.State;
+        Marker.Changed += OnMarkerChanged;
+        // Reading the catalog of a big album says nothing for a while: the elapsed time still moves.
+        _clock = new Timer(_ =>
+        {
+            if (Marker.IsBusy)
+            {
+                _ = InvokeAsync(StateHasChanged);
+            }
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    // Raised on the marking thread for every file: the page follows at most four times a second, and at every change of step.
+    private void OnMarkerChanged()
+    {
+        var now = DateTime.UtcNow;
+        if (Marker.State == _shownState && now - _lastRefresh < RefreshEvery)
+        {
+            return;
+        }
+        _lastRefresh = now;
+        _ = InvokeAsync(() =>
+        {
+            _shownState = Marker.State;
+            StateHasChanged();
+        });
+    }
+
+    private async Task ConfirmMarking()
+    {
+        if (Marker.Plan is not { Files.Count: > 0 } plan)
+        {
+            return;
+        }
+        var dialog = await Dialogs.ShowConfirmationAsync(
+            $"{plan.Description} Seules les métadonnées changent : l'image n'est pas réenregistrée et chaque fichier garde sa date. "
+            + "Le marquage se fait en arrière-plan, en priorité basse ; vous pouvez quitter cette page.",
+            "Marquer", "Annuler", "Marquer la provenance des photos ?");
+        if (!(await dialog.Result).Cancelled)
+        {
+            Marker.Mark();
+        }
+    }
+
+    private static string ProgressText(ProvenanceProgress progress) => progress.Total > 0
+        ? $"{progress.Step} {Formatting.Count(Math.Min(progress.Done + 1, progress.Total))} / {Formatting.Count(progress.Total)}"
+          + (progress.File is null ? "" : $" · {progress.File}")
+        : progress.Step;
+
+    private string TimeText()
+    {
+        var text = $"Écoulé : {Duration(Marker.Elapsed)}";
+        return Marker.Remaining is { } left ? $"{text} · reste environ {Duration(left)}" : text;
+    }
+
+    private static string Duration(TimeSpan duration) => duration.TotalSeconds < 60
+        ? $"{Math.Max(1, (int)duration.TotalSeconds)} s"
+        : duration.TotalMinutes < 60
+            ? $"{(int)duration.TotalMinutes} min {duration.Seconds:00} s"
+            : $"{(int)duration.TotalHours} h {duration.Minutes:00} min";
+
+    public void Dispose()
+    {
+        _clock?.Dispose();
+        Marker.Changed -= OnMarkerChanged;
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
