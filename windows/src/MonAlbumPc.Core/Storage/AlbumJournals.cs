@@ -3,13 +3,15 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using MonAlbumPc.Core.Import;
+using MonAlbumPc.Core.Media;
 using MonAlbumPc.Core.Model;
 
 namespace MonAlbumPc.Core.Storage;
 
 /// <summary>
-/// One import, as written in an album journal (one JSON object per line). The shooting place was added later: older
-/// lines have none, and it is left out when unknown.
+/// One import, as written in an album journal (one JSON object per line). The shooting place, the phone folder
+/// (<see cref="Source"/>) and the size on the phone (<see cref="OriginalSize"/>, when the file in the album differs) were
+/// added later: older lines have none, and they are left out when unknown.
 /// </summary>
 public sealed record JournalEntry(
     string Sha256,
@@ -20,7 +22,9 @@ public sealed record JournalEntry(
     string? Device,
     DateTimeOffset ImportedAt,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] double? Latitude = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] double? Longitude = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] double? Longitude = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Source = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] long? OriginalSize = null);
 
 /// <summary>
 /// Import journals kept next to the photos, in <c>{album}\.monalbumpc\journal\{serverId}.jsonl</c>, so that several
@@ -126,6 +130,19 @@ public sealed class AlbumJournals(AlbumStore albums, DeviceStore devices, Guid s
         }
     }
 
+    /// <summary>Phone folder of the files the other servers imported into this album, by relative path.</summary>
+    public List<(string Path, string Folder)> SourceFolders(Guid albumId)
+    {
+        try
+        {
+            return [.. Others(albumId).Paths.Values.Where(e => e.Source is not null).Select(e => (e.Path, e.Source!))];
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return [];
+        }
+    }
+
     /// <summary>The phone a file of the album came from, according to the other servers' journals.</summary>
     public string? DeviceOf(Album album, string fullPath) =>
         FindByPath(album.Id, Path.GetRelativePath(album.DestinationRoot, fullPath).Replace('\\', '/'))?.Device;
@@ -209,7 +226,9 @@ public sealed class AlbumJournals(AlbumStore albums, DeviceStore devices, Guid s
         device,
         record.ImportedAt,
         record.Location?.Latitude,
-        record.Location?.Longitude);
+        record.Location?.Longitude,
+        MediaSource.FolderOf(record.SourcePath),
+        record.OriginalSize == record.Size ? null : record.OriginalSize);
 
     private static string NameSize(string name, long size) => $"{name.ToLowerInvariant()}|{size}";
 
@@ -234,6 +253,10 @@ public sealed class AlbumJournals(AlbumStore albums, DeviceStore devices, Guid s
         {
             Shas.Add(entry.Sha256);
             NameSizes.Add(NameSize(entry.Name, entry.Size));
+            if (entry.OriginalSize is { } original)
+            {
+                NameSizes.Add(NameSize(entry.Name, original));
+            }
             Paths[entry.Path] = entry;
             if (entry.TakenAt is not null)
             {

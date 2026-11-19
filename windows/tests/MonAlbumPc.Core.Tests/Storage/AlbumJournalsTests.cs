@@ -1,4 +1,5 @@
 using MonAlbumPc.Core.Import;
+using MonAlbumPc.Core.Media;
 using MonAlbumPc.Core.Model;
 using MonAlbumPc.Core.Storage;
 
@@ -92,10 +93,52 @@ public sealed class AlbumJournalsTests : IDisposable
         Assert.True(_pc.History.Contains(_pcAlbum.Id, "abc"));
     }
 
-    private static ImportResult Import(CoreServices core, Album album, byte[] bytes, string name)
+    [Fact]
+    public void Journal_lines_carry_the_phone_folder_when_known()
+    {
+        Import(_nas, _nasAlbum, TestImages.Jpeg(seed: 6), "A.jpg", "Appareil photo/A.jpg");
+        Import(_nas, _nasAlbum, TestImages.Jpeg(seed: 7), "B.jpg");
+
+        var lines = File.ReadAllLines(Path.Combine(AlbumJournals.Folder(_nasAlbum.DestinationRoot), $"{_nas.Identity.PcId}.jsonl"));
+        Assert.Contains("\"source\":\"Appareil photo\"", lines[0]);
+        Assert.DoesNotContain("source", lines[1]);
+        Assert.DoesNotContain("originalSize", lines[0]); // same size on the phone and in the album
+    }
+
+    [Fact]
+    public void Provenance_comes_from_the_catalog_and_from_the_other_servers_journals()
+    {
+        var nasPhoto = Import(_nas, _nasAlbum, TestImages.Jpeg(seed: 8), "IMG_1.jpg", "WhatsApp Images/IMG_1.jpg").DestinationPath!;
+        var pcPhoto = Import(_pc, _pcAlbum, TestImages.Jpeg(seed: 9), "IMG_2.jpg", "Telegram/IMG_2.jpg").DestinationPath!;
+        var folder = AlbumJournals.Folder(_pcAlbum.DestinationRoot);
+        File.AppendAllText(Path.Combine(folder, $"{Guid.NewGuid()}.jsonl"),
+            """{"sha256":"abc","name":"IMG-20231126-WA0007.jpg","size":10,"path":"2023/2023-11/IMG-20231126-WA0007.jpg","takenAt":null,"device":null,"importedAt":"2026-10-20T08:00:00+02:00"}""" + "\n");
+
+        var provenance = AlbumProvenance.Load(_pc.History, _pcAlbum);
+
+        Assert.Equal(MediaSourceKind.WhatsApp, provenance.Of(nasPhoto).Kind);
+        Assert.Equal("Telegram", provenance.Of(pcPhoto).Label);
+        // An old line without folder: the name tells.
+        Assert.Equal(MediaSourceKind.WhatsApp,
+            provenance.Of(Path.Combine(_pcAlbum.DestinationRoot, "2023", "2023-11", "IMG-20231126-WA0007.jpg")).Kind);
+    }
+
+    [Fact]
+    public void A_converted_photo_is_known_to_the_other_server_by_its_size_on_the_phone()
+    {
+        var heic = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "sample.heic"));
+        var saved = Import(_nas, _nasAlbum, heic, "IMG_1.heic");
+        Assert.NotEqual(heic.Length, new FileInfo(saved.DestinationPath!).Length);
+
+        Assert.True(_pc.History.ContainsNameAndSize(_pcAlbum.Id, "IMG_1.heic", heic.Length));
+        Assert.True(_nas.History.ContainsNameAndSize(_nasAlbum.Id, "IMG_1.heic", heic.Length));
+    }
+
+    private static ImportResult Import(CoreServices core, Album album, byte[] bytes, string name, string? sourcePath = null)
     {
         var temp = Path.Combine(Path.GetTempPath(), "monalbumpc-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.GetDirectoryName(temp)!);
         File.WriteAllBytes(temp, bytes);
-        return core.Import.Import(new IncomingFile(temp, Hashing.Sha256(bytes), name, album.Id, null, ImportChannel.Wifi));
+        return core.Import.Import(new IncomingFile(temp, Hashing.Sha256(bytes), name, album.Id, null, ImportChannel.Wifi, sourcePath));
     }
 }

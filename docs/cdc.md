@@ -335,6 +335,17 @@ nom, taille, chemin relatif, date de prise de vue, position, téléphone, date d
 fichier** (aucune écriture concurrente à travers le réseau) et lit ceux des autres. Au démarrage, un serveur exporte dans le
 journal les imports faits avant l'existence des journaux.
 
+```json
+{"sha256":"…","name":"IMG-20231126-WA0007.jpg","size":184211,"path":"2023/2023-11/IMG-20231126-WA0007.jpg",
+ "takenAt":"2023-11-26T10:12:00","device":"Pixel de Marie","importedAt":"2026-11-19T08:00:00+01:00",
+ "latitude":43.29,"longitude":5.37,"source":"WhatsApp Images","originalSize":183920}
+```
+
+`sha256` est l'empreinte des octets envoyés par le téléphone, `size` la taille du fichier rangé. Champs facultatifs, absents
+quand inconnus (les lignes plus anciennes ne les ont pas, un lecteur plus ancien les ignore) : `latitude`/`longitude`,
+`source` (dossier du téléphone, d'où la provenance) et `originalSize` (taille sur le téléphone, seulement quand le fichier
+rangé diffère : HEIC converti, mot-clé de provenance ajouté ; c'est elle que compare `/check-names`).
+
 Les journaux servent aussi à la visionneuse : pour un nouveau fichier de même chemin et de même taille, la date et la
 position viennent du journal **sans ouvrir le fichier** (ouvrir des milliers de fichiers en SMB est lent), et le téléphone
 d'origine s'affiche dans le panneau d'informations.

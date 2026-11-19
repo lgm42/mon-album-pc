@@ -167,7 +167,9 @@ retrouve en une fois ce que le PC a déjà, au lieu de recalculer l'empreinte de
 Requête : `{ "items": [ { "name": "IMG_20261017_131705.jpg", "size": 2621440 } ] }` (1 000 éléments au maximum).
 
 Réponse : `{ "have": [0, 3] }` : positions, dans la requête, des fichiers que le PC a déjà dans cet album
-(même nom d'origine et même taille). Le téléphone les marque comme sauvegardés sans les envoyer.
+(même nom d'origine et même taille). Le téléphone les marque comme sauvegardés sans les envoyer. La taille comparée est
+celle du fichier sur le téléphone, même quand le fichier rangé diffère (HEIC converti en JPEG, mot-clé de provenance
+ajouté).
 
 ### 5.3 Envoi reprenable
 
@@ -189,6 +191,9 @@ Réponse : `{ "have": [0, 3] }` : positions, dans la requête, des fichiers que 
 
 - `takenAt` : date de prise de vue connue du téléphone (MediaStore), ou `null`. Le PC lit lui-même
   l'EXIF et ne se sert de cette valeur qu'en secours.
+- `sourceFolder` : nom du dossier du téléphone (« Appareil photo », « WhatsApp Images », « Captures d'écran »…), ou
+  `null`. Le serveur en tire la provenance du fichier (filtre des visionneuses, mot-clé ajouté aux photos qui ne viennent
+  pas de l'appareil photo).
 - `runPosition`, `runTotal` (facultatifs) : rang de ce fichier dans le passage en cours (1 = premier) et nombre de
   fichiers que ce passage traite. Ils ne servent qu'à l'affichage côté serveur (« fichier 19 sur 20 ») ; un téléphone
   plus ancien ne les envoie pas, un serveur plus ancien les ignore.

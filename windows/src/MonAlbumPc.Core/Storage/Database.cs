@@ -93,6 +93,9 @@ public sealed class Database
         """
         ALTER TABLE sessions ADD COLUMN complete INTEGER NOT NULL DEFAULT 0;
         """,
+        """
+        ALTER TABLE imports ADD COLUMN original_size INTEGER;
+        """,
     ];
 
     private readonly string _connectionString;

@@ -1,12 +1,16 @@
 using System.Globalization;
+using MonAlbumPc.Core.Media;
+using MonAlbumPc.Core.Model;
 
 namespace MonAlbumPc.Core.Storage;
 
 public enum ImportChannel { Wifi, Usb }
 
 /// <summary>
-/// A file imported into an album. <see cref="Sha256"/> is the hash of the original bytes, before any conversion.
-/// <see cref="Location"/> is only known right after the import (it is kept in the <c>media</c> table, not here).
+/// A file imported into an album. <see cref="Sha256"/> is the hash of the original bytes, before any conversion, and
+/// <see cref="OriginalSize"/> their size, when it differs from the <see cref="Size"/> of the file in the album (HEIC
+/// converted to JPEG, provenance keyword added). <see cref="Location"/> is only known right after the import (it is kept in
+/// the <c>media</c> table, not here).
 /// </summary>
 public sealed record ImportRecord(
     string Sha256,
@@ -19,7 +23,8 @@ public sealed record ImportRecord(
     DateTime? TakenAt,
     ImportChannel Channel,
     DateTimeOffset ImportedAt,
-    MonAlbumPc.Core.Media.GeoPoint? Location = null);
+    MonAlbumPc.Core.Media.GeoPoint? Location = null,
+    long? OriginalSize = null);
 
 /// <summary>A media file found in an album folder by the indexer (imported manually, before the app).</summary>
 public sealed record IndexEntry(Guid AlbumId, string Path, string Sha256, long Size, string Name, DateTime? TakenAt, DateTimeOffset ModifiedAt);
@@ -37,11 +42,12 @@ public sealed class ImportHistory(Database database)
         using var connection = database.Open();
         connection.Execute(
             """
-            INSERT INTO imports (sha256, album_id, device_id, size, original_name, source_path, dest_path, taken_at, channel, imported_at)
-            VALUES ($sha, $album, $device, $size, $name, $source, $dest, $taken, $channel, $imported)
+            INSERT INTO imports (sha256, album_id, device_id, size, original_size, original_name, source_path, dest_path, taken_at, channel, imported_at)
+            VALUES ($sha, $album, $device, $size, $original_size, $name, $source, $dest, $taken, $channel, $imported)
             """,
             ("$sha", record.Sha256), ("$album", record.AlbumId.ToString()), ("$device", record.DeviceId?.ToString()),
-            ("$size", record.Size), ("$name", record.OriginalName), ("$source", record.SourcePath), ("$dest", record.DestPath),
+            ("$size", record.Size), ("$original_size", record.OriginalSize == record.Size ? null : record.OriginalSize),
+            ("$name", record.OriginalName), ("$source", record.SourcePath), ("$dest", record.DestPath),
             ("$taken", ToWallClock(record.TakenAt)), ("$channel", record.Channel.ToString().ToLowerInvariant()),
             ("$imported", record.ImportedAt.ToDb()));
         Journals?.Append(record);
@@ -52,15 +58,40 @@ public sealed class ImportHistory(Database database)
         using var connection = database.Open();
         return connection.Query(
             """
-            SELECT sha256, album_id, device_id, size, original_name, source_path, dest_path, taken_at, channel, imported_at
+            SELECT sha256, album_id, device_id, size, original_name, source_path, dest_path, taken_at, channel, imported_at, original_size
             FROM imports WHERE album_id = $album ORDER BY id
             """,
             r => new ImportRecord(
                 r.GetString(0), Guid.Parse(r.GetString(1)), r.IsDBNull(2) ? null : Guid.Parse(r.GetString(2)), r.GetInt64(3),
                 r.GetString(4), r.GetNullableString(5), r.GetString(6),
                 r.IsDBNull(7) ? null : DateTime.ParseExact(r.GetString(7), WallClock, CultureInfo.InvariantCulture),
-                Enum.Parse<ImportChannel>(r.GetString(8), ignoreCase: true), SqliteExtensions.ParseDate(r.GetString(9))),
+                Enum.Parse<ImportChannel>(r.GetString(8), ignoreCase: true), SqliteExtensions.ParseDate(r.GetString(9)),
+                OriginalSize: r.IsDBNull(10) ? null : r.GetInt64(10)),
             ("$album", albumId.ToString()));
+    }
+
+    /// <summary>
+    /// Phone folder ("WhatsApp Images", "Appareil photo"…) of the files of an album, by path relative to the album folder
+    /// with '/' separators: imports of this server, then those journaled by the others. Files without one are left out.
+    /// </summary>
+    public Dictionary<string, string> SourceFolders(Album album)
+    {
+        var folders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (path, folder) in Journals?.SourceFolders(album.Id) ?? [])
+        {
+            folders[path] = folder;
+        }
+        using var connection = database.Open();
+        foreach (var (dest, source) in connection.Query(
+                     "SELECT dest_path, source_path FROM imports WHERE album_id = $album AND source_path IS NOT NULL",
+                     r => (Dest: r.GetString(0), Source: r.GetString(1)), ("$album", album.Id.ToString())))
+        {
+            if (MediaSource.FolderOf(source) is { } folder)
+            {
+                folders[Path.GetRelativePath(album.DestinationRoot, dest).Replace('\\', '/')] = folder;
+            }
+        }
+        return folders;
     }
 
     /// <summary>True when these bytes are already in the album, imported by the app or found by the indexer.</summary>
@@ -82,14 +113,16 @@ public sealed class ImportHistory(Database database)
 
     /// <summary>
     /// Quick match without hashing, for a phone that lost its local index (app reinstalled): a file of this album
-    /// with the same original name and size was already imported or found in the album folder.
+    /// with the same original name and size was already imported or found in the album folder. The size is the one on
+    /// the phone, before any conversion or keyword.
     /// </summary>
     public bool ContainsNameAndSize(Guid albumId, string name, long size)
     {
         using var connection = database.Open();
         return connection.Scalar(
             """
-            SELECT 1 WHERE EXISTS (SELECT 1 FROM imports WHERE album_id = $album AND original_name = $name COLLATE NOCASE AND size = $size)
+            SELECT 1 WHERE EXISTS (SELECT 1 FROM imports WHERE album_id = $album AND original_name = $name COLLATE NOCASE
+                                                         AND (size = $size OR original_size = $size))
                         OR EXISTS (SELECT 1 FROM index_entries WHERE album_id = $album AND name = $name COLLATE NOCASE AND size = $size)
             """,
             ("$album", albumId.ToString()), ("$name", name), ("$size", size)) is not null

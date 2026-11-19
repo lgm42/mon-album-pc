@@ -50,6 +50,7 @@ public sealed class ImportService(AlbumStore albums, ImportHistory history, Time
             throw new HashMismatchException(file.Sha256, actual);
         }
 
+        var originalSize = new FileInfo(file.TempPath).Length;
         var originalName = SafeFileName(file.OriginalName);
         var fileDate = file.ModifiedAt?.LocalDateTime ?? File.GetLastWriteTime(file.TempPath);
         var taken = TakenDateResolver.Resolve(file.TempPath, originalName, file.PhoneTakenAt, fileDate);
@@ -94,7 +95,7 @@ public sealed class ImportService(AlbumStore albums, ImportHistory history, Time
         var location = MediaMetadata.Read(destination).Location;
         history.Record(new ImportRecord(
             actual, album.Id, file.DeviceId, new FileInfo(destination).Length, file.OriginalName, file.SourcePath,
-            destination, taken.Value, file.Channel, clock.GetLocalNow(), location));
+            destination, taken.Value, file.Channel, clock.GetLocalNow(), location, originalSize));
         media?.Record(album, destination, taken.Value, location);
         return new ImportResult(ImportOutcome.Saved, destination);
     }
