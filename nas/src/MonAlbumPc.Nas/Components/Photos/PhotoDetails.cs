@@ -6,7 +6,7 @@ using MonAlbumPc.Nas.Media;
 namespace MonAlbumPc.Nas.Components.Photos;
 
 /// <summary>What the viewer tells about a photo or video (as the information pane of the Windows viewer).</summary>
-public sealed record PhotoDetails(DateTime Taken, string Phone, string Dimensions, string Folder)
+public sealed record PhotoDetails(DateTime Taken, string Phone, string Dimensions, string Folder, string Provenance = "")
 {
     /// <summary>Reads the file metadata and the import history: call it off the render thread.</summary>
     public static PhotoDetails Read(CoreServices core, PhotoEntry entry)
@@ -20,7 +20,10 @@ public sealed record PhotoDetails(DateTime Taken, string Phone, string Dimension
         var folder = Path.GetDirectoryName(entry.Relative.Replace('/', Path.DirectorySeparatorChar)) is { Length: > 0 } dir
             ? $"{entry.Album.Name} · {dir.Replace(Path.DirectorySeparatorChar, '/')}/"
             : entry.Album.Name;
-        return new PhotoDetails(taken, phone, dimensions is { } d ? $"{d.Width} × {d.Height} · {size}" : size, folder);
+        var source = entry.Source
+                     ?? Safe(() => AlbumProvenance.Load(core.History, entry.Album).Of(entry.Path))
+                     ?? MediaSource.Classify(null, entry.Path);
+        return new PhotoDetails(taken, phone, dimensions is { } d ? $"{d.Width} × {d.Height} · {size}" : size, folder, source.Label);
     }
 
     private static T? Safe<T>(Func<T?> read)

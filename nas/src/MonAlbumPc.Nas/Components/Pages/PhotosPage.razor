@@ -24,6 +24,14 @@
                 <span class="caption">@Formatting.Count(filter.Count)</span>
             </button>
         }
+        <div class="caption filter-title">Provenance</div>
+        @foreach (var filter in _sourceFilters)
+        {
+            <button type="button" class="filter-item @(filter.Key == _sourceKey ? "active" : "")" @onclick="() => ChooseSource(filter.Key)">
+                <span class="ellipsis">@filter.Label</span>
+                <span class="caption">@Formatting.Count(filter.Count)</span>
+            </button>
+        }
         <div class="caption filter-title">Dates</div>
         <button type="button" class="filter-item @(_dateKey is null ? "active" : "")" @onclick="() => ChooseDate(null)">
             <span class="ellipsis">Toutes les dates</span>
@@ -49,6 +57,9 @@
                           OptionText="AlbumOptionText"
                           SelectedOption="@_albumFilters.FirstOrDefault(f => f.Key == _albumKey)"
                           SelectedOptionChanged="f => ChooseAlbum(f?.Key)" Width="100%" />
+            <FluentSelect TOption="PhotoFilter" AriaLabel="Provenance" Items="_sourceFilters" OptionValue="f => f.Key"
+                          OptionText="SourceOptionText" SelectedOption="@_sourceFilters.FirstOrDefault(f => f.Key == _sourceKey)"
+                          SelectedOptionChanged="f => ChooseSource(f?.Key)" Width="100%" />
             <FluentSelect TOption="PhotoFilter" AriaLabel="Période" Items="NarrowDates" OptionValue="f => f.Key"
                           OptionText="DateOptionText" SelectedOption="@NarrowDates.FirstOrDefault(f => f.Key == (_dateKey ?? AllDatesKey))"
                           SelectedOptionChanged="OnNarrowDateChanged" Width="100%" />
@@ -132,7 +143,7 @@
 
             @if (_model is null)
             {
-                <div class="photo-loading"><FluentProgressRing /><span class="muted">Lecture des albums…</span></div>
+                <div class="photo-loading"><FluentProgressRing /><span class="muted">Lecture des albums et des provenances…</span></div>
             }
             else if (_model.IsEmpty)
             {
@@ -185,7 +196,9 @@
     private bool _loading;
     private IReadOnlyList<PhotoFilter> _albumFilters = [];
     private IReadOnlyList<PhotoFilter> _dateFilters = [];
+    private IReadOnlyList<PhotoFilter> _sourceFilters = [];
     private string _albumKey = PhotosModel.AllKey;
+    private string _sourceKey = PhotosModel.AllSourcesKey;
     private string? _dateKey;
     private List<PhotoEntry> _view = [];
 
@@ -213,6 +226,8 @@
 
     private Guid? AlbumId => _albumFilters.FirstOrDefault(f => f.Key == _albumKey)?.AlbumId;
 
+    private PhotoFilter? Source => _sourceFilters.FirstOrDefault(f => f.Key == _sourceKey && f.Source is not null);
+
     private IReadOnlyList<PhotoFilter> NarrowDates =>
         [new(AllDatesKey, "Toutes les dates", _dateFilters.Where(f => f.IsYear).Sum(f => f.Count)), .. _dateFilters];
 
@@ -227,7 +242,8 @@
             var album = _albumFilters.FirstOrDefault(f => f.Key == _albumKey)?.Label ?? "Tous les albums";
             var date = _dateFilters.FirstOrDefault(f => f.Key == _dateKey);
             var period = date is null ? "" : date.Month is { } m ? $" · {Formatting.Month(m)}" : $" · {date.Label}";
-            return $"{album}{period} · {Formatting.Plural(_view.Count, "élément", "éléments")}";
+            var source = Source is { } s ? $" · {s.Label}" : "";
+            return $"{album}{source}{period} · {Formatting.Plural(_view.Count, "élément", "éléments")}";
         }
     }
 
@@ -236,6 +252,9 @@
         : $"Corbeille : {Formatting.Plural(_trash.Files, "élément", "éléments")} · {Formatting.Size(_trash.Bytes)}";
 
     private static string AlbumOptionText(PhotoFilter filter) => $"{filter.Label} ({Formatting.Count(filter.Count)})";
+
+    private static string SourceOptionText(PhotoFilter filter) =>
+        filter.Source is null ? $"Toutes les provenances ({Formatting.Count(filter.Count)})" : AlbumOptionText(filter);
 
     private static string DateOptionText(PhotoFilter filter) =>
         $"{(filter.Month is { } month ? Formatting.Month(month) : filter.Label)} ({Formatting.Count(filter.Count)})";
@@ -321,11 +340,25 @@
         {
             _albumKey = PhotosModel.AllKey;
         }
-        _dateFilters = _model.DateFilters(AlbumId);
+        // Counts of each filter follow the choices made in the others.
+        _sourceFilters = _model.SourceFilters(AlbumId, null);
+        if (_sourceFilters.All(f => f.Key != _sourceKey))
+        {
+            _sourceKey = PhotosModel.AllSourcesKey;
+        }
+        _dateFilters = _model.DateFilters(AlbumId, Source?.Source);
         if (_dateFilters.All(f => f.Key != _dateKey))
         {
             _dateKey = null;
         }
+        _sourceFilters = _model.SourceFilters(AlbumId, _dateFilters.FirstOrDefault(f => f.Key == _dateKey));
+    }
+
+    private void ChooseSource(string? key)
+    {
+        _sourceKey = key ?? PhotosModel.AllSourcesKey;
+        BuildFilters();
+        BuildView(keep: null);
     }
 
     private async Task ChooseAlbum(string? key)
@@ -340,6 +373,7 @@
     private void ChooseDate(string? key)
     {
         _dateKey = key;
+        BuildFilters();
         BuildView(keep: null);
     }
 
@@ -353,7 +387,7 @@
             return;
         }
         var previous = _view;
-        _view = _model.View(AlbumId, _dateFilters.FirstOrDefault(f => f.Key == _dateKey));
+        _view = _model.View(AlbumId, _dateFilters.FirstOrDefault(f => f.Key == _dateKey), Source?.Source);
         var shown = _view.ToHashSet();
         _selected.IntersectWith(shown);
         _anchor = null;

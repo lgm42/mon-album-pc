@@ -52,6 +52,7 @@
                 {
                     <div class="lb-line"><span class="lb-label">Prise de vue</span><span>@details.Taken.ToString("d MMMM yyyy 'à' HH:mm", Formatting.French)</span></div>
                     <div class="lb-line"><span class="lb-label">Téléphone d'origine</span><span>@details.Phone</span></div>
+                    <div class="lb-line"><span class="lb-label">Provenance</span><span>@details.Provenance</span></div>
                     <div class="lb-line"><span class="lb-label">@(Entry.IsVideo ? "Taille" : "Dimensions · taille")</span><span>@details.Dimensions</span></div>
                     <div class="lb-line"><span class="lb-label">Album · dossier</span><span class="lb-folder">@details.Folder</span></div>
                     @ExtraInfo
