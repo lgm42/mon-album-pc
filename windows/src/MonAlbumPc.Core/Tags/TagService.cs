@@ -140,9 +140,8 @@ public sealed class TagService(AlbumStore albums, ImportHistory history, TagCata
                 var old = tags.Where(t => UserTags.IsWithin(t, from)).ToList();
                 return ([.. old.Select(Map)], old);
             },
-            n => merge
-                ? $"Tag « {from} » fusionné dans « {name} » sur {WorkText.Plural(n, "photo", "photos")}"
-                : $"Tag « {from} » renommé en « {name} » sur {WorkText.Plural(n, "photo", "photos")}",
+            n => (merge ? $"Tag « {from} » fusionné dans « {name} »" : $"Tag « {from} » renommé en « {name} »")
+                 + (n > 0 ? $" sur {WorkText.Plural(n, "photo", "photos")}" : ""),
             null);
     }
 
@@ -158,7 +157,7 @@ public sealed class TagService(AlbumStore albums, ImportHistory history, TagCata
                 return Targets(tag);
             },
             tags => ([], [.. tags.Where(t => UserTags.IsWithin(t, tag))]),
-            n => $"Tag « {tag} » supprimé de {WorkText.Plural(n, "photo", "photos")}",
+            n => $"Tag « {tag} » supprimé" + (n > 0 ? $" de {WorkText.Plural(n, "photo", "photos")}" : ""),
             null);
 
     private List<TagTarget> Targets(string tag)
@@ -256,7 +255,10 @@ public sealed class TagService(AlbumStore albums, ImportHistory history, TagCata
         {
             text += $", {WorkText.Count(failures.Count)} en échec";
         }
-        text += $" en {WorkText.Duration(watch.Elapsed)}";
+        if (files.Count > 0)
+        {
+            text += $" en {WorkText.Duration(watch.Elapsed)}";
+        }
         job.Finish(text, failures.Count > 0 ? WorkLevel.Warning : WorkLevel.Info);
         return new TagRunResult(text, changed, unchanged, failures);
 

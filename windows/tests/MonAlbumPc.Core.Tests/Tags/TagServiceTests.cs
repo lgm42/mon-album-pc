@@ -140,7 +140,8 @@ public sealed class TagServiceTests : IDisposable
         _viewer.Tags.Poll();
         Assert.Equal([new TagCount("Vacances/Bretagne", 0)], _viewer.Tags.List());
 
-        await _viewer.Tags.DeleteAsync("Vacances/Bretagne");
+        var deleted = await _viewer.Tags.DeleteAsync("Vacances/Bretagne");
+        Assert.Equal("Tag « Vacances/Bretagne » supprimé", deleted.Summary);
         Assert.Empty(_viewer.Tags.List());
         _nas.Tags.Poll();
         Assert.Empty(_nas.Tags.List());
