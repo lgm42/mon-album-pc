@@ -216,6 +216,13 @@ Gradle et SDK Android (quelques Go) dans le dossier temporaire de session de Cla
 <!-- workload: easy -->
 <!-- assignee: Nicolas -->
 
+#### Test Windows instable sur la CI
+<!-- id: task-1794400000000-91 -->
+<!-- group:  -->
+Build 27 (tags) : job Windows en échec à l'étape Test, build 28 vert avec le même code ; non reproduit en local (12 passes). Récupérer le journal du job pour nommer le test.
+Tags: `ci`
+<!-- assignee: Claude -->
+
 ## DOING
 
 ### Déploiement TrueNAS
