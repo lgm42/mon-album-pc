@@ -109,9 +109,6 @@
 @code {
     private const string RootKey = "";
 
-    // The titles of the TagService operations, to show their progress here.
-    private static readonly string[] TagWork = ["Ajout du tag", "Retrait du tag", "Renommage du tag", "Fusion du tag", "Suppression du tag"];
-
     private ConfirmDialog _confirm = default!;
     private List<TagCount> _tags = [];
     private Dictionary<string, int> _counts = new(UserTags.Same);
@@ -187,33 +184,8 @@
             Core.Tags.CountWithin(from),
             Core.Tags.Children(from).Count,
             !UserTags.Same.Equals(from, to) && Core.Tags.Exists(to) ? Core.Tags.CountWithin(to) : -1));
-        var merge = already >= 0;
-        var subject = children == 0 ? $"Le tag « {from} »" : $"Le tag « {from} » et {SubTags(children)}";
-        var photos = Formatting.Plural(count, "photo", "photos");
-        string line;
-        if (merge)
-        {
-            line = count == 0
-                ? $"{subject} {(children == 0 ? "sera fusionné" : "seront fusionnés")} dans « {to} »."
-                : children == 0
-                    ? $"Le tag « {from} » de {photos} sera fusionné dans « {to} » (déjà posé sur {Formatting.Plural(already, "photo", "photos")})."
-                    : $"{subject}, posés sur {photos}, seront fusionnés dans « {to} » (déjà posé sur {Formatting.Plural(already, "photo", "photos")}).";
-        }
-        else
-        {
-            line = count == 0
-                ? $"{subject} {(children == 0 ? "sera renommé" : "seront renommés")} en « {to} »."
-                : children == 0
-                    ? $"Le tag « {from} » de {photos} sera renommé en « {to} »."
-                    : $"{subject}, posés sur {photos}, seront renommés en « {to} ».";
-        }
-        List<string> lines = [line];
-        if (count > 0)
-        {
-            lines.Add("Les fichiers sont modifiés en arrière-plan ; l'avancement s'affiche ici et dans Activité.");
-        }
-        if (!await _confirm.AskAsync(merge ? $"Fusionner « {from} » dans « {to} » ?" : $"Renommer « {from} » ?", lines,
-                merge ? "Fusionner" : "Renommer"))
+        var question = TagQuestions.Rename(from, to, count, children, already >= 0 ? already : null);
+        if (!await _confirm.AskAsync(question.Title, Lines(question), question.Action))
         {
             return;
         }
@@ -225,26 +197,15 @@
         _editing = null;
         _creatingUnder = null;
         var (count, children) = await Task.Run(() => (Core.Tags.CountWithin(tag), Core.Tags.Children(tag).Count));
-        var photos = Formatting.Plural(count, "photo", "photos");
-        List<string> lines = children == 0
-            ? [count == 0 ? "Ce tag n'est posé sur aucune photo." : $"Ce tag est posé sur {photos}. Voulez-vous le supprimer ?"]
-            : [count == 0
-                ? $"« {tag} » et {SubTags(children)} ne sont posés sur aucune photo. Voulez-vous les supprimer ?"
-                : $"« {tag} » et {SubTags(children)} sont posés sur {photos}. Voulez-vous les supprimer ?"];
-        if (count > 0)
-        {
-            lines.Add(children == 0
-                ? "Il sera retiré des fichiers ; les photos elles-mêmes sont conservées."
-                : "Ils seront retirés des fichiers ; les photos elles-mêmes sont conservées.");
-        }
-        if (!await _confirm.AskAsync($"Supprimer le tag « {tag} » ?", lines, "Supprimer", destructive: true))
+        var question = TagQuestions.Delete(tag, count, children);
+        if (!await _confirm.AskAsync(question.Title, Lines(question), question.Action, destructive: true))
         {
             return;
         }
         await RunAsync(Core.Tags.DeleteAsync(tag));
     }
 
-    private static string SubTags(int children) => children == 1 ? "son sous-tag" : $"ses {children} sous-tags";
+    private static List<string> Lines(TagQuestion question) => question.Detail is { } detail ? [question.Message, detail] : [question.Message];
 
     /// <summary>Waits for an operation running in the background, then tells how it went.</summary>
     private async Task RunAsync(Task<TagRunResult> operation)
@@ -279,8 +240,7 @@
         StateHasChanged();
     }
 
-    private void UpdateRunning() =>
-        _running = [.. Core.Work.Running.Where(w => TagWork.Any(prefix => w.Title.StartsWith(prefix, StringComparison.Ordinal)))];
+    private void UpdateRunning() => _running = [.. Core.Work.Running.Where(TagQuestions.IsTagWork)];
 
     // Both raised on server threads.
     private void OnTagsChanged() => _ = InvokeAsync(async () =>
