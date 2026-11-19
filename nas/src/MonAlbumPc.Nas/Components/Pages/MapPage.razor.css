@@ -1,0 +1,267 @@
+/* The map on the left, the photos of the visible area on the right (below it on phones). The grid tiles and month titles
+   are those of the Photos page (app.css). */
+
+.map-page {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 420px;
+    height: 100%;
+    min-height: 0;
+}
+
+.map-area {
+    position: relative;
+    z-index: 0; /* Leaflet's controls stay under the viewer */
+    min-width: 0;
+    min-height: 0;
+    border-right: 1px solid var(--app-card-stroke);
+    background: var(--app-subtle-selected);
+    border-top-left-radius: 8px;
+    overflow: hidden;
+}
+
+.map-canvas {
+    position: absolute;
+    inset: 0;
+    background: var(--app-subtle-selected);
+}
+
+.map-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    pointer-events: none;
+}
+
+.map-card {
+    max-width: 380px;
+    padding: 16px 20px;
+    text-align: center;
+    pointer-events: auto;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .18);
+}
+
+.map-card h2 {
+    margin: 0 0 6px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.map-card p {
+    margin: 0 0 12px;
+}
+
+.map-card p:last-child {
+    margin-bottom: 0;
+}
+
+.map-wait {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.map-banner {
+    position: absolute;
+    top: 12px;
+    left: 56px;
+    right: 12px;
+    z-index: 1000;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    max-width: 520px;
+    padding: 8px 12px;
+    background: var(--app-caution-bg);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .14);
+}
+
+.map-side {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+}
+
+.map-header {
+    display: flex;
+    flex-direction: column;
+    padding: 20px 16px 0 20px;
+}
+
+.map-header h1 {
+    margin: 0;
+    font-size: 28px;
+    line-height: 36px;
+    font-weight: 600;
+}
+
+.map-filters {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+    padding: 12px 16px 4px 20px;
+}
+
+.map-status {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px 16px 0 20px;
+}
+
+.map-side .map-scroll {
+    padding: 0 12px 16px 20px;
+}
+
+.map-selected {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 16px 16px 20px;
+    padding: 10px 8px 10px 12px;
+}
+
+.map-selected-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.lb-place {
+    color: inherit;
+}
+
+/* ---- Leaflet (its elements are made by the script: ::deep) ---- */
+
+.map-canvas.leaflet-container {
+    font: inherit;
+    background: var(--app-subtle-selected);
+}
+
+.map-canvas ::deep .cluster {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--accent-fill-rest);
+    color: var(--foreground-on-accent-rest);
+    font-weight: 600;
+    font-size: 12px;
+    border: 2px solid #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .35);
+    box-sizing: border-box;
+}
+
+.map-canvas ::deep .cluster.large {
+    font-size: 13px;
+}
+
+.map-canvas ::deep .photo-tooltip {
+    padding: 6px;
+    border: none;
+    border-radius: 6px;
+    background: var(--app-card);
+    color: var(--neutral-foreground-rest);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .25);
+    white-space: normal;
+}
+
+.map-canvas ::deep .photo-tooltip::before {
+    border-top-color: var(--app-card);
+}
+
+.map-canvas ::deep .photo-tip {
+    width: 160px;
+}
+
+.map-canvas ::deep .photo-tip img {
+    display: block;
+    width: 160px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 4px;
+    margin-bottom: 4px;
+    background: var(--app-subtle-selected);
+}
+
+.map-canvas ::deep .photo-tip .name {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.map-canvas ::deep .photo-tip .date {
+    font-size: 12px;
+    color: var(--app-text-secondary);
+}
+
+.map-canvas ::deep .leaflet-bar a,
+.map-canvas ::deep .leaflet-control-attribution {
+    background: var(--app-card);
+    color: var(--neutral-foreground-rest);
+}
+
+.map-canvas ::deep .leaflet-control-attribution a {
+    color: var(--app-brand-text);
+}
+
+/* OpenStreetMap only draws light tiles: darkened in the dark theme, photos and controls untouched. */
+@media (prefers-color-scheme: dark) {
+    .map-canvas ::deep .leaflet-tile-pane {
+        filter: invert(1) hue-rotate(180deg) brightness(.9) contrast(.9);
+    }
+}
+
+/* Phones: the map above, the photos of the area below it. */
+@media (max-width: 760px) {
+    .map-page {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(0, 48%) minmax(0, 1fr);
+    }
+
+    .map-area {
+        border-right: none;
+        border-bottom: 1px solid var(--app-card-stroke);
+    }
+
+    .map-header {
+        flex-direction: row;
+        align-items: baseline;
+        gap: 12px;
+        padding: 8px 12px 0;
+    }
+
+    .map-header h1 {
+        font-size: 20px;
+        line-height: 28px;
+    }
+
+    .map-filters {
+        padding: 8px 12px 4px;
+    }
+
+    .map-status {
+        padding: 4px 12px 0;
+    }
+
+    .map-side .map-scroll {
+        padding: 0 8px 12px 12px;
+    }
+
+    .map-selected {
+        display: none;
+    }
+
+    .map-banner {
+        left: 52px;
+        right: 8px;
+        top: 8px;
+        font-size: 12px;
+    }
+}

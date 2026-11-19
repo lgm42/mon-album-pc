@@ -1,0 +1,736 @@
+@page "/map"
+@using System.Globalization
+@using MonAlbumPc.Core.Media
+@using MonAlbumPc.Nas.Components.Map
+@using MonAlbumPc.Nas.Components.Photos
+@implements IAsyncDisposable
+@inject CoreServices Core
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+
+<PageTitle>Carte · Mon Album PC</PageTitle>
+<HeadContent>
+    <link rel="stylesheet" href="@Assets["lib/leaflet/leaflet.css"]" />
+    <link rel="stylesheet" href="@Assets["lib/markercluster/MarkerCluster.css"]" />
+</HeadContent>
+
+<div class="map-page">
+    <section class="map-area" aria-label="Carte">
+        <div class="map-canvas" @ref="_mapElement"></div>
+
+        @if (_tilesFailing)
+        {
+            <div class="map-banner card" role="status">
+                <FluentIcon Value="@(new Icons.Regular.Size16.Warning())" Color="Color.Custom" CustomColor="var(--app-caution)" />
+                <span>Le fond de carte OpenStreetMap ne se charge pas : vérifiez la connexion à Internet de cet appareil. Les photos restent placées.</span>
+            </div>
+        }
+
+        @if (_mapError is not null)
+        {
+            <div class="map-overlay">
+                <div class="map-card card">
+                    <h2>La carte ne peut pas s'afficher</h2>
+                    <p class="muted">@_mapError</p>
+                    <FluentButton Appearance="Appearance.Accent" OnClick="() => Navigation.Refresh(forceReload: true)">Réessayer</FluentButton>
+                </div>
+            </div>
+        }
+        else if (!_pointsShown)
+        {
+            <div class="map-overlay">
+                <div class="map-card card map-wait">
+                    <FluentProgressRing Width="20px" />
+                    <span>@(_mapReady ? "Chargement des positions…" : "Chargement de la carte…")</span>
+                </div>
+            </div>
+        }
+        else if (_model is { IsEmpty: true })
+        {
+            <div class="map-overlay">
+                <div class="map-card card">
+                    @if (_indexing)
+                    {
+                        <h2>Recherche des lieux de prise de vue…</h2>
+                        <p class="muted">Le serveur lit les positions des photos. Elles apparaîtront ici au fur et à mesure.</p>
+                    }
+                    else
+                    {
+                        <h2>Aucune photo localisée pour l'instant.</h2>
+                        <p class="muted">Les photos prises avec la localisation activée apparaîtront ici.</p>
+                    }
+                </div>
+            </div>
+        }
+        else if (_model is { Points.Count: 0 })
+        {
+            <div class="map-overlay">
+                <div class="map-card card"><p class="muted">Aucune photo localisée ne correspond à ces filtres.</p></div>
+            </div>
+        }
+    </section>
+
+    <aside class="map-side" aria-label="Photos de la zone">
+        <div class="map-header">
+            <h1>Carte</h1>
+            <span class="muted ellipsis">@Caption</span>
+        </div>
+
+        <div class="map-filters">
+            <FluentSelect TOption="PhotoFilter" AriaLabel="Album" Items="_albumFilters" OptionValue="f => f.Key"
+                          OptionText="AlbumOptionText" SelectedOption="@_albumFilters.FirstOrDefault(f => f.Key == _albumKey)"
+                          SelectedOptionChanged="f => ChooseAlbum(f?.Key)" Width="100%" Disabled="@(_model is null)" />
+            @* Made again for each album: the select would keep showing the count of the previous one. *@
+            <FluentSelect @key="_albumKey" TOption="PhotoFilter" AriaLabel="Période" Items="Dates" OptionValue="f => f.Key"
+                          OptionText="DateOptionText" SelectedOption="@Dates.FirstOrDefault(f => f.Key == (_dateKey ?? AllDatesKey))"
+                          SelectedOptionChanged="f => ChooseDate(f?.Key is null or AllDatesKey ? null : f.Key)" Width="100%"
+                          Disabled="@(_model is null)" />
+        </div>
+
+        @if (_indexing)
+        {
+            <div class="map-status" role="status">
+                <span class="caption">@IndexingText</span>
+                @if (_progress is { Total: > 0 } p)
+                {
+                    <FluentProgress Min="0" Max="p.Total" Value="p.Done" />
+                }
+                else
+                {
+                    <FluentProgress />
+                }
+            </div>
+        }
+        @if (_unlocated > 0)
+        {
+            <div class="map-status caption" title="Photos et vidéos sans coordonnées GPS : elles ne figurent pas sur la carte.">
+                @Formatting.Plural(_unlocated, "photo sans position", "photos sans position") (absentes de la carte)
+            </div>
+        }
+
+        <div class="photo-scroll map-scroll" @ref="_scroller">
+            <div class="photo-canvas" @ref="_canvas"
+                 style="height:@Px(_layout?.Height ?? 0);--tile:@Px(_layout?.Tile ?? 0);--cols:@(_layout?.Columns ?? 1)">
+                @foreach (var row in _visible)
+                {
+                    <div @key="row" class="photo-row @(row.IsTitle ? "title-row" : "")" style="top:@Px(row.Top);height:@Px(row.Height)">
+                        @if (row.IsTitle)
+                        {
+                            <h2 class="month-title">@row.Title <span class="caption">@row.Count</span></h2>
+                        }
+                        else
+                        {
+                            @for (var i = row.Start; i < row.Start + row.Length; i++)
+                            {
+                                var index = i;
+                                var entry = _view[index];
+                                <div @key="entry" class="tile @(_ids[index] == _selected ? "selected" : "")" title="@entry.Name"
+                                     @onclick="() => OnTileClick(index)" @ondblclick="() => OpenViewer(index)">
+                                    <img src="@entry.ThumbUrl" alt="" loading="lazy" decoding="async" draggable="false" onerror="this.style.visibility='hidden'" />
+                                    @if (entry.IsVideo)
+                                    {
+                                        <span class="tile-badge">@PlayIcon Vidéo</span>
+                                    }
+                                </div>
+                            }
+                        }
+                    </div>
+                }
+            </div>
+
+            @if (_model is { Points.Count: > 0 } && _view.Count == 0)
+            {
+                <div class="history-empty muted">Aucune photo dans cette zone. Déplacez la carte ou dézoomez pour en voir d'autres.</div>
+            }
+        </div>
+
+        @if (SelectedPoint is { } point && _model is not null)
+        {
+            var entry = _model.Entry(_selected!.Value);
+            <div class="map-selected card">
+                <div class="map-selected-text">
+                    <b class="ellipsis">@entry.Name</b>
+                    <span class="caption ellipsis">@point.TakenAt.ToString("d MMMM yyyy 'à' HH:mm", Formatting.French) · @entry.Album.Name</span>
+                    <span class="caption">@Coordinates(point)</span>
+                </div>
+                <FluentButton Appearance="Appearance.Stealth" IconStart="@(new Icons.Regular.Size20.Open())" Title="Afficher en grand (Entrée)"
+                              OnClick="OpenSelected" />
+            </div>
+        }
+    </aside>
+</div>
+
+@if (Current is { } current)
+{
+    var position = _viewerIndex!.Value;
+    var place = _model!.Points[_ids[position]];
+    <PhotoLightbox Entry="current" Position="position" Count="_view.Count" Details="_details" @bind-ShowInfo="_showInfo"
+                   Neighbours="Neighbours(position)" OnMove="Move" OnClose="CloseViewer">
+        <ExtraInfo>
+            <div class="lb-line">
+                <span class="lb-label">Lieu</span>
+                <a class="lb-place" href="@OpenStreetMapUrl(place)" target="_blank" rel="noopener">@Coordinates(place)</a>
+            </div>
+        </ExtraInfo>
+    </PhotoLightbox>
+}
+
+@code {
+    private const string AllDatesKey = "all-dates";
+    private const int TileSize = 112;
+
+    private static readonly MarkupString PlayIcon = new(
+        """<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg>""");
+
+    private ElementReference _mapElement;
+    private ElementReference _scroller;
+    private ElementReference _canvas;
+    private IJSObjectReference? _module;
+    private DotNetObjectReference<MapPage>? _self;
+    private bool _mapReady;
+    private string? _mapError;
+    private bool _tilesFailing;
+    private bool _touch;
+    private bool _fitNext = true;
+
+    private MapModel? _model;
+    private int _generation;
+    private bool _pointsShown;
+    private bool _loading;
+    private bool _reloadPending;
+    private IReadOnlyList<PhotoFilter> _albumFilters = [];
+    private IReadOnlyList<PhotoFilter> _dateFilters = [];
+    private string _albumKey = PhotosModel.AllKey;
+    private string? _dateKey;
+    private int _unlocated;
+    private int _countVersion;
+
+    private bool _indexing;
+    private MediaIndexProgress? _progress;
+    private long _progressShownAt;
+
+    private GeoBounds? _bounds;
+    private List<int> _ids = [];
+    private List<PhotoEntry> _view = [];
+    private PhotoGridLayout? _layout;
+    private List<PhotoRow> _visible = [];
+    private double _width;
+    private double _scrollTop;
+    private double _viewportHeight;
+    private double? _pendingScroll;
+
+    private int? _selected;
+    private int? _viewerIndex;
+    private PhotoDetails? _details;
+    private bool _showInfo = true;
+
+    private PhotoEntry? Current => _viewerIndex is { } i && i < _view.Count ? _view[i] : null;
+
+    private LocatedMedia? SelectedPoint => _selected is { } id && _model is not null && id < _model.Points.Count ? _model.Points[id] : null;
+
+    private Guid? AlbumId => _albumFilters.FirstOrDefault(f => f.Key == _albumKey)?.AlbumId;
+
+    private PhotoFilter? DateFilter => _dateFilters.FirstOrDefault(f => f.Key == _dateKey);
+
+    private IReadOnlyList<PhotoFilter> Dates =>
+        [new(AllDatesKey, "Toutes les dates", _dateFilters.Where(f => f.IsYear).Sum(f => f.Count)), .. _dateFilters];
+
+    private string Caption => _model is null
+        ? "Chargement des positions…"
+        : _model.Points.Count == 0
+            ? "Aucune photo localisée"
+            : $"{Formatting.Plural(_view.Count, "photo", "photos")} dans cette zone, sur {Formatting.Plural(_model.Points.Count, "localisée", "localisées")}";
+
+    private string IndexingText => _progress is { Total: > 0 } p
+        ? $"Recherche des lieux de prise de vue dans {p.AlbumName} : {Formatting.Count(p.Done)} sur {Formatting.Count(p.Total)}."
+        : "Recherche des lieux de prise de vue dans les albums…";
+
+    private static string AlbumOptionText(PhotoFilter filter) => $"{filter.Label} ({Formatting.Count(filter.Count)})";
+
+    private static string DateOptionText(PhotoFilter filter) =>
+        $"{(filter.Month is { } month ? Formatting.Month(month) : filter.Label)} ({Formatting.Count(filter.Count)})";
+
+    private static string Px(double value) => value.ToString("0.##", CultureInfo.InvariantCulture) + "px";
+
+    private static string Coordinates(LocatedMedia point) => string.Create(Formatting.French,
+        $"{Math.Abs(point.Latitude):0.0000}° {(point.Latitude < 0 ? "S" : "N")}, {Math.Abs(point.Longitude):0.0000}° {(point.Longitude < 0 ? "O" : "E")}");
+
+    private static string OpenStreetMapUrl(LocatedMedia point) => string.Create(CultureInfo.InvariantCulture,
+        $"https://www.openstreetmap.org/?mlat={point.Latitude:0.#####}&mlon={point.Longitude:0.#####}#map=17/{point.Latitude:0.#####}/{point.Longitude:0.#####}");
+
+    protected override void OnInitialized()
+    {
+        _indexing = Core.MediaIndexer.IsRunning;
+        Core.MediaIndexer.Progress += OnIndexProgress;
+        Core.MediaIndexer.Completed += OnIndexCompleted;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _self = DotNetObjectReference.Create(this);
+            _module = await JS.InvokeAsync<IJSObjectReference>("import", "./" + Assets["Components/Pages/MapPage.razor.js"]);
+            try
+            {
+                var setup = await _module.InvokeAsync<MapSetup?>("init", _mapElement, _scroller, _canvas, _self,
+                    new[] { Assets["lib/leaflet/leaflet.js"], Assets["lib/markercluster/leaflet.markercluster.js"] });
+                if (setup is null)
+                {
+                    return; // left the page meanwhile
+                }
+                _touch = setup.Touch;
+                _showInfo = !_touch;
+                _fitNext = !setup.SavedView;
+                _mapReady = true;
+            }
+            catch (JSException e)
+            {
+                _mapError = $"Les fichiers de la carte n'ont pas pu être chargés. Rechargez la page. ({e.Message})";
+            }
+            await LoadAsync();
+            return;
+        }
+        if (_pendingScroll is { } top && _module is not null)
+        {
+            _pendingScroll = null;
+            await _module.InvokeVoidAsync("scrollTo", _scroller, top);
+        }
+    }
+
+    // ---- Data ----
+
+    private async Task LoadAsync()
+    {
+        if (_loading)
+        {
+            _reloadPending = true; // the index changed while reading it
+            return;
+        }
+        _loading = true;
+        StateHasChanged();
+        try
+        {
+            var model = new MapModel();
+            await Task.Run(() => model.Load(Core));
+            var viewing = Current?.Path;
+            var selected = SelectedPoint?.Path;
+            // The first photos found by the indexer deserve a fit; the first load keeps the view of the last visit.
+            var wasEmpty = _model is { IsEmpty: true };
+            _model = model;
+            BuildFilters();
+            await ApplyFiltersAsync(fit: _fitNext || wasEmpty, keepSelected: selected, keepViewing: viewing);
+            _fitNext = false;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
+        {
+            _mapError ??= $"Lecture des positions impossible : {e.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+        StateHasChanged();
+        if (_reloadPending)
+        {
+            _reloadPending = false;
+            await LoadAsync();
+        }
+    }
+
+    private void BuildFilters()
+    {
+        if (_model is null)
+        {
+            return;
+        }
+        _albumFilters = _model.AlbumFilters();
+        if (_albumFilters.All(f => f.Key != _albumKey))
+        {
+            _albumKey = PhotosModel.AllKey;
+        }
+        _dateFilters = _model.DateFilters(AlbumId);
+        if (_dateFilters.All(f => f.Key != _dateKey))
+        {
+            _dateKey = null;
+        }
+    }
+
+    private async Task ChooseAlbum(string? key)
+    {
+        if ((key ?? PhotosModel.AllKey) == _albumKey)
+        {
+            return;
+        }
+        _albumKey = key ?? PhotosModel.AllKey;
+        _dateKey = null;
+        BuildFilters();
+        await ApplyFiltersAsync(fit: true);
+    }
+
+    private async Task ChooseDate(string? key)
+    {
+        if (key == _dateKey)
+        {
+            return;
+        }
+        _dateKey = key;
+        await ApplyFiltersAsync(fit: true);
+    }
+
+    /// <summary>Sends the points of the filters to the map, which then tells its bounds back (<see cref="OnBounds"/>).</summary>
+    private async Task ApplyFiltersAsync(bool fit, string? keepSelected = null, string? keepViewing = null)
+    {
+        if (_model is null)
+        {
+            return;
+        }
+        _model.Filter(AlbumId, DateFilter);
+        _generation++;
+        _selected = null;
+        _viewerIndex = null;
+        _details = null;
+        BuildView();
+        if (keepSelected is not null && FindPoint(keepSelected) is { } selected)
+        {
+            _selected = selected;
+        }
+        if (keepViewing is not null && FindPoint(keepViewing) is { } viewing && _ids.IndexOf(viewing) is var index and >= 0)
+        {
+            OpenViewer(index);
+        }
+        _ = CountUnlocatedAsync();
+        if (_mapReady && _module is not null)
+        {
+            await _module.InvokeVoidAsync("showPoints", _model.Encode(_generation), fit);
+            await HighlightAsync();
+        }
+        _pointsShown = true;
+    }
+
+    private int? FindPoint(string path)
+    {
+        var points = _model!.Points;
+        for (var i = 0; i < points.Count; i++)
+        {
+            if (points[i].Path == path)
+            {
+                return i;
+            }
+        }
+        return null;
+    }
+
+    private async Task CountUnlocatedAsync()
+    {
+        var version = ++_countVersion;
+        var (albumId, date) = (AlbumId, DateFilter);
+        DateTime? from = date?.Year is { } y ? new DateTime(y, 1, 1) : date?.Month;
+        DateTime? until = date?.Year is not null ? from!.Value.AddYears(1) : from?.AddMonths(1);
+        try
+        {
+            var count = await Task.Run(() => Core.Media.CountUnlocated(albumId, from, until));
+            if (version == _countVersion)
+            {
+                _unlocated = count;
+                StateHasChanged();
+            }
+        }
+        catch (Microsoft.Data.Sqlite.SqliteException)
+        {
+            // Only a hint: left out when the catalog is busy.
+        }
+    }
+
+    // The indexer runs on its own thread: hop onto the circuit, and redraw the progress a few times a second at most.
+    private void OnIndexProgress(MediaIndexProgress progress) => _ = InvokeAsync(() =>
+    {
+        _indexing = true;
+        _progress = progress;
+        var now = Environment.TickCount64;
+        if (now - _progressShownAt > 250 || progress.Done == progress.Total)
+        {
+            _progressShownAt = now;
+            StateHasChanged();
+        }
+    });
+
+    private void OnIndexCompleted(bool changed) => _ = InvokeAsync(async () =>
+    {
+        _indexing = false;
+        _progress = null;
+        if (changed)
+        {
+            await LoadAsync();
+        }
+        else
+        {
+            StateHasChanged();
+        }
+    });
+
+    // ---- Map ----
+
+    [JSInvokable]
+    public Task OnBounds(double south, double west, double north, double east) => InvokeAsync(() =>
+    {
+        _bounds = new GeoBounds(south, west, north, east);
+        var viewing = Current;
+        BuildView();
+        if (viewing is not null)
+        {
+            _viewerIndex = _view.IndexOf(viewing) is var index and >= 0 ? index : null;
+        }
+        StateHasChanged();
+    });
+
+    [JSInvokable]
+    public Task OnMarker(int generation, int id) => InvokeAsync(async () =>
+    {
+        var index = generation == _generation ? _ids.IndexOf(id) : -1;
+        if (index < 0)
+        {
+            return;
+        }
+        await SelectAsync(index);
+        OpenViewer(index);
+        StateHasChanged();
+    });
+
+    [JSInvokable]
+    public MapTip? Tip(int generation, int id) =>
+        generation == _generation && _model is not null && id >= 0 && id < _model.Points.Count ? TipOf(id) : null;
+
+    [JSInvokable]
+    public Task OnTiles(bool failing) => InvokeAsync(() =>
+    {
+        _tilesFailing = failing;
+        StateHasChanged();
+    });
+
+    private MapTip TipOf(int id)
+    {
+        var entry = _model!.Entry(id);
+        return new MapTip(entry.Name, entry.Item.Date.ToString("d MMMM yyyy 'à' HH:mm", Formatting.French), entry.ThumbUrl, entry.IsVideo);
+    }
+
+    private async Task HighlightAsync()
+    {
+        if (_mapReady && _module is not null)
+        {
+            await _module.InvokeVoidAsync("highlight", _selected, _selected is { } id ? TipOf(id) : null);
+        }
+    }
+
+    // ---- Photos of the visible area ----
+
+    private void BuildView()
+    {
+        _ids = _model?.Inside(_bounds) ?? [];
+        _view = _ids.Select(_model!.Entry).ToList();
+        _scrollTop = 0;
+        _pendingScroll = 0;
+        Layout();
+    }
+
+    private void Layout()
+    {
+        if (_width <= 0)
+        {
+            _layout = null; // hidden: rows of another list must not stay
+            _visible = [];
+            return;
+        }
+        var keep = _layout?.ItemAt(_scrollTop) is { } top && top < _view.Count ? top : 0;
+        _layout = new PhotoGridLayout(_view, _width, TileSize);
+        var scroll = keep > 0 ? _layout.ScrollTopFor(keep) : 0;
+        if (Math.Abs(scroll - _scrollTop) > 1)
+        {
+            _scrollTop = scroll;
+            _pendingScroll = scroll;
+        }
+        UpdateVisible(force: true);
+    }
+
+    private bool UpdateVisible(bool force = false)
+    {
+        if (_layout is null)
+        {
+            return false;
+        }
+        var screen = Math.Max(_viewportHeight, 600);
+        var rows = _layout.Between(_scrollTop - screen, _scrollTop + 2 * screen).ToList();
+        if (!force && rows.Count == _visible.Count && (rows.Count == 0 || (rows[0] == _visible[0] && rows[^1] == _visible[^1])))
+        {
+            return false;
+        }
+        _visible = rows;
+        return true;
+    }
+
+    [JSInvokable]
+    public Task OnViewport(double top, double height, double width) => InvokeAsync(() =>
+    {
+        _scrollTop = top;
+        _viewportHeight = height;
+        if (Math.Abs(width - _width) > 0.5)
+        {
+            _width = width;
+            Layout();
+            StateHasChanged();
+        }
+        else if (UpdateVisible())
+        {
+            StateHasChanged();
+        }
+    });
+
+    /// <summary>Scrolls just enough to show item <paramref name="index"/>.</summary>
+    private void Reveal(int index)
+    {
+        if (_layout?.RowOf(index) is not { } row)
+        {
+            return;
+        }
+        var top = _scrollTop;
+        if (row.Top < _scrollTop)
+        {
+            top = Math.Max(0, row.Top - PhotoGridLayout.TitleHeight);
+        }
+        else if (row.Top + row.Height > _scrollTop + _viewportHeight)
+        {
+            top = row.Top + row.Height - _viewportHeight;
+        }
+        if (Math.Abs(top - _scrollTop) > 1)
+        {
+            _scrollTop = top;
+            _pendingScroll = top;
+            UpdateVisible();
+        }
+    }
+
+    // ---- Selection ----
+
+    private async Task OnTileClick(int index)
+    {
+        // Touch: a tap shows the photo; with a mouse, a click points it out on the map and a double click shows it.
+        await SelectAsync(index);
+        if (_touch)
+        {
+            OpenViewer(index);
+        }
+    }
+
+    private async Task SelectAsync(int index)
+    {
+        _selected = _ids[index];
+        Reveal(index);
+        await HighlightAsync();
+    }
+
+    private void OpenSelected()
+    {
+        if (_selected is { } id && _ids.IndexOf(id) is var index and >= 0)
+        {
+            OpenViewer(index);
+        }
+    }
+
+    [JSInvokable]
+    public Task OnKey(string key) => InvokeAsync(async () =>
+    {
+        if (Current is not null)
+        {
+            switch (key)
+            {
+                case "ArrowLeft": await Move(-1); break;
+                case "ArrowRight": await Move(1); break;
+                case "Escape": CloseViewer(); break;
+                default: return;
+            }
+        }
+        else
+        {
+            var index = _selected is { } id ? _ids.IndexOf(id) : -1;
+            switch (key)
+            {
+                case "Enter": OpenSelected(); break;
+                case "Escape":
+                    _selected = null;
+                    await HighlightAsync();
+                    break;
+                case "ArrowLeft" or "ArrowRight" when _view.Count > 0:
+                    var from = index >= 0 ? index : key == "ArrowRight" ? -1 : _view.Count;
+                    await SelectAsync(Math.Clamp(from + (key == "ArrowRight" ? 1 : -1), 0, _view.Count - 1));
+                    break;
+                default: return;
+            }
+        }
+        StateHasChanged();
+    });
+
+    // ---- Viewer ----
+
+    private void OpenViewer(int index)
+    {
+        _viewerIndex = index;
+        _ = LoadDetailsAsync(_view[index]);
+    }
+
+    private async Task Move(int delta)
+    {
+        if (_viewerIndex is not { } index || index + delta < 0 || index + delta >= _view.Count)
+        {
+            return;
+        }
+        OpenViewer(index + delta);
+        await SelectAsync(index + delta);
+    }
+
+    private void CloseViewer()
+    {
+        if (_viewerIndex is { } index)
+        {
+            Reveal(index);
+        }
+        _viewerIndex = null;
+        _details = null;
+    }
+
+    private IEnumerable<PhotoEntry> Neighbours(int index) =>
+        new[] { index + 1, index - 1 }.Where(i => i >= 0 && i < _view.Count).Select(i => _view[i]).Where(e => !e.IsVideo);
+
+    private async Task LoadDetailsAsync(PhotoEntry entry)
+    {
+        _details = null;
+        var details = await Task.Run(() => PhotoDetails.Read(Core, entry));
+        if (Current == entry)
+        {
+            _details = details;
+            StateHasChanged();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Core.MediaIndexer.Progress -= OnIndexProgress;
+        Core.MediaIndexer.Completed -= OnIndexCompleted;
+        if (_module is not null)
+        {
+            try
+            {
+                await _module.InvokeVoidAsync("dispose");
+                await _module.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The browser is gone: nothing to detach.
+            }
+        }
+        _self?.Dispose();
+    }
+
+    private sealed record MapSetup(bool Touch, bool SavedView);
+
+    public sealed record MapTip(string Name, string Date, string Thumb, bool Video);
+}
