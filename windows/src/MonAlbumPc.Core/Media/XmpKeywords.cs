@@ -7,6 +7,8 @@ namespace MonAlbumPc.Core.Media;
 
 public enum KeywordOutcome { Added, AlreadyThere, Unsupported }
 
+public enum XmpUpdate { Changed, Unchanged, Unsupported }
+
 /// <summary>
 /// Keywords of the XMP packet of JPEG photos (<c>dc:subject</c>: « Mots clés » in Windows, keywords in Lightroom, digiKam,
 /// Immich). Adding one only inserts or rewrites the XMP segment: the image is never re-encoded and every other segment
@@ -22,19 +24,22 @@ public static class XmpKeywords
     // Segment length field (2 bytes) included: a JPEG segment holds at most 65 535 bytes.
     private const int MaxSegmentLength = ushort.MaxValue;
 
-    private const string EmptyPacket =
+    internal const string EmptyPacket =
         "<?xpacket begin=\"﻿\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>" +
         "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">" +
         "<rdf:Description rdf:about=\"\"/></rdf:RDF></x:xmpmeta><?xpacket end=\"w\"?>";
 
     /// <summary>Keywords of a JPEG, reading only the segments before the image data. Empty when none or not a JPEG.</summary>
-    public static List<string> Read(string path)
+    public static List<string> Read(string path) => ReadPacket(path) is { } packet ? Keywords(packet) : [];
+
+    /// <summary>The XMP packet of a JPEG, reading only the segments before the image data. Null when none or not a JPEG.</summary>
+    public static XDocument? ReadPacket(string path)
     {
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 4096);
         Span<byte> head = stackalloc byte[4];
         if (stream.ReadAtLeast(head[..2], 2, throwOnEndOfStream: false) < 2 || head[0] != 0xFF || head[1] != 0xD8)
         {
-            return [];
+            return null;
         }
         while (stream.ReadAtLeast(head, 4, throwOnEndOfStream: false) == 4 && head[0] == 0xFF)
         {
@@ -53,13 +58,13 @@ public static class XmpKeywords
                 }
                 if (payload.AsSpan().StartsWith(XmpHeader))
                 {
-                    return Parse(payload.AsSpan(XmpHeader.Length)) is { } packet ? Keywords(packet) : [];
+                    return Parse(payload.AsSpan(XmpHeader.Length));
                 }
                 continue;
             }
             stream.Seek(length - 2, SeekOrigin.Current);
         }
-        return [];
+        return null;
     }
 
     /// <summary>
@@ -68,29 +73,55 @@ public static class XmpKeywords
     /// </summary>
     public static KeywordOutcome Add(byte[] jpeg, string keyword, out byte[] tagged)
     {
-        tagged = jpeg;
+        var outcome = KeywordOutcome.AlreadyThere;
+        var update = Update(jpeg, packet =>
+        {
+            outcome = Insert(packet, keyword);
+            return outcome == KeywordOutcome.Added;
+        }, out tagged);
+        return update == XmpUpdate.Unsupported ? KeywordOutcome.Unsupported : outcome;
+    }
+
+    /// <summary>Adds <paramref name="keyword"/> to a JPEG file in place, keeping its modification date.</summary>
+    public static KeywordOutcome Add(string path, string keyword)
+    {
+        var outcome = Add(File.ReadAllBytes(path), keyword, out var tagged);
+        if (outcome == KeywordOutcome.Added)
+        {
+            Replace(path, tagged);
+        }
+        return outcome;
+    }
+
+    /// <summary>
+    /// Lets <paramref name="change"/> edit the XMP packet of a JPEG held in memory (an empty one when there is none); it
+    /// returns whether it changed anything. Only the XMP segment is rewritten: <paramref name="updated"/> is the new file
+    /// when <see cref="XmpUpdate.Changed"/>, otherwise the bytes are left as they are.
+    /// </summary>
+    public static XmpUpdate Update(byte[] jpeg, Func<XDocument, bool> change, out byte[] updated)
+    {
+        updated = jpeg;
         if (Locate(jpeg) is not { } layout)
         {
-            return KeywordOutcome.Unsupported;
+            return XmpUpdate.Unsupported;
         }
         var packet = layout.Xmp is { } xmp
             ? Parse(jpeg.AsSpan(xmp.Start + 4 + XmpHeader.Length, xmp.Length - 4 - XmpHeader.Length))
             : XDocument.Parse(EmptyPacket, LoadOptions.PreserveWhitespace);
         if (packet is null)
         {
-            return KeywordOutcome.Unsupported;
+            return XmpUpdate.Unsupported;
         }
-        var outcome = Insert(packet, keyword);
-        if (outcome != KeywordOutcome.Added)
+        if (!change(packet))
         {
-            return outcome;
+            return XmpUpdate.Unchanged;
         }
 
         var text = Utf8.GetBytes(packet.ToString(SaveOptions.DisableFormatting));
         var segmentLength = 2 + XmpHeader.Length + text.Length;
         if (segmentLength > MaxSegmentLength)
         {
-            return KeywordOutcome.Unsupported; // would need extended XMP: not worth it for a keyword
+            return XmpUpdate.Unsupported; // would need extended XMP: not worth it for keywords
         }
         var segment = new byte[2 + segmentLength];
         segment[0] = 0xFF;
@@ -100,30 +131,25 @@ public static class XmpKeywords
         text.CopyTo(segment, 4 + XmpHeader.Length);
 
         var (start, removed) = layout.Xmp is { } old ? (old.Start, old.Length) : (layout.InsertAt, 0);
-        tagged = [.. jpeg.AsSpan(0, start), .. segment, .. jpeg.AsSpan(start + removed)];
-        return KeywordOutcome.Added;
+        updated = [.. jpeg.AsSpan(0, start), .. segment, .. jpeg.AsSpan(start + removed)];
+        return XmpUpdate.Changed;
     }
 
-    /// <summary>Adds <paramref name="keyword"/> to a JPEG file in place, keeping its modification date.</summary>
-    public static KeywordOutcome Add(string path, string keyword)
+    /// <summary>Replaces a file with <paramref name="content"/> at once (temporary file, then moved), keeping its date.</summary>
+    internal static void Replace(string path, byte[] content)
     {
-        var outcome = Add(File.ReadAllBytes(path), keyword, out var tagged);
-        if (outcome == KeywordOutcome.Added)
+        var temp = path + ".tagging";
+        var modified = File.GetLastWriteTimeUtc(path);
+        try
         {
-            var temp = path + ".tagging";
-            var modified = File.GetLastWriteTimeUtc(path);
-            try
-            {
-                File.WriteAllBytes(temp, tagged);
-                File.SetLastWriteTimeUtc(temp, modified);
-                File.Move(temp, path, overwrite: true);
-            }
-            finally
-            {
-                File.Delete(temp);
-            }
+            File.WriteAllBytes(temp, content);
+            File.SetLastWriteTimeUtc(temp, modified);
+            File.Move(temp, path, overwrite: true);
         }
-        return outcome;
+        finally
+        {
+            File.Delete(temp);
+        }
     }
 
     private static KeywordOutcome Insert(XDocument packet, string keyword)
@@ -172,7 +198,7 @@ public static class XmpKeywords
             .Elements(Rdf + "li").Select(li => li.Value.Trim()).Where(k => k.Length > 0),
     ];
 
-    private static XDocument? Parse(ReadOnlySpan<byte> packet)
+    internal static XDocument? Parse(ReadOnlySpan<byte> packet)
     {
         try
         {

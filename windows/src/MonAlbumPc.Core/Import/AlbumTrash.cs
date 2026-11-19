@@ -19,12 +19,24 @@ public static class AlbumTrash
         return OperatingSystem.IsWindows() && Path.GetPathRoot(path) is { Length: > 0 } root && new DriveInfo(root).DriveType == DriveType.Network;
     }
 
-    /// <summary>Moves <paramref name="path"/> to the trash of its album and returns where it went.</summary>
+    /// <summary>Moves <paramref name="path"/> to the trash of its album, with its tag sidecar, and returns where it went.</summary>
     public static string Move(string albumRoot, string path)
     {
         var target = Unique(Path.Combine(Folder(albumRoot), Path.GetRelativePath(albumRoot, path)));
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);
         File.Move(path, target);
+        var sidecar = Media.UserTags.SidecarPath(path);
+        if (File.Exists(sidecar))
+        {
+            try
+            {
+                File.Move(sidecar, Media.UserTags.SidecarPath(target), overwrite: true);
+            }
+            catch (IOException)
+            {
+                // The photo is in the trash: a sidecar left behind only holds its tags.
+            }
+        }
         return target;
     }
 
