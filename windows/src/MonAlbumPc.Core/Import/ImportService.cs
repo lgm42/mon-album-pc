@@ -75,6 +75,11 @@ public sealed class ImportService(AlbumStore albums, ImportHistory history, Time
                 JpegConverter.Convert(file.TempPath, produced);
                 File.Delete(file.TempPath);
             }
+            if (MediaTypes.IsPhoto(finalName)
+                && MediaSource.Classify(MediaSource.FolderOf(file.SourcePath), originalName).Keyword is { } keyword)
+            {
+                produced = Tag(produced, directory, keyword);
+            }
         }
         catch (IOException e) when (e.HResult is ErrorDiskFull or ErrorHandleDiskFull)
         {
@@ -110,6 +115,31 @@ public sealed class ImportService(AlbumStore albums, ImportHistory history, Time
         return taken.Source is TakenDateSource.Exif or TakenDateSource.FileName
                && (history.ContainsByNameAndDate(albumId, originalName, taken.Value)
                    || history.ContainsByNameAndDate(albumId, finalName, taken.Value));
+    }
+
+    /// <summary>
+    /// Tells where a photo that is not from the camera comes from, with an XMP keyword, without re-encoding it. The
+    /// history keeps the hash and size of what the phone sent, so the phone still recognizes it.
+    /// </summary>
+    private static string Tag(string produced, string directory, string keyword)
+    {
+        if (XmpKeywords.Add(File.ReadAllBytes(produced), keyword, out var tagged) != KeywordOutcome.Added)
+        {
+            return produced;
+        }
+        var path = Path.Combine(directory, $".{Guid.NewGuid():N}.tagging");
+        try
+        {
+            File.WriteAllBytes(path, tagged);
+            File.SetLastWriteTimeUtc(path, File.GetLastWriteTimeUtc(produced));
+        }
+        catch
+        {
+            File.Delete(path);
+            throw;
+        }
+        File.Delete(produced);
+        return path;
     }
 
     /// <summary>Moves <paramref name="produced"/> to the first free name. Returns null if an identical file is already there.</summary>

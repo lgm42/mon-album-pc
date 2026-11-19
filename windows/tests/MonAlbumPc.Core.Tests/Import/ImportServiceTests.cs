@@ -155,10 +155,63 @@ public sealed class ImportServiceTests : IDisposable
         Assert.Equal(0, _media.Refresh(_album).Read);
     }
 
-    private IncomingFile Incoming(byte[] content, string name)
+    [Fact]
+    public void Whatsapp_photo_gets_a_keyword_and_is_still_recognized_as_sent_by_the_phone()
+    {
+        var sent = TestImages.Jpeg("2023:11:26 10:12:00");
+        var modified = new DateTimeOffset(2023, 11, 26, 10, 12, 30, TimeSpan.FromHours(1));
+        var incoming = Incoming(sent, "IMG-20231126-WA0007.jpg", "WhatsApp Images/IMG-20231126-WA0007.jpg") with { ModifiedAt = modified };
+
+        var saved = _service.Import(incoming).DestinationPath!;
+
+        Assert.Equal(["WhatsApp"], XmpKeywords.Read(saved));
+        var stored = File.ReadAllBytes(saved);
+        Assert.NotEqual(sent.Length, stored.Length);
+        Assert.Equal(sent[^100..], stored[^100..]); // image data untouched
+        Assert.Equal(modified.UtcDateTime, File.GetLastWriteTimeUtc(saved));
+        Assert.Single(Directory.GetFiles(Path.GetDirectoryName(saved)!)); // no temporary file left
+        Assert.True(_history.Contains(_album.Id, Hashing.Sha256(sent)));
+        Assert.True(_history.ContainsNameAndSize(_album.Id, "IMG-20231126-WA0007.jpg", sent.Length));
+        Assert.Equal(ImportOutcome.AlreadyPresent, _service.Import(Incoming(sent, "IMG-20231126-WA0007.jpg", "WhatsApp Images/x.jpg")).Outcome);
+    }
+
+    [Fact]
+    public void Screenshots_are_tagged_by_their_folder_and_whatsapp_by_their_name()
+    {
+        var screenshot = _service.Import(Incoming(TestImages.Jpeg(seed: 1), "Screenshot_20231126-101010.jpg", "Captures d'écran/s.jpg"));
+        var whatsApp = _service.Import(Incoming(TestImages.Jpeg(seed: 2), "IMG-20231126-WA0008.jpg"));
+
+        Assert.Equal(["Capture d'écran"], XmpKeywords.Read(screenshot.DestinationPath!));
+        Assert.Equal(["WhatsApp"], XmpKeywords.Read(whatsApp.DestinationPath!));
+    }
+
+    [Fact]
+    public void Camera_photos_and_videos_are_stored_as_sent()
+    {
+        var photo = TestImages.Jpeg("2024:05:12 10:30:15");
+        var video = "not really a video"u8.ToArray();
+
+        var savedPhoto = _service.Import(Incoming(photo, "IMG_1.jpg", "Appareil photo/IMG_1.jpg")).DestinationPath!;
+        var savedVideo = _service.Import(Incoming(video, "VID-20231126-WA0001.mp4", "WhatsApp Video/VID-20231126-WA0001.mp4")).DestinationPath!;
+
+        Assert.Equal(photo, File.ReadAllBytes(savedPhoto));
+        Assert.Equal(video, File.ReadAllBytes(savedVideo));
+    }
+
+    [Fact]
+    public void Converted_heic_is_recognized_by_its_size_on_the_phone()
+    {
+        var heic = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "sample.heic"));
+
+        _service.Import(Incoming(heic, "IMG_1.heic"));
+
+        Assert.True(_history.ContainsNameAndSize(_album.Id, "IMG_1.heic", heic.Length));
+    }
+
+    private IncomingFile Incoming(byte[] content, string name, string? sourcePath = null)
     {
         var tempPath = _temp.WriteFile(Path.Combine("uploads", Guid.NewGuid().ToString("N")), content);
-        return new IncomingFile(tempPath, Hashing.Sha256(content), name, _album.Id, _device, ImportChannel.Wifi);
+        return new IncomingFile(tempPath, Hashing.Sha256(content), name, _album.Id, _device, ImportChannel.Wifi, sourcePath);
     }
 
     private sealed class FixedClock(DateTimeOffset now) : TimeProvider

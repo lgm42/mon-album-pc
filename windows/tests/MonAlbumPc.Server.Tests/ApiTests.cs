@@ -70,6 +70,31 @@ public sealed class ApiTests
     }
 
     [Fact]
+    public async Task A_tagged_whatsapp_photo_is_found_by_its_size_on_the_phone_and_never_sent_twice()
+    {
+        await using var fixture = await ServerFixture.StartAsync();
+        var (api, _) = await fixture.PairAsync();
+        var photo = TestImages.Jpeg("2023:11:26 10:12:00");
+        var sha = Hashing.Sha256(photo);
+        const string name = "IMG-20231126-WA0007.jpg";
+        var declared = await Declare(api, sha, photo.Length, name, "WhatsApp Images");
+        await Patch(api, declared.UploadId!, 0, photo);
+        var saved = Path.Combine(fixture.Album.DestinationRoot, "2023", "2023-11", name);
+        Assert.Equal(["WhatsApp"], Core.Media.XmpKeywords.Read(saved));
+        Assert.NotEqual(photo.Length, new FileInfo(saved).Length);
+
+        var names = await (await api.PostAsJsonAsync("check-names", new NameCheckRequest([new NameCheckItem(name, photo.Length)])))
+            .Content.ReadFromJsonAsync<NameCheckResponse>();
+        var hashes = await (await api.PostAsJsonAsync("check", new CheckRequest([new CheckItem(sha, photo.Length)])))
+            .Content.ReadFromJsonAsync<CheckResponse>();
+
+        Assert.Equal([0], names!.Have);
+        Assert.Equal([sha], hashes!.Have);
+        Assert.Equal("exists", (await Declare(api, sha, photo.Length, name, "WhatsApp Images")).Status);
+        Assert.Single(Directory.GetFiles(fixture.Album.DestinationRoot, "*.jpg", SearchOption.AllDirectories));
+    }
+
+    [Fact]
     public async Task A_phone_with_nothing_left_closes_its_session_as_complete()
     {
         await using var fixture = await ServerFixture.StartAsync();
@@ -338,12 +363,12 @@ public sealed class ApiTests
         }
     }
 
-    private static UploadRequest Declaration(string sha, long size, string name) =>
-        new(sha, size, name, "Appareil photo", "image/jpeg", null, DateTimeOffset.Now);
+    private static UploadRequest Declaration(string sha, long size, string name, string folder = "Appareil photo") =>
+        new(sha, size, name, folder, "image/jpeg", null, DateTimeOffset.Now);
 
-    private static async Task<UploadResponse> Declare(HttpClient api, string sha, long size, string name)
+    private static async Task<UploadResponse> Declare(HttpClient api, string sha, long size, string name, string folder = "Appareil photo")
     {
-        var response = await api.PostAsJsonAsync("uploads", Declaration(sha, size, name));
+        var response = await api.PostAsJsonAsync("uploads", Declaration(sha, size, name, folder));
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<UploadResponse>())!;
     }
