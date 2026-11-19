@@ -11,6 +11,8 @@ import io.github.lgm42.monalbumpc.data.BackupPrefs
 import io.github.lgm42.monalbumpc.data.PairedPc
 import io.github.lgm42.monalbumpc.data.PairingStore
 import io.github.lgm42.monalbumpc.data.media.AppDatabase
+import io.github.lgm42.monalbumpc.data.media.BackupRunEntity
+import io.github.lgm42.monalbumpc.data.media.RunEnd
 import io.github.lgm42.monalbumpc.data.media.ErrorReasons
 import io.github.lgm42.monalbumpc.data.media.MediaEntity
 import io.github.lgm42.monalbumpc.data.media.MediaState
@@ -60,7 +62,8 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
     private val pairingStore = PairingStore(appContext)
     private val prefs = BackupPrefs(appContext)
     private val folderStore = FolderStore(appContext)
-    private val dao = AppDatabase.get(appContext).mediaDao()
+    private val db = AppDatabase.get(appContext)
+    private val dao = db.mediaDao()
     private val reader = MediaStoreReader(appContext)
 
     // Progress shared with the ticker that publishes it.
@@ -87,6 +90,15 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
 
     private var uploadedPhotos = 0
 
+    // For the history of the runs.
+    @Volatile private var runStartedMs = 0L
+    private var runQueued = 0
+    private var runEnd: RunEnd? = null
+    private var runDetail: String? = null
+    private var recognizedCount = 0
+    private var failedCount = 0
+    private var sentBytes = 0L
+
     // Last `GET /status` of this run, for the self-update.
     @Volatile private var lastStatus: StatusResponse? = null
     @Volatile private var statusTried = false
@@ -109,10 +121,14 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
                 runBackup()
             } catch (e: CancellationException) {
                 // Stopped (pause, system): the file being sent is pending again, resumed later from the server's offset.
-                withContext(NonCancellable) { dao.resetUploading() }
+                withContext(NonCancellable) {
+                    dao.resetUploading()
+                    recordRun(RunEnd.INTERRUPTED)
+                }
                 throw e
             } catch (e: Exception) {
                 dao.resetUploading()
+                recordRun(RunEnd.INTERRUPTED)
                 Result.retry()
             } finally {
                 _running.value = false
@@ -170,9 +186,12 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
             return Result.success()
         }
         // Files the PC refused wait for their next attempt; nothing else to do means no need to wake the PC.
-        if (RetryPolicy.due(unsaved, System.currentTimeMillis()).isEmpty()) return Result.success()
+        val due = RetryPolicy.due(unsaved, System.currentTimeMillis())
+        if (due.isEmpty()) return Result.success()
+        runStartedMs = System.currentTimeMillis()
+        runQueued = due.size
 
-        return coroutineScope {
+        val result = coroutineScope {
             // Publishes what the run is doing (in-app banner, notification) every second.
             val ticker = launch {
                 var shown: Any? = null
@@ -196,6 +215,38 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
                 clearProgress()
             }
         }
+        recordRun()
+        return result
+    }
+
+    /** Adds this run to the history (once); [override] when it was cut short. A cut caused by the pause says so. */
+    private suspend fun recordRun(override: RunEnd? = null) {
+        val started = runStartedMs
+        var end = override ?: runEnd ?: return
+        if (started == 0L) return
+        runStartedMs = 0L
+        try {
+            withContext(NonCancellable) {
+                if (end == RunEnd.INTERRUPTED && prefs.current().paused) end = RunEnd.PAUSED
+                RunHistory.record(
+                    db,
+                    BackupRunEntity(
+                        startedAt = started,
+                        endedAt = System.currentTimeMillis(),
+                        queued = runQueued,
+                        sent = uploadedPhotos + uploadedVideos,
+                        recognized = recognizedCount,
+                        failed = failedCount,
+                        sentBytes = sentBytes,
+                        outcome = end.name,
+                        attempts = 1,
+                        detail = runDetail,
+                    ),
+                )
+            }
+        } catch (e: Exception) {
+            // The history is only informative.
+        }
     }
 
     /** The self-update may keep this work running a little longer: it must not show a finished run as still sending. */
@@ -217,16 +268,26 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
             is Connection.Connected -> c
             is Connection.Unreachable -> {
                 prefs.setIssue(BackupIssue.PC_UNREACHABLE, System.currentTimeMillis(), c.address)
+                runEnd = RunEnd.UNREACHABLE
+                runDetail = c.address
                 catchUpLater()
                 return Result.success()
             }
-            Connection.Busy -> return Result.success()
+            Connection.Busy -> {
+                runEnd = RunEnd.BUSY
+                return Result.success()
+            }
             Connection.Unpaired -> {
+                // Everything is forgotten, the history too.
+                runStartedMs = 0L
                 forgetPc()
                 return Result.success()
             }
         }
-        if (connection.status.busy == "usb") return Result.success()
+        if (connection.status.busy == "usb") {
+            runEnd = RunEnd.BUSY
+            return Result.success()
+        }
         val pc = connection.pc
         val api = connection.api
 
@@ -238,6 +299,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
             val now = System.currentTimeMillis()
             prefs.setIssue(BackupIssue.NONE, now)
             prefs.setLastCheck(now)
+            runEnd = RunEnd.COMPLETED
             reportFinished(pc, api)
             return Result.success()
         }
@@ -268,6 +330,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
             if (ids.isNotEmpty()) {
                 dao.markSaved(ids, System.currentTimeMillis())
                 recognized += ids.size
+                recognizedCount += ids.size
             }
         }
         return if (recognized == 0) pending else dao.unsavedNewestFirst()
@@ -297,6 +360,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
                 }
                 if (withHash == null) {
                     done++
+                    failedCount++
                     runDoneBytes.addAndGet(item.size)
                 } else {
                     hashed.add(withHash)
@@ -318,6 +382,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
             if (already.isNotEmpty()) {
                 dao.markSaved(already.map { it.mediaStoreId }, System.currentTimeMillis())
                 done += already.size
+                recognizedCount += already.size
                 runDoneBytes.addAndGet(already.sumOf { it.size })
             }
 
@@ -348,6 +413,21 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
 
     private suspend fun finish(pc: PairedPc, outcome: RunOutcome): Result {
         val now = System.currentTimeMillis()
+        runEnd = when (outcome) {
+            RunOutcome.Completed -> RunEnd.COMPLETED
+            is RunOutcome.Stop -> when (outcome.issue) {
+                BackupIssue.DESTINATION_UNAVAILABLE -> RunEnd.DESTINATION_UNAVAILABLE
+                BackupIssue.DISK_FULL -> RunEnd.DISK_FULL
+                BackupIssue.PC_UNREACHABLE -> RunEnd.UNREACHABLE
+                BackupIssue.NONE -> RunEnd.REFUSED
+            }
+            RunOutcome.Quiet -> RunEnd.BUSY
+            RunOutcome.Retry -> RunEnd.INTERRUPTED
+            RunOutcome.Unpaired -> {
+                runStartedMs = 0L
+                null
+            }
+        }
         publishProgress()
         if (uploadedPhotos + uploadedVideos > 0) {
             prefs.setLastBackup(now)
@@ -584,6 +664,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
     private suspend fun saved(item: MediaEntity): ItemResult {
         dao.markSaved(listOf(item.mediaStoreId), System.currentTimeMillis())
         if (item.isVideo) uploadedVideos++ else uploadedPhotos++
+        sentBytes += item.size
         return ItemResult.Saved
     }
 
@@ -591,6 +672,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
     private suspend fun failItem(item: MediaEntity, reason: String, message: String? = null): ItemResult {
         val retryAfter = RetryPolicy.nextAttemptMs(item.failures + 1, System.currentTimeMillis())
         dao.markFailed(item.mediaStoreId, reason, message, retryAfter)
+        failedCount++
         return ItemResult.Failed
     }
 

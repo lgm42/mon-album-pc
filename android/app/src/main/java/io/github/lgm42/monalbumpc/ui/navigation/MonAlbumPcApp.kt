@@ -53,6 +53,7 @@ fun MonAlbumPcApp(pc: PairedPc, onUnpair: () -> Unit) {
     val state by mainViewModel.state.collectAsStateWithLifecycle()
     val summary by mainViewModel.summary.collectAsStateWithLifecycle()
     val conditions by mainViewModel.conditions.collectAsStateWithLifecycle()
+    val history by mainViewModel.history.collectAsStateWithLifecycle()
 
     val updateViewModel: UpdateViewModel = viewModel()
     val update by updateViewModel.state.collectAsStateWithLifecycle()
@@ -83,6 +84,7 @@ fun MonAlbumPcApp(pc: PairedPc, onUnpair: () -> Unit) {
                     progress = state.progress,
                     backup = state.backup,
                     summary = summary,
+                    history = history,
                     conditions = conditions,
                     onBackupNow = mainViewModel::backupNow,
                     onRetry = mainViewModel::retry,

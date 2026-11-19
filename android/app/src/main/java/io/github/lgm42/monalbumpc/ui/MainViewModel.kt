@@ -24,6 +24,8 @@ import io.github.lgm42.monalbumpc.backup.RunTotals
 import io.github.lgm42.monalbumpc.data.BackupPrefs
 import io.github.lgm42.monalbumpc.data.BackupState
 import io.github.lgm42.monalbumpc.data.media.AppDatabase
+import io.github.lgm42.monalbumpc.data.media.BackupRunEntity
+import io.github.lgm42.monalbumpc.backup.RunHistory
 import io.github.lgm42.monalbumpc.data.media.MediaEntity
 import io.github.lgm42.monalbumpc.media.DeviceFolder
 import io.github.lgm42.monalbumpc.media.DeviceFolders
@@ -127,6 +129,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** The last backup runs, most recent first. */
+    val history: StateFlow<List<BackupRunEntity>> = AppDatabase.get(application).backupRunDao().observeRecent(RunHistory.KEEP)
+        .catch { emit(emptyList()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Network and charging, to tell why the backup waits. */
     val conditions: StateFlow<DeviceConditions> = DeviceConditionsMonitor.observe(application)

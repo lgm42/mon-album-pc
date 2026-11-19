@@ -12,6 +12,7 @@ object BackupReset {
     suspend fun forgetPc(context: Context) {
         val appContext = context.applicationContext
         AppDatabase.get(appContext).mediaDao().deleteAll()
+        AppDatabase.get(appContext).backupRunDao().deleteAll()
         FolderStore(appContext).clear()
         BackupPrefs(appContext).clearRun()
         BackupNotifications(appContext).cancelIssue()

@@ -273,6 +273,36 @@
     <string name="backup_list_queue">À venir</string>
     <string name="backup_list_failures">En échec</string>
     <string name="backup_list_recent">Récentes</string>
+    <string name="backup_list_history">Historique</string>
+    <string name="backup_empty_history">Aucune sauvegarde pour l\'instant.</string>
+    <string name="history_today">Aujourd\'hui à %1$s</string>
+    <string name="history_yesterday">Hier à %1$s</string>
+    <string name="history_day">Le %1$s à %2$s</string>
+    <string name="history_duration_seconds">%1$d s</string>
+    <string name="history_duration_minutes">%1$d min</string>
+    <string name="history_duration_hours">%1$d h %2$02d</string>
+    <string name="history_end_completed">Terminée</string>
+    <string name="history_end_unreachable">%1$s injoignable</string>
+    <string name="history_end_destination">Disque de destination débranché</string>
+    <string name="history_end_disk_full">Disque plein</string>
+    <string name="history_end_refused">Arrêtée : %1$s refusait les fichiers</string>
+    <string name="history_end_interrupted">Interrompue</string>
+    <string name="history_end_paused">Mise en pause</string>
+    <string name="history_end_busy">%1$s occupé</string>
+    <plurals name="history_attempts">
+        <item quantity="one">%1$d essai, le dernier %2$s</item>
+        <item quantity="other">%1$d essais, le dernier %2$s</item>
+    </plurals>
+    <plurals name="history_sent">
+        <item quantity="one">%1$s fichier envoyé (%2$s)</item>
+        <item quantity="other">%1$s fichiers envoyés (%2$s)</item>
+    </plurals>
+    <string name="history_recognized">%1$s déjà sur %2$s</string>
+    <string name="history_failed">%1$s en échec</string>
+    <plurals name="history_queued">
+        <item quantity="one">%1$s fichier en attente</item>
+        <item quantity="other">%1$s fichiers en attente</item>
+    </plurals>
     <string name="backup_queue_sending">En cours d\'envoi</string>
     <string name="backup_queue_line">%1$s · %2$s</string>
     <string name="backup_failure_refused">%1$s a répondu : « %2$s »</string>

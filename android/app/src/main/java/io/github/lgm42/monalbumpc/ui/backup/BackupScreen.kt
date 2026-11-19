@@ -65,6 +65,7 @@ import io.github.lgm42.monalbumpc.backup.Tally
 import io.github.lgm42.monalbumpc.backup.TransferText
 import io.github.lgm42.monalbumpc.backup.UntrackedFolder
 import io.github.lgm42.monalbumpc.data.BackupState
+import io.github.lgm42.monalbumpc.data.media.BackupRunEntity
 import io.github.lgm42.monalbumpc.ui.BackupProgress
 import io.github.lgm42.monalbumpc.ui.components.BackgroundAccessCard
 import io.github.lgm42.monalbumpc.ui.components.MediaThumbnail
@@ -77,7 +78,7 @@ import io.github.lgm42.monalbumpc.ui.theme.MonAlbumPcTheme
 import kotlinx.coroutines.launch
 
 /** Lists at the bottom of the Sauvegarde tab. */
-enum class BackupList { QUEUE, FAILURES, RECENT }
+enum class BackupList { QUEUE, FAILURES, RECENT, HISTORY }
 
 /**
  * Sauvegarde tab: what the backup does right now (with the file being sent and the whole run), what is saved, waiting
@@ -89,6 +90,7 @@ fun BackupScreen(
     progress: BackupProgress,
     backup: BackupState,
     summary: BackupSummary?,
+    history: List<BackupRunEntity>,
     conditions: DeviceConditions,
     onBackupNow: () -> Unit,
     onRetry: (Long) -> Unit,
@@ -262,6 +264,7 @@ fun BackupScreen(
                 BackupList.QUEUE -> queueItems(data.queue, progress)
                 BackupList.FAILURES -> failureItems(data.failures, pcName, now, retryOne, retryAll)
                 BackupList.RECENT -> recentItems(data.recent)
+                BackupList.HISTORY -> historyItems(history, pcName)
             }
         }
 
@@ -445,6 +448,7 @@ private fun ListChips(selected: BackupList, summary: BackupSummary, onSelect: (B
                 BackupList.QUEUE -> stringResource(R.string.filter_with_count, stringResource(R.string.backup_list_queue), summary.pending.count)
                 BackupList.FAILURES -> stringResource(R.string.filter_with_count, stringResource(R.string.backup_list_failures), summary.failed.count)
                 BackupList.RECENT -> stringResource(R.string.backup_list_recent)
+                BackupList.HISTORY -> stringResource(R.string.backup_list_history)
             }
             FilterChip(
                 selected = isSelected,
@@ -656,6 +660,7 @@ private fun BackupScreenRunningPreview() {
             ),
             backup = BackupState(lastContactMs = System.currentTimeMillis()),
             summary = previewSummary,
+            history = emptyList(),
             conditions = DeviceConditions(),
             onBackupNow = {},
             onRetry = {},
@@ -681,6 +686,7 @@ private fun BackupScreenUnreachablePreview() {
                 issueDetail = "nas.local:48620",
             ),
             summary = previewSummary,
+            history = emptyList(),
             conditions = DeviceConditions(),
             onBackupNow = {},
             onRetry = {},
