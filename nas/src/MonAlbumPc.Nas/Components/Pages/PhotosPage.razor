@@ -161,70 +161,8 @@
 @if (Current is { } current)
 {
     var position = _viewerIndex!.Value;
-    <div class="lightbox" role="dialog" aria-modal="true" aria-label="@current.Name">
-        <div class="lightbox-bar">
-            <div class="lightbox-title">
-                <span class="ellipsis"><b>@current.Name</b></span>
-                <span class="lightbox-caption ellipsis">
-                    @((_details?.Taken ?? current.Item.Date).ToString("d MMMM yyyy", Formatting.French)) · @Formatting.Count(position + 1) sur @Formatting.Count(_view.Count)
-                </span>
-            </div>
-            <button type="button" class="lb-button @(_showInfo ? "on" : "")" title="Informations" aria-pressed="@(_showInfo ? "true" : "false")"
-                    @onclick="() => _showInfo = !_showInfo">
-                <FluentIcon Value="@(new Icons.Regular.Size20.Info())" Color="Color.Custom" CustomColor="currentColor" />
-            </button>
-            <a class="lb-button" href="@current.DownloadUrl" download="@current.Name" title="Télécharger l'original">
-                <FluentIcon Value="@(new Icons.Regular.Size20.ArrowDownload())" Color="Color.Custom" CustomColor="currentColor" />
-            </a>
-            <button type="button" class="lb-button" title="Supprimer (Suppr)" @onclick="() => DeleteAsync([current])">
-                <FluentIcon Value="@(new Icons.Regular.Size20.Delete())" Color="Color.Custom" CustomColor="currentColor" />
-            </button>
-            <button type="button" class="lb-button" title="Fermer (Échap)" @onclick="CloseViewer">
-                <FluentIcon Value="@(new Icons.Regular.Size20.Dismiss())" Color="Color.Custom" CustomColor="currentColor" />
-            </button>
-        </div>
-        <div class="lightbox-body">
-            <div class="lightbox-stage">
-                @if (current.IsVideo)
-                {
-                    <video @key="current" src="@current.OriginalUrl" poster="@current.ThumbUrl" controls autoplay playsinline preload="metadata"></video>
-                }
-                else
-                {
-                    <img @key="@("thumb" + current.Path)" class="lb-placeholder" src="@current.ThumbUrl" alt="" />
-                    <img @key="current" src="@current.ViewUrl" alt="" onerror="this.style.visibility='hidden'" />
-                }
-                <button type="button" class="lb-nav prev" title="Précédent (←)" disabled="@(position == 0)" @onclick="() => Move(-1)">
-                    <FluentIcon Value="@(new Icons.Regular.Size24.ChevronLeft())" Color="Color.Custom" CustomColor="currentColor" />
-                </button>
-                <button type="button" class="lb-nav next" title="Suivant (→)" disabled="@(position >= _view.Count - 1)" @onclick="() => Move(1)">
-                    <FluentIcon Value="@(new Icons.Regular.Size24.ChevronRight())" Color="Color.Custom" CustomColor="currentColor" />
-                </button>
-            </div>
-            @if (_showInfo)
-            {
-                <aside class="lightbox-info">
-                    <h2>Informations</h2>
-                    @if (_details is { } details)
-                    {
-                        <div class="lb-line"><span class="lb-label">Prise de vue</span><span>@details.Taken.ToString("d MMMM yyyy 'à' HH:mm", Formatting.French)</span></div>
-                        <div class="lb-line"><span class="lb-label">Téléphone d'origine</span><span>@details.Phone</span></div>
-                        <div class="lb-line"><span class="lb-label">@(current.IsVideo ? "Taille" : "Dimensions · taille")</span><span>@details.Dimensions</span></div>
-                        <div class="lb-line"><span class="lb-label">Album · dossier</span><span class="lb-folder">@details.Folder</span></div>
-                    }
-                    else
-                    {
-                        <FluentProgressRing Width="20px" />
-                    }
-                </aside>
-            }
-        </div>
-        @* The neighbours load in the background: previous/next shows at once. *@
-        @foreach (var neighbour in Neighbours(position))
-        {
-            <img @key="@("next" + neighbour.Path)" class="lb-preload" src="@neighbour.ViewUrl" alt="" />
-        }
-    </div>
+    <PhotoLightbox Entry="current" Position="position" Count="_view.Count" Details="_details" @bind-ShowInfo="_showInfo"
+                   Neighbours="Neighbours(position)" OnMove="Move" OnClose="CloseViewer" OnDelete="() => DeleteAsync([current])" />
 }
 
 @code {

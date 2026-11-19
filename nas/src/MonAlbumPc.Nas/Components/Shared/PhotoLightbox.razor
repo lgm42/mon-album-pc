@@ -1,0 +1,93 @@
+@using MonAlbumPc.Nas.Components.Photos
+
+@* The full-screen viewer of the Photos and Map pages; the page owns the list, the keyboard and the swipes. *@
+<div class="lightbox" role="dialog" aria-modal="true" aria-label="@Entry.Name">
+    <div class="lightbox-bar">
+        <div class="lightbox-title">
+            <span class="ellipsis"><b>@Entry.Name</b></span>
+            <span class="lightbox-caption ellipsis">
+                @((Details?.Taken ?? Entry.Item.Date).ToString("d MMMM yyyy", Formatting.French)) · @Formatting.Count(Position + 1) sur @Formatting.Count(Count)
+            </span>
+        </div>
+        <button type="button" class="lb-button @(ShowInfo ? "on" : "")" title="Informations" aria-pressed="@(ShowInfo ? "true" : "false")"
+                @onclick="() => ShowInfoChanged.InvokeAsync(!ShowInfo)">
+            <FluentIcon Value="@(new Icons.Regular.Size20.Info())" Color="Color.Custom" CustomColor="currentColor" />
+        </button>
+        <a class="lb-button" href="@Entry.DownloadUrl" download="@Entry.Name" title="Télécharger l'original">
+            <FluentIcon Value="@(new Icons.Regular.Size20.ArrowDownload())" Color="Color.Custom" CustomColor="currentColor" />
+        </a>
+        @if (OnDelete.HasDelegate)
+        {
+            <button type="button" class="lb-button" title="Supprimer (Suppr)" @onclick="OnDelete">
+                <FluentIcon Value="@(new Icons.Regular.Size20.Delete())" Color="Color.Custom" CustomColor="currentColor" />
+            </button>
+        }
+        <button type="button" class="lb-button" title="Fermer (Échap)" @onclick="OnClose">
+            <FluentIcon Value="@(new Icons.Regular.Size20.Dismiss())" Color="Color.Custom" CustomColor="currentColor" />
+        </button>
+    </div>
+    <div class="lightbox-body">
+        <div class="lightbox-stage">
+            @if (Entry.IsVideo)
+            {
+                <video @key="Entry" src="@Entry.OriginalUrl" poster="@Entry.ThumbUrl" controls autoplay playsinline preload="metadata"></video>
+            }
+            else
+            {
+                <img @key="@("thumb" + Entry.Path)" class="lb-placeholder" src="@Entry.ThumbUrl" alt="" />
+                <img @key="Entry" src="@Entry.ViewUrl" alt="" onerror="this.style.visibility='hidden'" />
+            }
+            <button type="button" class="lb-nav prev" title="Précédent (←)" disabled="@(Position == 0)" @onclick="() => OnMove.InvokeAsync(-1)">
+                <FluentIcon Value="@(new Icons.Regular.Size24.ChevronLeft())" Color="Color.Custom" CustomColor="currentColor" />
+            </button>
+            <button type="button" class="lb-nav next" title="Suivant (→)" disabled="@(Position >= Count - 1)" @onclick="() => OnMove.InvokeAsync(1)">
+                <FluentIcon Value="@(new Icons.Regular.Size24.ChevronRight())" Color="Color.Custom" CustomColor="currentColor" />
+            </button>
+        </div>
+        @if (ShowInfo)
+        {
+            <aside class="lightbox-info">
+                <h2>Informations</h2>
+                @if (Details is { } details)
+                {
+                    <div class="lb-line"><span class="lb-label">Prise de vue</span><span>@details.Taken.ToString("d MMMM yyyy 'à' HH:mm", Formatting.French)</span></div>
+                    <div class="lb-line"><span class="lb-label">Téléphone d'origine</span><span>@details.Phone</span></div>
+                    <div class="lb-line"><span class="lb-label">@(Entry.IsVideo ? "Taille" : "Dimensions · taille")</span><span>@details.Dimensions</span></div>
+                    <div class="lb-line"><span class="lb-label">Album · dossier</span><span class="lb-folder">@details.Folder</span></div>
+                    @ExtraInfo
+                }
+                else
+                {
+                    <FluentProgressRing Width="20px" />
+                }
+            </aside>
+        }
+    </div>
+    @* The neighbours load in the background: previous/next shows at once. *@
+    @foreach (var neighbour in Neighbours)
+    {
+        <img @key="@("next" + neighbour.Path)" class="lb-preload" src="@neighbour.ViewUrl" alt="" />
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public PhotoEntry Entry { get; set; } = default!;
+
+    /// <summary>Index of <see cref="Entry"/> in the list being browsed, out of <see cref="Count"/>.</summary>
+    [Parameter] public int Position { get; set; }
+    [Parameter] public int Count { get; set; }
+
+    [Parameter] public PhotoDetails? Details { get; set; }
+    [Parameter] public bool ShowInfo { get; set; }
+    [Parameter] public EventCallback<bool> ShowInfoChanged { get; set; }
+    [Parameter] public IEnumerable<PhotoEntry> Neighbours { get; set; } = [];
+
+    /// <summary>Lines added to the information pane by the page (the place, on the map).</summary>
+    [Parameter] public RenderFragment? ExtraInfo { get; set; }
+
+    [Parameter] public EventCallback<int> OnMove { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    /// <summary>No delete button when unset.</summary>
+    [Parameter] public EventCallback OnDelete { get; set; }
+}
