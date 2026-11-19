@@ -147,12 +147,15 @@ public sealed class WorkBoardTests : IDisposable
     public void Changes_are_announced_at_most_twice_a_second()
     {
         var count = 0;
-        long seen = 0;
+        using var last = new ManualResetEventSlim();
         var job = _board.Start("Miniatures", total: 100_000);
         _board.Changed += () =>
         {
             Interlocked.Increment(ref count);
-            Interlocked.Exchange(ref seen, _board.Running.Single().Done);
+            if (_board.Running.Single().Done == 100_000)
+            {
+                last.Set();
+            }
         };
 
         var clock = System.Diagnostics.Stopwatch.StartNew();
@@ -161,11 +164,10 @@ public sealed class WorkBoardTests : IDisposable
             job.Advance();
         }
         var elapsed = clock.Elapsed;
-        Thread.Sleep(WorkBoard.NotifyInterval * 3);
 
+        // The last change is never lost: it comes at the end of the interval, later on a busy machine.
+        Assert.True(last.Wait(TimeSpan.FromSeconds(10)));
         Assert.InRange(count, 1, (int)Math.Ceiling(elapsed / WorkBoard.NotifyInterval) + 2);
-        // The last change is never lost: it comes at the end of the interval.
-        Assert.Equal(100_000, Interlocked.Read(ref seen));
     }
 
     [Fact]
