@@ -103,7 +103,65 @@ Le PC a changé d'adresse après l'association du téléphone.
 <!-- workload: easy -->
 <!-- assignee: Nicolas -->
 
+#### Nettoyer les envois abandonnés
+<!-- id: task-1794400000000-85 -->
+UploadStore.PurgeExpired n'est appelé nulle part : les .part s'accumulent dans .monalbumpc/uploads.
+Tags: `nas` `windows`
+<!-- workload: easy -->
+<!-- assignee: Claude -->
+
+#### « Ignorer ce fichier » pour un fichier en échec
+<!-- id: task-1794400000000-86 -->
+Nouvel état de fichier côté téléphone.
+Tags: `android`
+<!-- priority: low -->
+<!-- assignee: Claude -->
+
+#### Marquage de provenance sur la page Activité
+<!-- id: task-1794400000000-87 -->
+Le marquage des fichiers existants n'apparaît que dans les Réglages.
+Tags: `nas`
+<!-- priority: low -->
+<!-- workload: easy -->
+<!-- assignee: Claude -->
+
+#### Filtre Tags sur la carte Windows
+<!-- id: task-1794400000000-88 -->
+Tags: `windows`
+<!-- priority: low -->
+<!-- workload: easy -->
+<!-- assignee: Claude -->
+
+#### Indexer un nouvel album dès sa création sur le NAS
+<!-- id: task-1794400000000-89 -->
+Aujourd'hui ses photos n'arrivent sur la carte qu'après la sauvegarde suivante ou un redémarrage.
+Tags: `nas`
+<!-- priority: low -->
+<!-- workload: easy -->
+<!-- assignee: Claude -->
+
+#### Suggestions de tags selon le lieu
+<!-- id: task-1794400000000-90 -->
+Proposer « boulot » pour les photos prises près du bureau, à valider.
+Tags: `nas` `windows`
+<!-- priority: low -->
+<!-- workload: hard -->
+<!-- assignee: Claude -->
+
 ## TODO
+
+#### Marquer la provenance des photos déjà sur le NAS
+<!-- id: task-1794400000000-83 -->
+Administration › Réglages › « Marquer la provenance des fichiers existants » : analyser, lire l'aperçu, confirmer.
+Tags: `nas`
+<!-- assignee: Nicolas -->
+
+#### Essayer la section Sauvegarde Android
+<!-- id: task-1794400000000-84 -->
+Version 0.1.26 servie par le NAS : rendu réel, pause pendant un envoi, notifications, migration de la base locale.
+Tags: `android`
+<!-- priority: high -->
+<!-- assignee: Nicolas -->
 
 #### Mettre la clé de release Android en lieu sûr
 <!-- id: task-1794400000000-20 -->
@@ -160,21 +218,6 @@ Gradle et SDK Android (quelques Go) dans le dossier temporaire de session de Cla
 
 ## DOING
 
-#### Provenance des photos (WhatsApp, captures)
-<!-- id: task-1794400000000-75 -->
-Mot-clé XMP sans réencodage, filtre « Provenance » dans les visionneuses, marquage des fichiers existants depuis l'administration (sur confirmation).
-Tags: `nas` `windows`
-<!-- priority: high -->
-<!-- workload: hard -->
-<!-- assignee: Claude -->
-
-#### Carte dans l'administration web du NAS
-<!-- id: task-1794400000000-76 -->
-Même carte que sous Windows (Leaflet, OpenStreetMap).
-Tags: `nas`
-<!-- workload: hard -->
-<!-- assignee: Claude -->
-
 ### Déploiement TrueNAS
 
 #### 5. Passer l'app Windows en Visionneuse
@@ -209,6 +252,38 @@ Tags: `android`
 <!-- assignee: Nicolas -->
 
 ## DONE
+
+#### Tags (mots-clés XMP, journaux partagés, page Tags)
+<!-- id: task-1794400000000-80 -->
+Création depuis partout, suppression avec le nombre de photos concernées, filtre dans les visionneuses et la carte web.
+Tags: `nas` `windows`
+<!-- assignee: Claude -->
+
+#### Section Sauvegarde Android
+<!-- id: task-1794400000000-81 -->
+Onglet d'accueil, deux barres de progression, compteurs, listes, pause, historique, notifications courtes.
+Tags: `android`
+<!-- assignee: Claude -->
+
+#### Activité de fond visible (NAS et PC)
+<!-- id: task-1794400000000-82 -->
+Page Activité, tâches en cours, fil des événements, erreurs internes.
+Tags: `nas` `windows`
+<!-- assignee: Claude -->
+
+#### Provenance des photos (WhatsApp, captures)
+<!-- id: task-1794400000000-75 -->
+Mot-clé XMP sans réencodage, filtre « Provenance » dans les visionneuses, marquage des fichiers existants depuis l'administration (sur confirmation).
+Tags: `nas` `windows`
+<!-- workload: hard -->
+<!-- assignee: Claude -->
+
+#### Carte dans l'administration web du NAS
+<!-- id: task-1794400000000-76 -->
+Même carte que sous Windows (Leaflet, OpenStreetMap).
+Tags: `nas`
+<!-- workload: hard -->
+<!-- assignee: Claude -->
 
 #### 3. Administration web et album
 <!-- id: task-1794400000000-32 -->
