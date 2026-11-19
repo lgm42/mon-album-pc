@@ -68,7 +68,7 @@ public sealed class MediaIndexTests : IDisposable
 
         var again = _index.Refresh(_album);
 
-        Assert.Equal(new MediaIndexResult(0, 0), again);
+        Assert.Equal(new MediaIndexResult(0, 0, Files: 2), again);
         Assert.False(again.Changed);
     }
 
@@ -94,7 +94,7 @@ public sealed class MediaIndexTests : IDisposable
 
         File.Delete(path);
 
-        Assert.Equal(new MediaIndexResult(0, 1), _index.Refresh(_album));
+        Assert.Equal(new MediaIndexResult(0, 1, Files: 0), _index.Refresh(_album));
         Assert.Empty(_index.ListLocated());
     }
 

@@ -128,6 +128,30 @@ public sealed class LibraryViewerTests : IDisposable
     }
 
     [Fact]
+    public void What_the_viewer_finds_is_on_the_activity_board()
+    {
+        var viewer = Viewer();
+        viewer.Poll();
+        var manifest = LibraryManifest.FilePath(_library);
+        File.Move(manifest, manifest + ".away");
+        viewer.Poll();
+
+        Assert.NotNull(viewer.UnavailableSince);
+        Assert.Equal($"Bibliothèque injoignable : {_library}", _core.Work.Events[0].Text);
+
+        File.Move(manifest + ".away", manifest);
+        Activity(3);
+        viewer.Poll();
+
+        Assert.Null(viewer.UnavailableSince);
+        Assert.NotNull(viewer.LastChecked);
+        Assert.Equal("Pendant votre absence", viewer.LastNews?.Notification.Title);
+        Assert.Contains(_core.Work.Events, e => e.Text == $"Bibliothèque de nouveau joignable : {_library}");
+        Assert.Contains(_core.Work.Events, e => e.Text.StartsWith("Pendant votre absence : 3 nouvelles photos", StringComparison.Ordinal));
+        Assert.DoesNotContain(_core.Work.Running, w => w.Title == LibraryViewer.Title);
+    }
+
+    [Fact]
     public void A_damaged_manifest_changes_nothing()
     {
         var viewer = Viewer();

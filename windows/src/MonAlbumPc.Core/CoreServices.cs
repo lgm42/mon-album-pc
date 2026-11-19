@@ -1,5 +1,6 @@
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
+using MonAlbumPc.Core.Activity;
 using MonAlbumPc.Core.Import;
 using MonAlbumPc.Core.Media;
 using MonAlbumPc.Core.Pairing;
@@ -13,11 +14,12 @@ public sealed record PcIdentity(Guid PcId);
 /// <summary>Composition root shared by the server and the Windows app.</summary>
 public sealed class CoreServices : IDisposable
 {
-    private CoreServices(string dataDirectory, TimeProvider clock)
+    private CoreServices(string dataDirectory, TimeProvider clock, WorkBoard? work)
     {
         Directory.CreateDirectory(dataDirectory);
         DataDirectory = dataDirectory;
         Clock = clock;
+        Work = work ?? new WorkBoard(clock);
         Identity = LoadIdentity(Path.Combine(dataDirectory, "identity.json"));
         Database = new Database(Path.Combine(dataDirectory, "catalog.db"));
         Albums = new AlbumStore(Database);
@@ -27,14 +29,21 @@ public sealed class CoreServices : IDisposable
         Journals = new AlbumJournals(Albums, Devices, Identity.PcId, clock);
         History.Journals = Journals;
         Media = new MediaIndex(Database, Journals);
-        MediaIndexer = new MediaIndexer(Albums, Media);
+        MediaIndexer = new MediaIndexer(Albums, Media, Work);
         Import = new ImportService(Albums, History, clock, Media);
         Pairing = new PairingService(Albums, Devices, clock);
         Authenticator = new DeviceAuthenticator(Devices);
         Uploads = new UploadStore(clock);
         SessionHistory = new SessionStore(Database);
         Sessions = new SessionTracker(SessionHistory, clock);
-        Certificate = ServerCertificate.LoadOrCreate(Path.Combine(dataDirectory, "server-certificate.dat"));
+        SessionReport.Attach(this);
+        var certificate = Path.Combine(dataDirectory, "server-certificate.dat");
+        var created = !File.Exists(certificate);
+        Certificate = ServerCertificate.LoadOrCreate(certificate);
+        if (created)
+        {
+            Work.Info($"Certificat du serveur créé (empreinte {CertificateFingerprint[..8]}…)");
+        }
     }
 
     /// <summary>Machine-wide data folder: one instance of the app serves every album of the PC.</summary>
@@ -43,6 +52,9 @@ public sealed class CoreServices : IDisposable
 
     public string DataDirectory { get; }
     public TimeProvider Clock { get; }
+
+    /// <summary>What runs in the background right now, and what happened recently.</summary>
+    public WorkBoard Work { get; }
     public PcIdentity Identity { get; }
     public string PcName { get; set; } = Environment.MachineName;
     public Database Database { get; }
@@ -66,13 +78,15 @@ public sealed class CoreServices : IDisposable
     public X509Certificate2 Certificate { get; }
     public string CertificateFingerprint => ServerCertificate.Fingerprint(Certificate);
 
-    public static CoreServices Create(string dataDirectory, TimeProvider? clock = null) =>
-        new(dataDirectory, clock ?? TimeProvider.System);
+    /// <param name="work">The board of the host when it already has one (to catch its logs from the start).</param>
+    public static CoreServices Create(string dataDirectory, TimeProvider? clock = null, WorkBoard? work = null) =>
+        new(dataDirectory, clock ?? TimeProvider.System, work);
 
     public void Dispose()
     {
         MediaIndexer.Dispose();
         Certificate.Dispose();
+        Work.Dispose();
     }
 
     private static PcIdentity LoadIdentity(string path)

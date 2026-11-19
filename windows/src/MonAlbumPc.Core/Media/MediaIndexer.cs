@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using MonAlbumPc.Core.Activity;
 using MonAlbumPc.Core.Storage;
 
 namespace MonAlbumPc.Core.Media;
@@ -7,8 +8,10 @@ namespace MonAlbumPc.Core.Media;
 /// Refreshes the <see cref="MediaIndex"/> of every album in the background, on a low-priority thread: album folders may
 /// be big or sit on a slow network share. Requests made while a refresh runs are merged into one more pass.
 /// </summary>
-public sealed class MediaIndexer(AlbumStore albums, MediaIndex index) : IDisposable
+public sealed class MediaIndexer(AlbumStore albums, MediaIndex index, WorkBoard? work = null) : IDisposable
 {
+    public const string Title = "Index des positions";
+
     private readonly Lock _lock = new();
     private readonly CancellationTokenSource _stop = new();
     private bool _pending;
@@ -58,23 +61,39 @@ public sealed class MediaIndexer(AlbumStore albums, MediaIndex index) : IDisposa
                 _pending = false;
             }
             var changed = false;
+            var job = work?.Start(Title, "Inventaire des albums");
             try
             {
-                var progress = new Reporter(p => Progress?.Invoke(p));
+                var progress = new Reporter(p =>
+                {
+                    Show(job, p);
+                    Progress?.Invoke(p);
+                });
+                var total = new MediaIndexResult();
                 foreach (var album in albums.List())
                 {
+                    job?.Step($"Inventaire de {album.Name}");
                     try
                     {
-                        changed |= index.Refresh(album, progress, _stop.Token).Changed;
+                        if (!Directory.Exists(album.DestinationRoot))
+                        {
+                            job?.Warn($"{Title} : dossier de l'album {album.Name} injoignable ({album.DestinationRoot})");
+                        }
+                        var result = index.Refresh(album, progress, _stop.Token);
+                        changed |= result.Changed;
+                        total = new MediaIndexResult(total.Read + result.Read, total.Removed + result.Removed, total.Files + result.Files);
                     }
                     catch (Exception e) when (e is IOException or UnauthorizedAccessException or SqliteException)
                     {
                         // This album is unreachable for now; the others still get indexed.
+                        job?.Warn($"{Title} : album {album.Name} illisible pour l'instant ({e.Message})");
                     }
                 }
+                job?.Finish(Summary(total, job.Elapsed), job.Warnings > 0 ? WorkLevel.Warning : WorkLevel.Info);
             }
             catch (OperationCanceledException)
             {
+                job?.Dispose();
                 lock (_lock)
                 {
                     _running = false;
@@ -84,6 +103,7 @@ public sealed class MediaIndexer(AlbumStore albums, MediaIndex index) : IDisposa
             catch (Exception e) when (e is IOException or UnauthorizedAccessException or SqliteException)
             {
                 // The catalog is out of reach for now: on this thread, letting it through would close the whole app.
+                job?.Finish($"{Title} interrompu : catalogue inaccessible ({e.Message})", WorkLevel.Error, error: e);
             }
             Completed?.Invoke(changed);
         }
@@ -92,6 +112,43 @@ public sealed class MediaIndexer(AlbumStore albums, MediaIndex index) : IDisposa
     public void Dispose()
     {
         _stop.Cancel();
+    }
+
+    /// <summary>"Index des positions à jour : 7 012 fichiers (24 lus, 2 retirés) en 3 s".</summary>
+    public static string Summary(MediaIndexResult total, TimeSpan elapsed)
+    {
+        List<string> changes = [];
+        if (total.Read > 0)
+        {
+            changes.Add(WorkText.Plural(total.Read, "lu", "lus"));
+        }
+        if (total.Removed > 0)
+        {
+            changes.Add(WorkText.Plural(total.Removed, "retiré", "retirés"));
+        }
+        var detail = changes.Count == 0 ? "" : $" ({string.Join(", ", changes)})";
+        return $"{Title} à jour : {WorkText.Plural(total.Files, "fichier", "fichiers")}{detail} en {WorkText.Duration(elapsed)}";
+    }
+
+    // Listing first (no total yet), then reading the new or changed files.
+    private static void Show(WorkJob? job, MediaIndexProgress progress)
+    {
+        if (job is null)
+        {
+            return;
+        }
+        if (progress.Total == 0)
+        {
+            job.Progress(progress.Done, item: progress.Item);
+        }
+        else if (progress.Done == 0)
+        {
+            job.Step($"Lecture des fichiers nouveaux de {progress.AlbumName}", progress.Total);
+        }
+        else
+        {
+            job.Progress(progress.Done, progress.Total, progress.Item);
+        }
     }
 
     /// <summary>Synchronous progress (no captured context: listeners marshal to their own thread).</summary>

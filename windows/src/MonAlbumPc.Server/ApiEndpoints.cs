@@ -75,9 +75,15 @@ internal static class ApiEndpoints
             core.Devices.Revoke(Current(http).Id, core.Clock.GetLocalNow());
             return Results.NoContent();
         });
-        device.MapGet("/apk", () => options.Apk is { } apk
-            ? Results.File(apk.Path, "application/vnd.android.package-archive", "monalbumpc.apk")
-            : Results.NotFound());
+        device.MapGet("/apk", (HttpContext http) =>
+        {
+            if (options.Apk is not { } apk)
+            {
+                return Results.NotFound();
+            }
+            core.Work.Info($"Mise à jour de l'application ({apk.VersionName}) envoyée à {Current(http).Name}");
+            return Results.File(apk.Path, "application/vnd.android.package-archive", "monalbumpc.apk");
+        });
     }
 
     private static Device Current(HttpContext http) => (Device)http.Items[DeviceKey]!;

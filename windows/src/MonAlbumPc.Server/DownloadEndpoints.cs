@@ -19,9 +19,15 @@ internal static class DownloadEndpoints
     {
         app.MapGet("/", (HttpContext http) => Page(http, core, options, pairing: null));
         app.MapGet("/p", (HttpContext http) => Page(http, core, options, http.Request.QueryString.Value?.TrimStart('?')));
-        app.MapGet("/monalbumpc.apk", () => options.Apk is { } apk && File.Exists(apk.Path)
-            ? Results.File(apk.Path, "application/vnd.android.package-archive", "monalbumpc.apk")
-            : Results.NotFound());
+        app.MapGet("/monalbumpc.apk", () =>
+        {
+            if (options.Apk is not { } apk || !File.Exists(apk.Path))
+            {
+                return Results.NotFound();
+            }
+            core.Work.Info($"Application Android ({apk.VersionName}) téléchargée depuis la page d'installation");
+            return Results.File(apk.Path, "application/vnd.android.package-archive", "monalbumpc.apk");
+        });
     }
 
     private static IResult Page(HttpContext http, CoreServices core, ServerOptions options, string? pairing)

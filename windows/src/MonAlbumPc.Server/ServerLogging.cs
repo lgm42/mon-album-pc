@@ -1,6 +1,7 @@
 using System.Text;
 using Microsoft.Extensions.Logging;
 using MonAlbumPc.Core;
+using MonAlbumPc.Core.Activity;
 using MonAlbumPc.Core.Import;
 using MonAlbumPc.Core.Storage;
 
@@ -15,6 +16,108 @@ public sealed class ForwardingLoggerProvider(ILoggerFactory target) : ILoggerPro
     {
         // The host owns the factory.
     }
+}
+
+/// <summary>
+/// Puts the warnings and errors of the logs in the recent activity of the <see cref="WorkBoard"/>, so that problems show
+/// on screen without reading the logs; then hands everything to <paramref name="inner"/>, when given. Only errors of the
+/// framework are kept: its warnings are about its own configuration, not about the photos.
+/// </summary>
+public sealed class WorkBoardLoggerProvider(WorkBoard board, ILoggerProvider? inner = null) : ILoggerProvider
+{
+    // Already on the board in their own words.
+    private static readonly string[] Reported = [WorkLog.Category, SessionLog.Category];
+
+    public ILogger CreateLogger(string categoryName) => new Logger(board, categoryName, inner?.CreateLogger(categoryName));
+
+    public void Dispose() => inner?.Dispose();
+
+    private sealed class Logger(WorkBoard board, string category, ILogger? inner) : ILogger
+    {
+        private readonly LogLevel _minimum = Reported.Contains(category) ? LogLevel.None
+            : category.StartsWith("Microsoft", StringComparison.Ordinal) || category.StartsWith("System", StringComparison.Ordinal)
+                ? LogLevel.Error
+                : LogLevel.Warning;
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => inner?.BeginScope(state);
+
+        public bool IsEnabled(LogLevel logLevel) => Captures(logLevel) || inner?.IsEnabled(logLevel) == true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            if (Captures(logLevel))
+            {
+                var text = formatter(state, exception);
+                if (exception is not null && !text.Contains(exception.Message, StringComparison.Ordinal))
+                {
+                    text += $" ({exception.Message})";
+                }
+                board.Record(logLevel >= LogLevel.Error ? WorkLevel.Error : WorkLevel.Warning, text);
+            }
+            if (inner?.IsEnabled(logLevel) == true)
+            {
+                inner.Log(logLevel, eventId, state, exception, formatter);
+            }
+        }
+
+        private bool Captures(LogLevel logLevel) => logLevel >= _minimum && logLevel != LogLevel.None;
+    }
+}
+
+/// <summary>
+/// One line in the logs when a background task starts and when it ends (not one per file), and one for each event the
+/// app tells, so that the logs and the screens tell the same story.
+/// </summary>
+public sealed class WorkLog : IDisposable
+{
+    public const string Category = "MonAlbumPc.Work";
+
+    private readonly WorkBoard _board;
+    private readonly ILogger _log;
+
+    public WorkLog(WorkBoard board, ILogger log)
+    {
+        _board = board;
+        _log = log;
+        board.Started += OnStarted;
+        board.Ended += OnEnded;
+        board.Noted += OnNoted;
+    }
+
+    public void Dispose()
+    {
+        _board.Started -= OnStarted;
+        _board.Ended -= OnEnded;
+        _board.Noted -= OnNoted;
+    }
+
+    private void OnStarted(RunningWork work, bool silent)
+    {
+        if (!silent)
+        {
+            _log.LogInformation("{Title} : début{Step}", work.Title, work.Step is null ? "" : $" ({work.Step})");
+        }
+    }
+
+    private void OnEnded(WorkEnded ended)
+    {
+        if (ended.Silent && ended.Level == WorkLevel.Info)
+        {
+            return;
+        }
+        var summary = ended.Summary ?? $"{ended.Work.Title} : arrêté";
+        _log.Log(Level(ended.Level), ended.Error, "{Summary}", summary);
+    }
+
+    private void OnNoted(WorkEvent e) => _log.Log(Level(e.Level), "{Text}", e.Text);
+
+    private static LogLevel Level(WorkLevel level) => level switch
+    {
+        WorkLevel.Error => LogLevel.Error,
+        WorkLevel.Warning => LogLevel.Warning,
+        _ => LogLevel.Information,
+    };
 }
 
 /// <summary>
@@ -88,6 +191,8 @@ public sealed class FileLoggerProvider(string path) : ILoggerProvider
 /// <summary>One line per backup in the logs, at its start and at its end, so that they tell what the phones did.</summary>
 internal sealed class SessionLog : IDisposable
 {
+    public const string Category = "MonAlbumPc.Sessions";
+
     private readonly CoreServices _core;
     private readonly ILogger _log;
 

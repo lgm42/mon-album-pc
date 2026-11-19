@@ -2,12 +2,42 @@ using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using ImageMagick;
+using MonAlbumPc.Core.Activity;
 using MonAlbumPc.Core.Model;
 
 namespace MonAlbumPc.Core.Media;
 
 /// <summary>What a pass over the albums did. <see cref="FirstError"/> tells why the first failure failed.</summary>
-public sealed record ThumbnailSweepResult(int Made, int Removed, int Failed, int Ready, string? FirstError);
+public sealed record ThumbnailSweepResult(int Made, int Removed, int Failed, int Ready, string? FirstError)
+{
+    public const string Title = "Miniatures";
+
+    /// <summary>Something was made, removed or failed: worth a line in the recent activity.</summary>
+    public bool Changed => Made > 0 || Removed > 0 || Failed > 0;
+
+    /// <summary>"Miniatures : 1 240 créées, 3 en échec en 2 min 10 s", "Miniatures : 7 018 déjà prêtes en 4 s".</summary>
+    public string Summary(TimeSpan elapsed)
+    {
+        List<string> parts = [];
+        if (Made > 0)
+        {
+            parts.Add(WorkText.Plural(Made, "créée", "créées"));
+        }
+        if (Removed > 0)
+        {
+            parts.Add(WorkText.Plural(Removed, "supprimée", "supprimées"));
+        }
+        if (Failed > 0)
+        {
+            parts.Add($"{WorkText.Count(Failed)} en échec");
+        }
+        if (parts.Count == 0)
+        {
+            parts.Add($"{WorkText.Count(Ready)} déjà prête{(Ready > 1 ? "s" : "")}");
+        }
+        return $"{Title} : {string.Join(", ", parts)} en {WorkText.Duration(elapsed)}";
+    }
+}
 
 /// <summary>
 /// Keeps the thumbnails of albums complete: makes the missing and outdated ones, most recent first, and removes those whose
@@ -24,7 +54,8 @@ public sealed class ThumbnailSweeper(int parallelism)
     // Files that could not be decoded, with their date: not tried again until they change.
     private readonly ConcurrentDictionary<string, DateTime> _undecodable = new();
 
-    public ThumbnailSweepResult Sweep(IEnumerable<Album> albums, CancellationToken cancellation)
+    /// <param name="job">Told what the pass is on, file by file, and each file that fails.</param>
+    public ThumbnailSweepResult Sweep(IEnumerable<Album> albums, CancellationToken cancellation, WorkJob? job = null)
     {
         var removed = 0;
         var ready = 0;
@@ -32,9 +63,11 @@ public sealed class ThumbnailSweeper(int parallelism)
         foreach (var album in albums)
         {
             cancellation.ThrowIfCancellationRequested();
+            job?.Step($"Inventaire de {album.Name}");
             removed += RemoveOrphans(album.DestinationRoot);
             foreach (var item in PhotoLibrary.Scan(album).Where(i => ThumbnailMaker.CanMake(i.Path)))
             {
+                job?.Advance(Path.GetFileName(item.Path));
                 if (ThumbnailStore.Fresh(album.DestinationRoot, item.Path) is not null)
                 {
                     ready++;
@@ -48,6 +81,10 @@ public sealed class ThumbnailSweeper(int parallelism)
 
         var queue = new ConcurrentQueue<(string Root, LibraryItem Item)>(
             missing.OrderByDescending(m => m.Item.Month).ThenByDescending(m => m.Item.Date));
+        if (queue.Count > 0)
+        {
+            job?.Step("Création des miniatures", queue.Count);
+        }
         var made = 0;
         var failed = 0;
         string? firstError = null;
@@ -56,10 +93,12 @@ public sealed class ThumbnailSweeper(int parallelism)
             LowerPriority();
             while (!cancellation.IsCancellationRequested && queue.TryDequeue(out var next))
             {
+                job?.Working(Path.GetFileName(next.Item.Path));
                 try
                 {
                     ThumbnailMaker.Make(next.Root, next.Item.Path, cancellation);
                     Interlocked.Increment(ref made);
+                    job?.Advance();
                 }
                 catch (Exception e) when (e is MagickException or InvalidDataException or TimeoutException)
                 {
@@ -81,6 +120,8 @@ public sealed class ThumbnailSweeper(int parallelism)
         {
             Interlocked.Increment(ref failed);
             Interlocked.CompareExchange(ref firstError, $"{Path.GetFileName(path)} : {e.Message}", null);
+            job?.Advance();
+            job?.Warn($"Miniature impossible : {Path.GetFileName(path)} ({e.Message})");
         }
 
         var workers = Enumerable.Range(0, Math.Min(Math.Max(parallelism, 1), queue.Count))

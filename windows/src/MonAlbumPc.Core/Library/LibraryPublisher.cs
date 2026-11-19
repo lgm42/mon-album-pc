@@ -1,3 +1,4 @@
+using MonAlbumPc.Core.Activity;
 using MonAlbumPc.Core.Storage;
 
 namespace MonAlbumPc.Core.Library;
@@ -25,7 +26,9 @@ public sealed class LibraryPublisher(CoreServices core, string libraryRoot)
     {
         lock (_lock)
         {
-            LibraryManifest.Write(libraryRoot, LibraryManifest.From(libraryRoot, core.PcName, core.Albums.List()));
+            var albums = core.Albums.List();
+            LibraryManifest.Write(libraryRoot, LibraryManifest.From(libraryRoot, core.PcName, albums));
+            core.Work.Info($"Liste des albums publiée pour les PC visionneuses : {WorkText.Plural(albums.Count, "album", "albums")}");
         }
     });
 

@@ -9,11 +9,15 @@ namespace MonAlbumPc.Core.Media;
 /// <summary>A photo or video of the catalog with its shooting place.</summary>
 public sealed record LocatedMedia(Guid AlbumId, string Path, DateTime TakenAt, double Latitude, double Longitude, bool IsVideo, long Size);
 
-/// <summary>Where a refresh stands: <paramref name="Done"/> files read out of <paramref name="Total"/> new or changed ones.</summary>
-public readonly record struct MediaIndexProgress(string AlbumName, int Done, int Total);
+/// <summary>
+/// Where a refresh stands: <paramref name="Done"/> files read out of <paramref name="Total"/> new or changed ones, the last
+/// being <paramref name="Item"/>. While the folder is still being listed, <paramref name="Total"/> is 0 and
+/// <paramref name="Done"/> counts the files found so far.
+/// </summary>
+public readonly record struct MediaIndexProgress(string AlbumName, int Done, int Total, string? Item = null);
 
-/// <summary>What a refresh changed in the catalog.</summary>
-public readonly record struct MediaIndexResult(int Read, int Removed)
+/// <summary>What a refresh changed in the catalog, out of <paramref name="Files"/> media files in the album folder.</summary>
+public readonly record struct MediaIndexResult(int Read, int Removed, int Files = 0)
 {
     public bool Changed => Read > 0 || Removed > 0;
 }
@@ -28,6 +32,9 @@ public sealed class MediaIndex(Database database, AlbumJournals? journals = null
 {
     private const string WallClock = "yyyy-MM-dd'T'HH:mm:ss";
     private const int BatchSize = 100;
+
+    // A big folder on a network share takes a while to list: tell how far it got now and then.
+    private const int ListingReportEvery = 500;
 
     /// <summary>Brings the index of <paramref name="album"/> up to date with its folder.</summary>
     public MediaIndexResult Refresh(Album album, IProgress<MediaIndexProgress>? progress = null, CancellationToken cancellationToken = default)
@@ -45,6 +52,10 @@ public sealed class MediaIndex(Database database, AlbumJournals? journals = null
             cancellationToken.ThrowIfCancellationRequested();
             var relative = Relative(album.DestinationRoot, file.FullName);
             seen.Add(relative);
+            if (seen.Count % ListingReportEvery == 0)
+            {
+                progress?.Report(new MediaIndexProgress(album.Name, seen.Count, 0, file.Name));
+            }
             if (!known.TryGetValue(relative, out var state) || state.Size != file.Length || state.ModifiedAt != Modified(file))
             {
                 toRead.Add(file);
@@ -96,9 +107,9 @@ public sealed class MediaIndex(Database database, AlbumJournals? journals = null
                 }
             });
             done += chunk.Length;
-            progress?.Report(new MediaIndexProgress(album.Name, done, toRead.Count));
+            progress?.Report(new MediaIndexProgress(album.Name, done, toRead.Count, chunk[^1].Name));
         }
-        return new MediaIndexResult(toRead.Count, removed.Count);
+        return new MediaIndexResult(toRead.Count, removed.Count, seen.Count);
     }
 
     /// <summary>What another server journaled about this very file, when that includes its position.</summary>

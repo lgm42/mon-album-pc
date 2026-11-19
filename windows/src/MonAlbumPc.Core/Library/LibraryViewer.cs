@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
+using MonAlbumPc.Core.Activity;
 
 namespace MonAlbumPc.Core.Library;
 
@@ -22,6 +23,8 @@ public sealed class LibraryViewer(CoreServices core, string libraryRoot) : IDisp
 {
     public static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(60);
 
+    public const string Title = "Bibliothèque";
+
     private const long MaxLogSize = 256 * 1024;
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
@@ -37,6 +40,15 @@ public sealed class LibraryViewer(CoreServices core, string libraryRoot) : IDisp
     public string Root { get; } = libraryRoot;
 
     public LibraryState State { get; private set; } = LibraryState.Connecting;
+
+    /// <summary>End of the last look at the library, whatever it found.</summary>
+    public DateTimeOffset? LastChecked { get; private set; }
+
+    /// <summary>When the library stopped answering, while it does not.</summary>
+    public DateTimeOffset? UnavailableSince { get; private set; }
+
+    /// <summary>The last thing told about the library's photos, and when.</summary>
+    public (LibraryNotification Notification, DateTimeOffset At)? LastNews { get; private set; }
 
     /// <summary>Raised when <see cref="State"/> changes, from a background thread.</summary>
     public event Action? StateChanged;
@@ -71,6 +83,7 @@ public sealed class LibraryViewer(CoreServices core, string libraryRoot) : IDisp
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException or SqliteException)
                 {
                     Log($"Erreur : {e.Message}");
+                    core.Work.Error($"Lecture de la bibliothèque impossible : {e.Message}");
                 }
             }
             while (await timer.WaitForNextTickAsync(_stop.Token));
@@ -86,29 +99,45 @@ public sealed class LibraryViewer(CoreServices core, string libraryRoot) : IDisp
     {
         lock (_pollLock)
         {
-            var manifest = LibraryManifest.Read(Root);
-            if (manifest is null)
+            // Every minute: shown while it runs (a share can be slow to answer), kept out of the logs.
+            using var job = core.Work.Start(Title, $"Vérification de {Root}", silent: true);
+            try
             {
-                _absent = true;
-                SetState(LibraryState.Unavailable);
-                return;
-            }
+                var manifest = LibraryManifest.Read(Root);
+                if (manifest is null)
+                {
+                    _absent = true;
+                    SetState(LibraryState.Unavailable);
+                    return;
+                }
 
-            var albumsChanged = LibraryAlbumSync.Apply(core.Albums, manifest, Root, core.Clock);
-            var fresh = ReadActivity();
-            var reconnected = State != LibraryState.Available;
-            SetState(LibraryState.Available);
-            if (reconnected || albumsChanged || fresh.Count > 0)
-            {
-                core.MediaIndexer.RequestRefresh();
-                ContentChanged?.Invoke();
+                job.Step("Lecture des albums et des dernières sauvegardes");
+                var albumsChanged = LibraryAlbumSync.Apply(core.Albums, manifest, Root, core.Clock);
+                var fresh = ReadActivity();
+                var reconnected = State != LibraryState.Available;
+                SetState(LibraryState.Available);
+                if (albumsChanged)
+                {
+                    core.Work.Info($"Albums mis à jour depuis la bibliothèque : {WorkText.Plural(core.Albums.List().Count, "album", "albums")}");
+                }
+                if (reconnected || albumsChanged || fresh.Count > 0)
+                {
+                    core.MediaIndexer.RequestRefresh();
+                    ContentChanged?.Invoke();
+                }
+                if (ActivityNotifications.Summarize(fresh, _absent) is { } notification)
+                {
+                    Log($"Notification : {notification.Title} — {notification.Message}");
+                    LastNews = (notification, core.Clock.GetLocalNow());
+                    core.Work.Add(notification.IsWarning ? WorkLevel.Warning : WorkLevel.Info, $"{notification.Title} : {notification.Message}");
+                    Notified?.Invoke(notification);
+                }
+                _absent = false;
             }
-            if (ActivityNotifications.Summarize(fresh, _absent) is { } notification)
+            finally
             {
-                Log($"Notification : {notification.Title} — {notification.Message}");
-                Notified?.Invoke(notification);
+                LastChecked = core.Clock.GetLocalNow();
             }
-            _absent = false;
         }
     }
 
@@ -139,8 +168,19 @@ public sealed class LibraryViewer(CoreServices core, string libraryRoot) : IDisp
     {
         if (State != state)
         {
+            var previous = State;
             State = state;
             Log(state == LibraryState.Available ? $"Bibliothèque connectée : {Root}" : $"Bibliothèque indisponible : {Root}");
+            if (state == LibraryState.Available)
+            {
+                UnavailableSince = null;
+                core.Work.Info(previous == LibraryState.Unavailable ? $"Bibliothèque de nouveau joignable : {Root}" : $"Bibliothèque connectée : {Root}");
+            }
+            else
+            {
+                UnavailableSince = core.Clock.GetLocalNow();
+                core.Work.Warn($"Bibliothèque injoignable : {Root}");
+            }
             StateChanged?.Invoke();
         }
     }

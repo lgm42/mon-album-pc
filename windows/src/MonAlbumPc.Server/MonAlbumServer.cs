@@ -19,6 +19,7 @@ public sealed class MonAlbumServer(CoreServices core, ServerOptions options, ILo
     private MdnsAdvertiser? _mdns;
     private Timer? _idleSessions;
     private SessionLog? _sessionLog;
+    private ILogger? _log;
 
     public int ApiPort { get; private set; }
     public int DownloadPort { get; private set; }
@@ -42,7 +43,8 @@ public sealed class MonAlbumServer(CoreServices core, ServerOptions options, ILo
         });
 
         _app = builder.Build();
-        _sessionLog = new SessionLog(core, _app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("MonAlbumPc.Sessions"));
+        var loggers = _app.Services.GetRequiredService<ILoggerFactory>();
+        _sessionLog = new SessionLog(core, loggers.CreateLogger(SessionLog.Category));
         ApiEndpoints.Map(_app, core, options);
         DownloadEndpoints.Map(_app, core, options);
         await _app.StartAsync(cancellationToken);
@@ -51,12 +53,14 @@ public sealed class MonAlbumServer(CoreServices core, ServerOptions options, ILo
             .Addresses.Select(a => new Uri(a.Replace("0.0.0.0", "localhost"))).ToList();
         ApiPort = ports.First(u => u.Scheme == "https").Port;
         DownloadPort = ports.First(u => u.Scheme == "http").Port;
-        if (options.Advertise)
-        {
-            _mdns = new MdnsAdvertiser(core, ApiPort);
-        }
+        _log = loggers.CreateLogger("MonAlbumPc.Server");
+        Advertise();
         // Albums imported before journals existed: write their journal next to the photos (may be a slow network folder).
-        _ = Task.Run(() => core.Journals.ExportMissing(core.History), cancellationToken);
+        _ = Task.Run(() =>
+        {
+            using var job = core.Work.Start("Journaux des albums", "Écriture des journaux manquants", silent: true);
+            core.Journals.ExportMissing(core.History);
+        }, cancellationToken);
         _idleSessions = new Timer(_ => core.Sessions.CloseIdle(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
     }
 
@@ -68,7 +72,29 @@ public sealed class MonAlbumServer(CoreServices core, ServerOptions options, ILo
             return;
         }
         _mdns?.Dispose();
-        _mdns = new MdnsAdvertiser(core, ApiPort);
+        _mdns = null;
+        Advertise();
+        if (_mdns is not null)
+        {
+            core.Work.Info("Annonce sur le réseau relancée après la mise en veille");
+        }
+    }
+
+    // Without the announcement, paired phones still reach the server at its last known address: worth a warning, not a stop.
+    private void Advertise()
+    {
+        if (!options.Advertise)
+        {
+            return;
+        }
+        try
+        {
+            _mdns = new MdnsAdvertiser(core, ApiPort);
+        }
+        catch (Exception e) when (e is System.Net.Sockets.SocketException or InvalidOperationException or IOException)
+        {
+            _log?.LogWarning(e, "Annonce sur le réseau (mDNS) impossible : les téléphones ne retrouveront ce serveur que s'il garde la même adresse");
+        }
     }
 
     public async Task StopAsync()
