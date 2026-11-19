@@ -3,6 +3,7 @@ package io.github.lgm42.monalbumpc.ui.navigation
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Settings
@@ -38,6 +39,7 @@ import io.github.lgm42.monalbumpc.data.PairedPc
 import io.github.lgm42.monalbumpc.ui.MainViewModel
 import io.github.lgm42.monalbumpc.ui.UpdateViewModel
 import io.github.lgm42.monalbumpc.ui.components.openUnknownSourcesSettings
+import io.github.lgm42.monalbumpc.ui.backup.BackupScreen
 import io.github.lgm42.monalbumpc.ui.folders.FoldersScreen
 import io.github.lgm42.monalbumpc.ui.photos.PhotosScreen
 import io.github.lgm42.monalbumpc.ui.settings.SettingsScreen
@@ -49,6 +51,8 @@ fun MonAlbumPcApp(pc: PairedPc, onUnpair: () -> Unit) {
     // Activity-scoped: shared by the three tabs.
     val mainViewModel: MainViewModel = viewModel()
     val state by mainViewModel.state.collectAsStateWithLifecycle()
+    val summary by mainViewModel.summary.collectAsStateWithLifecycle()
+    val conditions by mainViewModel.conditions.collectAsStateWithLifecycle()
 
     val updateViewModel: UpdateViewModel = viewModel()
     val update by updateViewModel.state.collectAsStateWithLifecycle()
@@ -70,9 +74,22 @@ fun MonAlbumPcApp(pc: PairedPc, onUnpair: () -> Unit) {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = TopLevelDestination.Photos.route,
+            startDestination = TopLevelDestination.entries.first().route,
             modifier = Modifier.padding(innerPadding),
         ) {
+            composable(TopLevelDestination.Backup.route) {
+                BackupScreen(
+                    pcName = pc.pcName,
+                    progress = state.progress,
+                    backup = state.backup,
+                    summary = summary,
+                    conditions = conditions,
+                    onBackupNow = mainViewModel::backupNow,
+                    onRetry = mainViewModel::retry,
+                    onRetryAll = mainViewModel::retryAll,
+                    onOpenFolders = { navController.navigateToTab(TopLevelDestination.Folders) },
+                )
+            }
             composable(TopLevelDestination.Photos.route) {
                 PhotosScreen(
                     albumName = pc.albumName,
@@ -83,6 +100,7 @@ fun MonAlbumPcApp(pc: PairedPc, onUnpair: () -> Unit) {
                     onRetry = mainViewModel::retry,
                     onTrackFolder = { key -> mainViewModel.setFolderTracked(key, true) },
                     onOpenFolders = { navController.navigateToTab(TopLevelDestination.Folders) },
+                    onOpenBackup = { navController.navigateToTab(TopLevelDestination.Backup) },
                     update = update,
                     onUpdate = onUpdate,
                     onAllowInstall = onAllowInstall,
@@ -159,6 +177,7 @@ private fun NavHostController.navigateToTab(destination: TopLevelDestination) {
 
 private val TopLevelDestination.icon: ImageVector
     get() = when (this) {
+        TopLevelDestination.Backup -> Icons.Outlined.CloudUpload
         TopLevelDestination.Photos -> Icons.Outlined.Image
         TopLevelDestination.Folders -> Icons.Outlined.Folder
         TopLevelDestination.Settings -> Icons.Outlined.Settings

@@ -104,6 +104,7 @@ fun PhotosScreen(
     onRetry: (Long) -> Unit,
     onTrackFolder: (String) -> Unit,
     onOpenFolders: () -> Unit,
+    onOpenBackup: () -> Unit,
     update: UpdateUiState,
     onUpdate: () -> Unit,
     onAllowInstall: () -> Unit,
@@ -165,6 +166,7 @@ fun PhotosScreen(
                             is BannerState.PcUnreachable -> help = HelpDialog.Unreachable
                             BannerState.DestinationUnavailable -> help = HelpDialog.Destination
                             is BannerState.Errors -> onFilterChange(GalleryFilter.ERRORS)
+                            is BannerState.Running -> onOpenBackup()
                             else -> Unit
                         }
                     },
@@ -362,6 +364,7 @@ private fun StatusBanner(
         is BannerState.PcUnreachable -> stringResource(R.string.status_unreachable_link)
         BannerState.DestinationUnavailable -> stringResource(R.string.status_destination_link)
         is BannerState.Errors -> stringResource(R.string.status_errors_link)
+        is BannerState.Running -> stringResource(R.string.backup_details)
         else -> null
     }
 

@@ -71,6 +71,15 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
     private val currentBytes = AtomicLong(0)
     @Volatile private var phase: BackupPhase? = null
     @Volatile private var currentName: String? = null
+    @Volatile private var currentUri: String? = null
+
+    // Bytes of the whole run: files done (sent, recognized or failed) plus the file being sent.
+    @Volatile private var runSize = 0L
+    private val runDoneBytes = AtomicLong(0)
+
+    // Since the first upload of the run, for the time left: the queue drains at this pace, all steps included.
+    @Volatile private var etaSinceMs = 0L
+    @Volatile private var etaSinceBytes = 0L
 
     // Start of the current request, for the pace of the file being sent.
     @Volatile private var paceSinceMs = 0L
@@ -164,11 +173,12 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
                 while (isActive) {
                     publishProgress()
                     val activity = activity()
-                    val now = Triple(done, total, activity)
+                    val run = runTotals()
+                    val now = Triple(done, activity, run?.doneBytes)
                     // No notification while only looking for the PC: an absent PC would make one pop up at every attempt.
                     if (activity != null && activity.phase != BackupPhase.SEARCHING && now != shown) {
                         shown = now
-                        setForegroundSafely(notifications.progressInfo(done, total, paired.pcName, activity))
+                        setForegroundSafely(notifications.progressInfo(done, total, paired.pcName, activity, run))
                     }
                     delay(PROGRESS_INTERVAL_MS)
                 }
@@ -186,6 +196,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
     private suspend fun clearProgress() {
         phase = null
         currentName = null
+        currentUri = null
         try {
             withContext(NonCancellable) { publishProgress() }
         } catch (e: Exception) {
@@ -227,6 +238,9 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
 
         total = queue.size
         done = 0
+        runSize = queue.sumOf { it.size }
+        runDoneBytes.set(0)
+        etaSinceMs = 0L
         val outcome = processQueue(pc, api, connection.status, queue)
         val result = finish(pc, outcome)
         if (outcome == RunOutcome.Completed || outcome is RunOutcome.Stop) reportFinished(pc, api)
@@ -277,6 +291,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
                 }
                 if (withHash == null) {
                     done++
+                    runDoneBytes.addAndGet(item.size)
                 } else {
                     hashed.add(withHash)
                 }
@@ -297,6 +312,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
             if (already.isNotEmpty()) {
                 dao.markSaved(already.map { it.mediaStoreId }, System.currentTimeMillis())
                 done += already.size
+                runDoneBytes.addAndGet(already.sumOf { it.size })
             }
 
             if (!status.destinationAvailable) return RunOutcome.Stop(BackupIssue.DESTINATION_UNAVAILABLE)
@@ -305,7 +321,9 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
             for (item in hashed) {
                 if (item.sha256 in have) continue
                 if (isStopped) return RunOutcome.Retry
-                when (val result = upload(pc, api, item)) {
+                val result = upload(pc, api, item)
+                if (result !is ItemResult.Abort) runDoneBytes.addAndGet(item.size)
+                when (result) {
                     ItemResult.Saved, ItemResult.Failed, ItemResult.Skipped -> {
                         refusedInARow = 0
                         done++
@@ -438,8 +456,13 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
         currentId = item.mediaStoreId
         currentSize = item.size
         currentName = item.displayName
+        currentUri = item.uri
         currentBytes.set(0)
         startPace(0)
+        if (etaSinceMs == 0L) {
+            etaSinceMs = System.currentTimeMillis()
+            etaSinceBytes = runDoneBytes.get()
+        }
         phase = BackupPhase.UPLOADING
         try {
             declare@ while (true) {
@@ -539,6 +562,8 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
         } finally {
             currentId = -1L
             currentName = null
+            currentUri = null
+            currentBytes.set(0)
         }
     }
 
@@ -617,7 +642,10 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
     private suspend fun status(pc: PairedPc): Connection = try {
         statusTried = true
         val api = PcApi(pc.host, pc.apiPort, pc.certSha256)
-        Connection.Connected(pc, api, api.status(pc.authorization)).also { lastStatus = it.status }
+        Connection.Connected(pc, api, api.status(pc.authorization)).also {
+            lastStatus = it.status
+            prefs.setLastContact(System.currentTimeMillis())
+        }
     } catch (e: ApiException) {
         when (BackupErrors.actionFor(e.error)) {
             FailureAction.UNPAIR -> Connection.Unpaired
@@ -638,10 +666,26 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
         return RunActivity(step, currentName, bytes, currentSize, pace)
     }
 
+    /** Files and bytes of the whole run, or null before the queue is known. */
+    private fun runTotals(): RunTotals? {
+        if (total <= 0) return null
+        val fileBytes = if (currentId >= 0) currentBytes.get() else 0L
+        val doneBytes = (runDoneBytes.get() + fileBytes).coerceAtMost(runSize)
+        val since = etaSinceMs
+        val elapsedMs = System.currentTimeMillis() - since
+        val pace = if (since > 0 && elapsedMs >= RUN_PACE_MIN_MS && doneBytes > etaSinceBytes) {
+            (doneBytes - etaSinceBytes) * 1000 / elapsedMs
+        } else {
+            0L
+        }
+        return RunTotals(done, total, doneBytes, runSize, pace)
+    }
+
     private suspend fun publishProgress() {
         val size = currentSize
         val percent = if (size > 0) ((currentBytes.get() * 100) / size).toInt().coerceIn(0, 100) else 0
         val activity = activity()
+        val run = runTotals()
         setProgress(
             workDataOf(
                 KEY_DONE to done,
@@ -653,6 +697,10 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
                 KEY_CURRENT_BYTES to (activity?.fileBytes ?: 0L),
                 KEY_CURRENT_SIZE to (activity?.fileSize ?: 0L),
                 KEY_PACE to (activity?.bytesPerSecond ?: 0L),
+                KEY_CURRENT_URI to currentUri.takeIf { activity?.phase == BackupPhase.UPLOADING },
+                KEY_RUN_BYTES to (run?.doneBytes ?: 0L),
+                KEY_RUN_SIZE to (run?.totalBytes ?: 0L),
+                KEY_RUN_PACE to (run?.bytesPerSecond ?: 0L),
             ),
         )
     }
@@ -696,6 +744,10 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
         const val KEY_CURRENT_BYTES = "currentBytes"
         const val KEY_CURRENT_SIZE = "currentSize"
         const val KEY_PACE = "bytesPerSecond"
+        const val KEY_CURRENT_URI = "currentUri"
+        const val KEY_RUN_BYTES = "runBytes"
+        const val KEY_RUN_SIZE = "runSize"
+        const val KEY_RUN_PACE = "runBytesPerSecond"
 
         private const val STATUS_EXISTS = "exists"
         private const val STATUS_SAVED = "saved"
@@ -709,6 +761,7 @@ class BackupWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
         private const val MAX_RESTARTS = 3
         private const val PROGRESS_INTERVAL_MS = 1_000L
         private const val PACE_MIN_MS = 2_000L
+        private const val RUN_PACE_MIN_MS = 10_000L
         private const val DISCOVERY_TIMEOUT_MS = 10_000L
         private const val FINISHED_TIMEOUT_MS = 15_000L
 

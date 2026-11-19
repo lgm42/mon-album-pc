@@ -3,6 +3,7 @@
     <string name="app_name">Mon Album PC</string>
 
     <!-- Bottom navigation -->
+    <string name="nav_backup">Sauvegarde</string>
     <string name="nav_photos">Photos</string>
     <string name="nav_folders">Dossiers</string>
     <string name="nav_settings">Réglages</string>
@@ -125,6 +126,13 @@
     <string name="transfer_pace">%1$s/s</string>
     <string name="transfer_left_seconds">encore %1$d s</string>
     <string name="transfer_left_minutes">encore %1$d min</string>
+    <plurals name="transfer_run_files">
+        <item quantity="one">%1$d / %2$d fichier</item>
+        <item quantity="other">%1$d / %2$d fichiers</item>
+    </plurals>
+    <string name="transfer_run_left_soon">moins d\'une minute restante</string>
+    <string name="transfer_run_left_minutes">environ %1$d min restantes</string>
+    <string name="transfer_run_left_hours">environ %1$d h %2$02d restantes</string>
     <string name="status_errors_link">Voir</string>
     <string name="status_empty_title">Aucune photo à sauvegarder</string>
     <string name="status_empty_detail">pour l\'instant</string>
@@ -209,6 +217,81 @@
     <string name="track_folder">Sauvegarder ce dossier</string>
     <string name="no_video_player">Aucune application ne peut lire cette vidéo.</string>
 
+    <!-- Sauvegarde tab -->
+    <string name="backup_title">Sauvegarde</string>
+    <string name="backup_running_title">Sauvegarde en cours</string>
+    <string name="backup_reading">Lecture des photos du téléphone…</string>
+    <string name="backup_wifi_title">En attente du Wi-Fi</string>
+    <string name="backup_wifi_detail">La sauvegarde partira dès que le téléphone sera sur le Wi-Fi.</string>
+    <string name="backup_network_title">En attente d\'une connexion</string>
+    <string name="backup_network_detail">La sauvegarde partira dès que le téléphone sera connecté.</string>
+    <string name="backup_charging_title">En attente de la charge</string>
+    <string name="backup_charging_detail">La sauvegarde automatique attend que le téléphone soit branché. « Sauvegarder maintenant » n\'attend pas.</string>
+    <string name="backup_unreachable_title">%1$s injoignable</string>
+    <string name="backup_next_attempt_at">nouvel essai vers %1$s</string>
+    <string name="backup_destination_title">%1$s ne peut pas recevoir les photos</string>
+    <string name="backup_destination_detail">Son disque de destination est débranché. La sauvegarde reprendra toute seule quand il sera rebranché.</string>
+    <string name="backup_disk_full_title">Le disque de %1$s est plein</string>
+    <string name="backup_disk_full_detail">Les photos attendront qu\'il y ait de la place.</string>
+    <string name="backup_pending_next_at">prochaine sauvegarde automatique vers %1$s</string>
+    <string name="backup_pending_soon">sauvegarde automatique dès que possible</string>
+    <string name="backup_failures_detail_at">nouvel essai automatique vers %1$s</string>
+    <string name="backup_failures_detail_later">nouvel essai automatique plus tard</string>
+    <string name="backup_checked">vérifié %1$s</string>
+    <string name="backup_server_contact">%1$s · dernier contact %2$s</string>
+    <string name="backup_server_never">%1$s · pas encore joint</string>
+    <string name="time_at">à %1$s</string>
+    <string name="time_yesterday_at">hier à %1$s</string>
+    <string name="time_tomorrow_at">demain à %1$s</string>
+    <string name="time_day_at">le %1$s à %2$s</string>
+    <string name="backup_level_file">Fichier en cours</string>
+    <string name="backup_level_run">Ensemble</string>
+    <string name="backup_count_saved">Sauvegardées</string>
+    <string name="backup_count_pending">En attente</string>
+    <string name="backup_count_failed">En échec</string>
+    <string name="backup_folders_title">Dossiers suivis</string>
+    <string name="backup_folder_count">%1$s / %2$s</string>
+    <plurals name="backup_folder_failed">
+        <item quantity="one">%d en échec</item>
+        <item quantity="other">%d en échec</item>
+    </plurals>
+    <plurals name="backup_untracked">
+        <item quantity="one">%1$d dossier non suivi : %2$s</item>
+        <item quantity="other">%1$d dossiers non suivis : %2$s</item>
+    </plurals>
+    <string name="backup_untracked_link">Choisir les dossiers</string>
+    <string name="backup_folders_none">Aucun dossier n\'est sauvegardé.</string>
+    <string name="backup_list_queue">À venir</string>
+    <string name="backup_list_failures">En échec</string>
+    <string name="backup_list_recent">Récentes</string>
+    <string name="backup_queue_sending">En cours d\'envoi</string>
+    <string name="backup_queue_line">%1$s · %2$s</string>
+    <string name="backup_failure_refused">%1$s a répondu : « %2$s »</string>
+    <string name="backup_failure_server">%1$s n\'a pas pu l\'enregistrer</string>
+    <string name="backup_failure_unreadable">Le téléphone n\'a pas pu lire ce fichier</string>
+    <string name="backup_failure_hash">Arrivé abîmé plusieurs fois de suite</string>
+    <string name="backup_failure_disk_full">Le disque était plein</string>
+    <string name="backup_failure_destination">Le disque de destination était débranché</string>
+    <string name="backup_failure_next_at">nouvel essai %1$s</string>
+    <string name="backup_failure_next_run">nouvel essai à la prochaine sauvegarde</string>
+    <string name="backup_retry">Réessayer</string>
+    <string name="backup_retry_all">Réessayer tout</string>
+    <string name="backup_retry_failures">Réessayer les échecs</string>
+    <string name="backup_saved_line">%1$s · sauvegardé %2$s</string>
+    <string name="backup_empty_queue">Rien à envoyer.</string>
+    <string name="backup_empty_failures">Aucun fichier en échec.</string>
+    <string name="backup_empty_recent">Rien n\'a encore été sauvegardé.</string>
+    <string name="backup_details">Détails</string>
+    <string name="snackbar_backup_started">Sauvegarde lancée vers %1$s.</string>
+    <string name="snackbar_backup_wifi">Pas de Wi-Fi : la sauvegarde partira dès que le téléphone sera connecté.</string>
+    <string name="snackbar_backup_network">Pas de connexion : la sauvegarde partira dès que le téléphone sera connecté.</string>
+    <string name="snackbar_retry_one">%1$s est remis dans la file.</string>
+    <plurals name="snackbar_retry_all">
+        <item quantity="one">%d fichier remis dans la file.</item>
+        <item quantity="other">%d fichiers remis dans la file.</item>
+    </plurals>
+    <string name="snackbar_retry_none">Aucun fichier en échec.</string>
+
     <!-- Folders -->
     <string name="folders_title">Dossiers</string>
     <plurals name="folders_count">
@@ -264,6 +347,9 @@
     <string name="notif_progress_preparing">Préparation de la sauvegarde · %1$s</string>
     <string name="notif_sending">Envoi %1$d / %2$d · %3$s</string>
     <string name="notif_preparing_files">Préparation %1$d / %2$d · %3$s</string>
+    <string name="notif_sending_file">Envoi vers %1$s · %2$s</string>
+    <string name="notif_position">%1$d / %2$d</string>
+    <string name="notif_total">Total : %1$s</string>
     <plurals name="notif_photos">
         <item quantity="one">%d photo</item>
         <item quantity="other">%d photos</item>

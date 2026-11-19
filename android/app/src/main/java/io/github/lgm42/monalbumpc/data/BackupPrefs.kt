@@ -34,6 +34,8 @@ data class BackupState(
     val issueDetail: String? = null,
     /** End of the last run that found everything saved. */
     val lastCheckMs: Long? = null,
+    /** Last time the server answered. */
+    val lastContactMs: Long? = null,
 ) {
     val conditions: BackupConditions
         get() = BackupConditions(chargingOnly, mobileData)
@@ -55,6 +57,7 @@ class BackupPrefs(context: Context) {
                 notifiedIssue = parseIssue(p[NOTIFIED_ISSUE]),
                 issueDetail = p[ISSUE_DETAIL],
                 lastCheckMs = p[LAST_CHECK],
+                lastContactMs = p[LAST_CONTACT],
             )
         }
         .distinctUntilChanged()
@@ -75,6 +78,10 @@ class BackupPrefs(context: Context) {
 
     suspend fun setLastCheck(timeMs: Long) {
         dataStore.edit { it[LAST_CHECK] = timeMs }
+    }
+
+    suspend fun setLastContact(timeMs: Long) {
+        dataStore.edit { it[LAST_CONTACT] = timeMs }
     }
 
     /** Records the issue; its start time is kept while the same issue lasts. */
@@ -105,6 +112,7 @@ class BackupPrefs(context: Context) {
             p.remove(NOTIFIED_ISSUE)
             p.remove(ISSUE_DETAIL)
             p.remove(LAST_CHECK)
+            p.remove(LAST_CONTACT)
         }
     }
 
@@ -120,5 +128,6 @@ class BackupPrefs(context: Context) {
         val NOTIFIED_ISSUE = stringPreferencesKey("notified_issue")
         val ISSUE_DETAIL = stringPreferencesKey("issue_detail")
         val LAST_CHECK = longPreferencesKey("last_check")
+        val LAST_CONTACT = longPreferencesKey("last_contact")
     }
 }

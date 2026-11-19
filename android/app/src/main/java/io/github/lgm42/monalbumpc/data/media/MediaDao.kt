@@ -69,4 +69,11 @@ interface MediaDao {
             "WHERE state = 'ERROR' AND mediaStoreId IN (:ids)",
     )
     suspend fun retryErrors(ids: List<Long>)
+
+    /** "Réessayer tout": every failed file goes back to the queue; returns how many. */
+    @Query(
+        "UPDATE media SET state = 'PENDING', errorReason = NULL, errorMessage = NULL, failures = 0, retryAfter = NULL " +
+            "WHERE state = 'ERROR'",
+    )
+    suspend fun retryAllErrors(): Int
 }

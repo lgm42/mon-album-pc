@@ -39,23 +39,39 @@ class BackupNotifications(context: Context) {
     }
 
     /**
-     * Shown by the foreground worker: "Envoi 3 / 20 · NAS" with "VID-….mp4 · 45 Mo / 120 Mo · 2,1 Mo/s" and the bar of the
-     * file being sent (a video takes minutes: the count alone would look stuck), or what the run is doing before.
+     * Shown by the foreground worker, with both levels of progress: "Envoi vers NAS · VID-….mp4" over "4 / 20 · 45 Mo /
+     * 120 Mo · 2,1 Mo/s" and the bar of the file being sent (a video takes minutes: the count alone would look stuck);
+     * expanded, the whole run ("Total : 12 / 52 fichiers · 340 Mo / 1,2 Go"). Before sending, what the run is doing.
      */
-    fun progressInfo(done: Int, total: Int, pcName: String, activity: RunActivity?): ForegroundInfo {
+    fun progressInfo(done: Int, total: Int, pcName: String, activity: RunActivity?, run: RunTotals? = null): ForegroundInfo {
         ensureChannels()
         val position = if (total > 0) (done + 1).coerceAtMost(total) else 0
+        val uploading = activity?.phase == BackupPhase.UPLOADING && total > 0
         val title = when {
-            activity?.phase == BackupPhase.UPLOADING && total > 0 -> context.getString(R.string.notif_sending, position, total, pcName)
+            uploading && activity?.fileName != null -> context.getString(R.string.notif_sending_file, pcName, activity.fileName)
+            uploading -> context.getString(R.string.notif_sending, position, total, pcName)
             activity?.phase == BackupPhase.PREPARING && total > 0 ->
                 context.getString(R.string.notif_preparing_files, position, total, pcName)
             activity != null -> TransferText.title(context, done, total, activity, pcName)
             total > 0 -> context.getString(R.string.notif_progress, done, total, pcName)
             else -> context.getString(R.string.notif_progress_preparing, pcName)
         }
-        val text = activity?.fileName?.let { name ->
-            listOfNotNull(name, TransferText.bytes(context, activity)).joinToString(" · ")
+        val text = when {
+            uploading && activity != null -> listOfNotNull(
+                context.getString(R.string.notif_position, position, total),
+                TransferText.bytes(context, activity),
+            ).joinToString(" · ")
+            else -> activity?.fileName
         }
+        val expanded = listOfNotNull(
+            text,
+            run?.takeIf { uploading }?.let { totals ->
+                context.getString(
+                    R.string.notif_total,
+                    listOfNotNull(TransferText.run(context, totals), TransferText.runLeft(context, totals)).joinToString(" · "),
+                )
+            },
+        ).joinToString("\n").takeIf { it.isNotEmpty() }
         val builder = NotificationCompat.Builder(context, CHANNEL_PROGRESS)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
@@ -65,7 +81,8 @@ class BackupNotifications(context: Context) {
             .setSilent(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
-        if (text != null) builder.setContentText(text).setStyle(NotificationCompat.BigTextStyle().bigText(text))
+        if (text != null) builder.setContentText(text)
+        if (expanded != null) builder.setStyle(NotificationCompat.BigTextStyle().bigText(expanded))
         val fileFraction = activity?.fileFraction
         if (fileFraction != null) {
             builder.setProgress(PROGRESS_MAX, (fileFraction * PROGRESS_MAX).toInt(), false)

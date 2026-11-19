@@ -7,9 +7,10 @@ import org.junit.Test
 class TopLevelDestinationTest {
 
     @Test
-    fun `bottom bar has three tabs with distinct routes and Photos first`() {
+    fun `bottom bar has four tabs with distinct routes, Sauvegarde first then Photos`() {
         val routes = TopLevelDestination.entries.map { it.route }
-        assertEquals(3, routes.toSet().size)
-        assertEquals(TopLevelDestination.Photos, TopLevelDestination.entries.first())
+        assertEquals(4, routes.toSet().size)
+        assertEquals(TopLevelDestination.Backup, TopLevelDestination.entries.first())
+        assertEquals(TopLevelDestination.Photos, TopLevelDestination.entries[1])
     }
 }

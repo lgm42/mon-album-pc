@@ -15,6 +15,11 @@ import io.github.lgm42.monalbumpc.backup.BannerLogic
 import io.github.lgm42.monalbumpc.backup.BannerState
 import io.github.lgm42.monalbumpc.backup.BackupPhase
 import io.github.lgm42.monalbumpc.backup.RunActivity
+import io.github.lgm42.monalbumpc.backup.BackupOverview
+import io.github.lgm42.monalbumpc.backup.BackupSummary
+import io.github.lgm42.monalbumpc.backup.DeviceConditions
+import io.github.lgm42.monalbumpc.backup.DeviceConditionsMonitor
+import io.github.lgm42.monalbumpc.backup.RunTotals
 import io.github.lgm42.monalbumpc.data.BackupPrefs
 import io.github.lgm42.monalbumpc.data.BackupState
 import io.github.lgm42.monalbumpc.data.media.AppDatabase
@@ -43,6 +48,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -55,6 +61,12 @@ data class BackupProgress(
     val currentPercent: Int = 0,
     /** What the run is doing; null before it needs the PC. */
     val activity: RunActivity? = null,
+    /** Files and bytes of the whole run, once its queue is known. */
+    val run: RunTotals? = null,
+    /** Thumbnail of the file being sent. */
+    val currentUri: String? = null,
+    /** When WorkManager plans the next automatic run, if any. */
+    val nextRunMs: Long? = null,
 )
 
 data class MainUiState(
@@ -85,6 +97,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val media = MutableStateFlow<List<DeviceMedia>?>(null)
     private val filter = MutableStateFlow(GalleryFilter.ALL)
 
+    // Read once for the gallery and the Sauvegarde tab.
+    private val index: Flow<List<MediaEntity>> = dao.observeAll()
+        .shareIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), replay = 1)
+
     private val progress: Flow<BackupProgress> =
         WorkManager.getInstance(application).getWorkInfosByTagFlow(BackupScheduler.TAG)
             .map { infos -> progressOf(infos) }
@@ -93,7 +109,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val sources: Flow<Sources> = combine(
         media,
         folderStore.tracked,
-        dao.observeAll(),
+        index,
         progress,
         prefs.state,
     ) { mediaList, tracked, index, progress, backup ->
@@ -103,6 +119,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val state: StateFlow<MainUiState> = combine(sources, filter) { sources, filter -> build(sources, filter) }
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MainUiState())
+
+    /** Counts and lists of the Sauvegarde tab; recomputed when the index changes, not at every progress tick. */
+    val summary: StateFlow<BackupSummary?> = combine(media, folderStore.tracked, index) { mediaList, tracked, index ->
+        mediaList?.let { BackupOverview.summarize(it, DeviceFolders.fromMedia(it), tracked.orEmpty(), index) }
+    }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Network and charging, to tell why the backup waits. */
+    val conditions: StateFlow<DeviceConditions> = DeviceConditionsMonitor.observe(application)
+        .catch { emit(DeviceConditions()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DeviceConditions())
 
     init {
         BackupNotifications(application).ensureChannels()
@@ -152,6 +180,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             dao.retryErrors(listOf(mediaId))
             BackupScheduler.backupNow(app, prefs.current().conditions)
+        }
+    }
+
+    /** "Réessayer tout": [onDone] gets how many files went back to the queue. */
+    fun retryAll(onDone: (Int) -> Unit = {}) {
+        viewModelScope.launch {
+            val count = dao.retryAllErrors()
+            if (count > 0) BackupScheduler.backupNow(app, prefs.current().conditions)
+            onDone(count)
         }
     }
 
@@ -229,20 +266,39 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun progressOf(infos: List<WorkInfo>): BackupProgress {
+        // Next automatic run: the closest planned one (the content trigger has no planned time).
+        val now = System.currentTimeMillis()
+        val nextRunMs = infos.filter { it.state == WorkInfo.State.ENQUEUED }
+            .map { it.nextScheduleTimeMillis }
+            .filter { it in (now + 1) until Long.MAX_VALUE }
+            .minOrNull()
         // Several runs may be RUNNING while one waits for the other: show the one that reports progress.
         val running = infos.filter { it.state == WorkInfo.State.RUNNING }
             .maxWithOrNull(
                 compareBy<WorkInfo> { it.progress.getString(BackupWorker.KEY_PHASE) != null }
                     .thenBy { it.progress.getInt(BackupWorker.KEY_TOTAL, 0) },
-            ) ?: return BackupProgress()
+            ) ?: return BackupProgress(nextRunMs = nextRunMs)
         val data = running.progress
         val currentId = data.getLong(BackupWorker.KEY_CURRENT_ID, -1L)
         val phase = data.getString(BackupWorker.KEY_PHASE)?.let { name -> BackupPhase.entries.firstOrNull { it.name == name } }
+        val total = data.getInt(BackupWorker.KEY_TOTAL, 0)
         return BackupProgress(
             running = true,
             done = data.getInt(BackupWorker.KEY_DONE, 0),
-            total = data.getInt(BackupWorker.KEY_TOTAL, 0),
+            total = total,
             currentId = currentId.takeIf { it >= 0 },
+            run = if (total > 0) {
+                RunTotals(
+                    doneFiles = data.getInt(BackupWorker.KEY_DONE, 0),
+                    totalFiles = total,
+                    doneBytes = data.getLong(BackupWorker.KEY_RUN_BYTES, 0),
+                    totalBytes = data.getLong(BackupWorker.KEY_RUN_SIZE, 0),
+                    bytesPerSecond = data.getLong(BackupWorker.KEY_RUN_PACE, 0),
+                )
+            } else {
+                null
+            },
+            currentUri = data.getString(BackupWorker.KEY_CURRENT_URI),
             currentPercent = data.getInt(BackupWorker.KEY_CURRENT_PERCENT, 0),
             activity = phase?.let {
                 RunActivity(
@@ -253,6 +309,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     bytesPerSecond = data.getLong(BackupWorker.KEY_PACE, 0),
                 )
             },
+            nextRunMs = nextRunMs,
         )
     }
 
